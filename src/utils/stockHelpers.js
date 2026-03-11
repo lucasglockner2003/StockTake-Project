@@ -63,3 +63,25 @@ export function getOrderText(suggestedOrder) { // Essa função monta o texto qu
     .map((item) => `${item.name} - ${item.orderAmount} ${item.unit}`) // Transforma em 1 linha para copiar o pedido
     .join("\n"); // Junta todas as linhas com quebra de linha.
 }
+
+export function getReviewTableText(items, quantities) {
+  const header = "Item | Area | Unit | Ideal | Count | Status | Order";
+
+  const rows = items.map((item) => {
+    const currentStock = getNumericValue(quantities[item.id]);
+    const status = getItemStatus(item, quantities[item.id]);
+    const orderAmount = Math.max(item.idealStock - currentStock, 0);
+
+    return [
+      item.name,
+      item.area,
+      item.unit,
+      item.idealStock,
+      currentStock,
+      status,
+      orderAmount,
+    ].join(" | ");
+  });
+
+  return [header, ...rows].join("\n");
+}

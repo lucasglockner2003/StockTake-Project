@@ -25,6 +25,7 @@ function App() {
     handleQuantityChange,
     handleReset,
     handleCopyOrder,
+    handleCopyTable,
   } = useStockTake();
 
   return (
@@ -66,7 +67,9 @@ function App() {
           checkCount={checkCount}
           suggestedOrder={suggestedOrder}
           handleCopyOrder={handleCopyOrder}
+          handleCopyTable={handleCopyTable}
           setCurrentPage={setCurrentPage}
+
         />
       )}
     </div>

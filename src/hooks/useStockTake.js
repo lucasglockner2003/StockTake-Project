@@ -1,12 +1,12 @@
 // guardar o estado das quantidades
 // salvar e carregar do localStorage
 // calcular tudo que o app precisa
-// devolver funções prontas para o
+// devolver funções prontas
 
 import { useEffect, useState } from "react";
 import { items } from "../data/items";
 import { clearQuantities, loadQuantities, saveQuantities, } from "../utils/storage";
-import { getFilledItemsCount, getMissingItemsCount, getProgress, getStatusCounts, getSuggestedOrder, getOrderText, groupItemsByArea,} from "../utils/stockHelpers";
+import { getFilledItemsCount, getMissingItemsCount, getProgress, getStatusCounts, getSuggestedOrder, getOrderText, groupItemsByArea, getReviewTableText,} from "../utils/stockHelpers";
 
 export function useStockTake() { // Criar os estados do hook.
   const [quantities, setQuantities] = useState(() => loadQuantities()); // Na primeira vez que o hook rodar, carrega os dados salvos do navegador
@@ -20,6 +20,7 @@ export function useStockTake() { // Criar os estados do hook.
   const filledItems = getFilledItemsCount(quantities);         // Aqui é só pegar os calculos que ja foram feitos em stockhelpers
   const missingItems = getMissingItemsCount(items, quantities);// e passar para uma constante
   const progress = getProgress(items, quantities);
+  const reviewTableText = getReviewTableText(items, quantities);
 
   const { okCount, criticalCount, lowCount, checkCount } = getStatusCounts(items,quantities); //pega apenas o que já foi contado
   // Apenas prepara dados que a interface precisa
@@ -45,9 +46,19 @@ export function useStockTake() { // Criar os estados do hook.
       alert("Failed to copy order.");
     }
   }
+
+  async function handleCopyTable() {
+  try {
+    await navigator.clipboard.writeText(reviewTableText);
+    alert("Table copied!");
+  } catch {
+    alert("Failed to copy table.");
+  }
+}
+
             // Essa parte é a mais importante do hook. Ela define o que o hook entrega para quem usar ele.
   return {
     items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount,
-    lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder,
+    lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable,
   };
 }
