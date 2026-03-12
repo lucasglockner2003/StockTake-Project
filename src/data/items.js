@@ -2,30 +2,31 @@ export const items = [
   {
     id: 1,
     name: "Wings",
+    aliases: ["wing", "wings", "winges", "wing is", "winges"],
     unit: "kg",
     area: "Fridge",
     idealStock: 15,
-    
   },
   {
     id: 2,
     name: "Dry Tomato",
+    aliases: ["dry tomato", "dry tomatoes", "dry tomata", "dry tomoto", "dry tomotoes"],
     unit: "kg",
     area: "Fridge",
     idealStock: 1,
-    
   },
   {
     id: 3,
     name: "Halloumi",
+    aliases: ["halloumi", "haloumi", "halumi"],
     unit: "kg",
     area: "Fridge",
     idealStock: 3,
-   
   },
   {
     id: 4,
     name: "Bacon",
+    aliases: ["bacon"],
     unit: "kg",
     area: "Fridge",
     idealStock: 4,
@@ -33,6 +34,7 @@ export const items = [
   {
     id: 5,
     name: "Potato",
+    aliases: ["potato", "potatoes", "tree potato"],
     unit: "kg",
     area: "Fridge",
     idealStock: 5,
@@ -40,6 +42,7 @@ export const items = [
   {
     id: 6,
     name: "Salsa",
+    aliases: ["salsa", "salsaa", "south", "southa", "sousa", "susa"],
     unit: "kg",
     area: "Fridge",
     idealStock: 4,
@@ -47,6 +50,7 @@ export const items = [
   {
     id: 7,
     name: "Tomato",
+    aliases: ["tomato", "tomatoes"],
     unit: "kg",
     area: "Fridge",
     idealStock: 5,
@@ -54,6 +58,7 @@ export const items = [
   {
     id: 8,
     name: "Red Onion",
+    aliases: ["red onion", "onion", "red onions"],
     unit: "kg",
     area: "Dry Section",
     idealStock: 10,
@@ -62,6 +67,7 @@ export const items = [
   {
     id: 9,
     name: "Fries",
+    aliases: ["fries", "chips", "french fries"],
     unit: "unit",
     area: "Freezer",
     idealStock: 30,
@@ -70,6 +76,7 @@ export const items = [
   {
     id: 10,
     name: "Tender",
+    aliases: ["tender", "chicken tender", "tenders"],
     unit: "kg",
     area: "Pizza Fridge",
     idealStock: 4,
@@ -77,9 +84,9 @@ export const items = [
   {
     id: 11,
     name: "Tender Prep",
+    aliases: ["tender prep", "prep tender"],
     unit: "kg",
     area: "Fridge",
     idealStock: 12,
-    
   },
 ];

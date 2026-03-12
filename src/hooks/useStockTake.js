@@ -56,9 +56,34 @@ export function useStockTake() { // Criar os estados do hook.
   }
 }
 
+function applyVoiceEntries(voiceEntriesByArea) {
+  setQuantities((prev) => {
+    const updated = { ...prev };
+
+    Object.values(voiceEntriesByArea).forEach((entries) => {
+      entries.forEach((entry) => {
+        const shouldApply =
+          entry.matchedItemId !== null &&
+          entry.matchedItemId !== undefined &&
+          (entry.status === "Matched" || entry.status === "Fuzzy Match") &&
+          entry.quantity !== null &&
+          entry.quantity !== undefined &&
+          entry.quantity !== "";
+
+        if (!shouldApply) return;
+
+        updated[entry.matchedItemId] = Number(entry.quantity);
+      });
+    });
+
+    return updated;
+  });
+}
+
             // Essa parte é a mais importante do hook. Ela define o que o hook entrega para quem usar ele.
   return {
-    items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount,
-    lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable,
-  };
+      items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount,
+      lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable, 
+      applyVoiceEntries,
+      };
 }

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { createSpeechRecognition } from "../utils/voiceHelpers";
 import { parseVoiceLine } from "../utils/parseHelpers";
+import { findBestMatchInArea } from "../utils/matchHelpers";
 
 function StockVoicePage({
   areas,
@@ -15,14 +16,52 @@ function StockVoicePage({
   usedAreasOrder,
   setUsedAreasOrder,
   handleBackToStock,
+  items,
+  applyVoiceEntries,
+  clearVoiceSession,
 }) {
   const isAreaSelected = !!selectedArea;
   const voiceButtonLabel = isListening ? "Stop Listening" : "Start Listening";
   const recognitionRef = useRef(null);
 
+  function getVoiceStatusColor(status) 
+      {
+        if (status === "Matched") return "#4CAF50";
+        if (status === "Fuzzy Match") return "#ff9800";
+        if (status === "Not Found") return "#ff4d4d";
+        return "#999";
+      }
+
+     function handleConfirmAndApply() {
+        if (isListening) {
+            alert("Stop listening before applying voice entries.");
+            return;
+        }
+
+        const hasEntries = Object.values(voiceEntriesByArea).some(
+            (entries) => entries.length > 0
+        );
+
+        if (!hasEntries) {
+            alert("There are no voice entries to apply.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "Confirmar o envio das informações para o Stock Take?"
+        );
+
+        if (!confirmed) return;
+
+        applyVoiceEntries(voiceEntriesByArea);
+        clearVoiceSession();
+        handleBackToStock();
+}
+
   function addVoiceEntryToArea(area, entry) {
     setVoiceEntriesByArea((prev) => {
       const existingAreaEntries = prev[area] || [];
+
 
       return {
         ...prev,
@@ -45,13 +84,25 @@ function StockVoicePage({
           const parsedLine = parseVoiceLine(text);
 
           if (parsedLine && selectedArea) {
-            addVoiceEntryToArea(selectedArea, {
-              spokenName: parsedLine.spokenName,
-              quantity: parsedLine.quantity,
-              matchedItem: "-",
-              status: "Pending Match",
-            });
-          }
+            const matchResult = findBestMatchInArea(
+                parsedLine.spokenName,
+                selectedArea,
+                items
+                );
+
+                addVoiceEntryToArea(selectedArea, {
+                spokenName: parsedLine.spokenName,
+                quantity: parsedLine.quantity,
+                matchedItem: matchResult.matchedItem ? matchResult.matchedItem.name : "-",
+                matchedItemId: matchResult.matchedItem ? matchResult.matchedItem.id : null,
+                status:
+                    matchResult.matchType === "exact"
+                    ? "Matched"
+                    : matchResult.matchType === "fuzzy"
+                    ? "Fuzzy Match"
+                    : "Not Found",
+                });
+}
         },
         () => {
           setIsListening(false);
@@ -293,7 +344,11 @@ function StockVoicePage({
                     <div>{entry.spokenName}</div>
                     <div>{entry.quantity}</div>
                     <div>{entry.matchedItem}</div>
-                    <div>{entry.status}</div>
+                    <div style={{color: getVoiceStatusColor(entry.status),fontWeight: "bold",}}>
+                    {entry.status}
+</div>
+
+                    
 
                     <button
                       onClick={() => handleDeleteEntry(area, index)}
@@ -318,18 +373,18 @@ function StockVoicePage({
       </div>
 
       <button
+        onClick={handleConfirmAndApply}
         style={{
-          padding: "12px 20px",
-          backgroundColor: "#4CAF50",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          cursor: "pointer",
-          fontWeight: "bold",
-        }}
-      >
-        Confirm and Apply
-      </button>
+            padding: "12px 20px",
+            backgroundColor: "#4CAF50",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+        }}>
+            Confirm and Apply
+        </button>
     </div>
   );
 }

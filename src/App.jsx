@@ -1,22 +1,21 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TopSummary from "./Components/TopSummary";
 import StockTakeTable from "./Components/StockTakeTable";
 import ReviewPage from "./Components/ReviewPage";
 import StockVoicePage from "./Components/StockVoicePage";
 import { useStockTake } from "./hooks/useStockTake";
+import { loadVoiceData, saveVoiceData, clearVoiceData } from "./utils/storage";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("stock");
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
 
-  const [selectedArea, setSelectedArea] = useState("");
+  const [selectedArea, setSelectedArea] = useState(() => loadVoiceData().selectedArea || "");
   const [isListening, setIsListening] = useState(false);
-  
-
-  const [transcriptLines, setTranscriptLines] = useState([]);
-  const [voiceEntriesByArea, setVoiceEntriesByArea] = useState({});
-  const [usedAreasOrder, setUsedAreasOrder] = useState([]);
+  const [transcriptLines, setTranscriptLines] = useState(() => loadVoiceData().transcriptLines || []);
+  const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(() => loadVoiceData().voiceEntriesByArea || {});
+  const [usedAreasOrder, setUsedAreasOrder] = useState(() => loadVoiceData().usedAreasOrder || []);
 
   const {
     items,
@@ -35,13 +34,45 @@ function App() {
     handleReset,
     handleCopyOrder,
     handleCopyTable,
+    applyVoiceEntries,
   } = useStockTake();
 
-  const areas = useMemo(() => {return [...new Set(items.map((item) => item.area))];}, [items]);
-  function handleBackToStock() {setIsListening(false);setCurrentPage("stock");}
+  useEffect(() => {
+    saveVoiceData({
+      selectedArea,
+      transcriptLines,
+      voiceEntriesByArea,
+      usedAreasOrder,
+    });
+  }, [selectedArea, transcriptLines, voiceEntriesByArea, usedAreasOrder]);
+
+  const areas = useMemo(() => {
+    return [...new Set(items.map((item) => item.area))];
+  }, [items]);
+
+  function clearVoiceSession() {
+    setSelectedArea("");
+    setTranscriptLines([]);
+    setVoiceEntriesByArea({});
+    setUsedAreasOrder([]);
+    clearVoiceData();
+  }
+
+  function handleBackToStock() {
+    setIsListening(false);
+    setCurrentPage("stock");
+  }
 
   return (
-    <div style={{padding: "20px", fontFamily: "Arial, sans-serif", width: "100%", maxWidth: "1000px", margin: "0 auto",}}>
+    <div
+      style={{
+        padding: "20px",
+        fontFamily: "Arial, sans-serif",
+        width: "100%",
+        maxWidth: "1000px",
+        margin: "0 auto",
+      }}
+    >
       {currentPage === "stock" && (
         <>
           <TopSummary
@@ -82,8 +113,10 @@ function App() {
           setCurrentPage={setCurrentPage}
         />
       )}
+
       {currentPage === "voice" && (
         <StockVoicePage
+          items={items}
           areas={areas}
           selectedArea={selectedArea}
           setSelectedArea={setSelectedArea}
@@ -96,8 +129,12 @@ function App() {
           usedAreasOrder={usedAreasOrder}
           setUsedAreasOrder={setUsedAreasOrder}
           handleBackToStock={handleBackToStock}
+          applyVoiceEntries={applyVoiceEntries}
+          clearVoiceSession={clearVoiceSession}
         />
       )}
     </div>
   );
-} export default App;
+}
+
+export default App;

@@ -49,7 +49,7 @@ function StockTakeTable({groupedItems, quantities, search, inputRefs, handleQuan
                     type="number"
                     step="0.1"
                     placeholder={`Enter ${item.unit}`}
-                    value={quantities[item.id] || ""}
+                    value={quantities[item.id] ?? ""}
                     onChange={(e) => handleQuantityChange(item.id, e.target.value)}
 
                     onKeyDown={(e) => 
