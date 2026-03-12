@@ -45,6 +45,14 @@ function TopSummary({filledItems, totalItems, criticalCount, lowCount, checkCoun
     Last saved: {lastSaved.toLocaleTimeString()} </p>)}
 
     <div style={{ marginBottom: "20px" }}>
+
+        <button
+        onClick={() => setCurrentPage("voice")}
+        style={{padding: "12px 20px", backgroundColor: "#002fff", color: "white", border: "none", borderRadius: "8px",
+                marginRight: "10px", cursor: "pointer", fontWeight: "bold",}}>
+        Stock Voice
+        </button>
+
         <button
         onClick={handleReset}
         style={{padding: "12px 20px", backgroundColor: "#d9534f", color: "white", border: "none", borderRadius: "8px",

@@ -1,13 +1,38 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import TopSummary from "./Components/TopSummary";
 import StockTakeTable from "./Components/StockTakeTable";
 import ReviewPage from "./Components/ReviewPage";
+import StockVoicePage from "./Components/StockVoicePage";
 import { useStockTake } from "./hooks/useStockTake";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("stock");
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
+
+  const [selectedArea, setSelectedArea] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  
+
+  const [transcriptLines, setTranscriptLines] = useState([
+    "wings 5",
+    "dry tomato 2",
+  ]);
+
+  const [voiceEntries, setVoiceEntries] = useState([
+    {
+      spokenName: "wings",
+      quantity: 5,
+      matchedItem: "Wings",
+      status: "Matched",
+    },
+    {
+      spokenName: "dry tomato",
+      quantity: 2,
+      matchedItem: "Dry Tomato",
+      status: "Matched",
+    },
+  ]);
 
   const {
     items,
@@ -27,6 +52,9 @@ function App() {
     handleCopyOrder,
     handleCopyTable,
   } = useStockTake();
+
+  const areas = useMemo(() => {return [...new Set(items.map((item) => item.area))];}, [items]);
+  function handleBackToStock() {setIsListening(false);setCurrentPage("stock");}
 
   return (
     <div style={{padding: "20px", fontFamily: "Arial, sans-serif", width: "100%", maxWidth: "1000px", margin: "0 auto",}}>
@@ -68,6 +96,19 @@ function App() {
           handleCopyOrder={handleCopyOrder}
           handleCopyTable={handleCopyTable}
           setCurrentPage={setCurrentPage}
+        />
+      )}
+      {currentPage === "voice" && (
+        <StockVoicePage
+          areas={areas}
+          selectedArea={selectedArea}
+          setSelectedArea={setSelectedArea}
+          isListening={isListening}
+          setIsListening={setIsListening}
+          transcriptLines={transcriptLines}
+          voiceEntries={voiceEntries}
+          setCurrentPage={setCurrentPage}
+          handleBackToStock={handleBackToStock}
         />
       )}
     </div>
