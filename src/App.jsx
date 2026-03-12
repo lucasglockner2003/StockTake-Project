@@ -14,25 +14,9 @@ function App() {
   const [isListening, setIsListening] = useState(false);
   
 
-  const [transcriptLines, setTranscriptLines] = useState([
-    "wings 5",
-    "dry tomato 2",
-  ]);
-
-  const [voiceEntries, setVoiceEntries] = useState([
-    {
-      spokenName: "wings",
-      quantity: 5,
-      matchedItem: "Wings",
-      status: "Matched",
-    },
-    {
-      spokenName: "dry tomato",
-      quantity: 2,
-      matchedItem: "Dry Tomato",
-      status: "Matched",
-    },
-  ]);
+  const [transcriptLines, setTranscriptLines] = useState([]);
+  const [voiceEntriesByArea, setVoiceEntriesByArea] = useState({});
+  const [usedAreasOrder, setUsedAreasOrder] = useState([]);
 
   const {
     items,
@@ -106,8 +90,11 @@ function App() {
           isListening={isListening}
           setIsListening={setIsListening}
           transcriptLines={transcriptLines}
-          voiceEntries={voiceEntries}
-          setCurrentPage={setCurrentPage}
+          setTranscriptLines={setTranscriptLines}
+          voiceEntriesByArea={voiceEntriesByArea}
+          setVoiceEntriesByArea={setVoiceEntriesByArea}
+          usedAreasOrder={usedAreasOrder}
+          setUsedAreasOrder={setUsedAreasOrder}
           handleBackToStock={handleBackToStock}
         />
       )}
