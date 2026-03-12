@@ -2,7 +2,7 @@
 
 export function SummaryBadge({ label, value, backgroundColor, textColor }) {
   return (
-    <div style={{  backgroundColor, color: textColor, padding: "8px 14px", borderRadius: "999px", fontWeight: "bold", fontSize: "14px",}}>
+    <div style={{backgroundColor, color: textColor, padding: "8px 14px", borderRadius: "999px", fontWeight: "bold", fontSize: "14px",}}>
       {label} {value}
     </div>
   );

@@ -14,11 +14,18 @@ export function getItemStatus(item, quantity) {
 
   //garantir que vira um valor válido antes de fazer os calculos
   const value = getNumericValue(quantity);
-    if (value >= item.idealStock * 5) return "Check"; //aqui são os calculos para o status correto do item
-    if (item.critical && value <= item.idealStock * 0.25) return "Critical";
-    if (item.critical && value <= item.idealStock * 0.5) return "Low";
+    const checkLimit = item.idealStock * 5;
+    const criticalLimit = item.idealStock * 0.25;
+    const lowLimit = item.idealStock * 0.5;
 
-    return "Done"; //caso nenhum dos a cima seja verdade, ele está tudo certo
+    if (value >= checkLimit) return "Check"; 
+    
+    if(item.critical) 
+      {
+        if (value <= criticalLimit) return "Critical";
+        if (value <= lowLimit) return "Low";
+      }
+    return "Ok"; //caso nenhum dos a cima seja verdade, ele está tudo certo
 }
  
 //função para definir a cor 
@@ -27,7 +34,7 @@ const statusColors = {
   Critical: "#ff4d4d",
   Low: "#ff9800",
   Check: "#ff9800",
-  Done: "#4CAF50"
+  Ok: "#4CAF50"
 };
 
 export function getStatusColor(item, quantity) {

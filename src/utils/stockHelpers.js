@@ -17,7 +17,7 @@ export function getStatusCounts(items, quantities) { //Percorre todos os itens e
   return items.reduce((acc, item) => {
       const status = getItemStatus(item, quantities[item.id]);
 
-      if (status === "Done") acc.okCount += 1;
+      if (status === "Ok") acc.okCount += 1;
       if (status === "Critical") acc.criticalCount += 1;
       if (status === "Low") acc.lowCount += 1;
       if (status === "Check") acc.checkCount += 1;
