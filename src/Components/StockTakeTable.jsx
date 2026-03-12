@@ -37,8 +37,8 @@ function StockTakeTable({groupedItems, quantities, search, inputRefs, handleQuan
               );
                 return (
                 <div key={item.id}
-                    style={{display: "grid", gridTemplateColumns:"1.2fr 0.4fr 0.4fr 0.7fr auto 0.6fr", gap: "6px",
-                    alignItems: "center", border: `2px solid ${statusColor}`, borderRadius: "6px", padding: "4px 6px",
+                    style={{display: "grid", gridTemplateColumns:"1.2fr 0.4fr 0.4fr 0.7fr auto 0.6fr", gap: "10px",
+                    alignItems: "center", border: `2px solid ${statusColor}`, borderRadius: "6px", padding: "3px 8px",
                     marginBottom: "4px",}}>
 
                     <div> <strong>{item.name}</strong> </div>

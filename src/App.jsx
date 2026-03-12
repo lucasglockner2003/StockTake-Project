@@ -29,7 +29,7 @@ function App() {
   } = useStockTake();
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+    <div style={{padding: "20px", fontFamily: "Arial, sans-serif", width: "100%", maxWidth: "1000px", margin: "0 auto",}}>
       {currentPage === "stock" && (
         <>
           <TopSummary
@@ -46,7 +46,6 @@ function App() {
             handleReset={handleReset}
             setCurrentPage={setCurrentPage}
           />
-
           <StockTakeTable
             groupedItems={groupedItems}
             quantities={quantities}
@@ -69,11 +68,8 @@ function App() {
           handleCopyOrder={handleCopyOrder}
           handleCopyTable={handleCopyTable}
           setCurrentPage={setCurrentPage}
-
         />
       )}
     </div>
   );
-}
-
-export default App;
+} export default App;
