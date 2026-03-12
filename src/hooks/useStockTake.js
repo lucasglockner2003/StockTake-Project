@@ -11,6 +11,7 @@ import { getFilledItemsCount, getMissingItemsCount, getProgress, getStatusCounts
 export function useStockTake() { // Criar os estados do hook.
   const [quantities, setQuantities] = useState(() => loadQuantities()); // Na primeira vez que o hook rodar, carrega os dados salvos do navegador
   const [lastSaved, setLastSaved] = useState(null); // Esse estado guarda o horário do último salvamento
+  const [voiceFilledItems, setVoiceFilledItems] = useState({}); //Guarda o item que veio do comando de voz
 
   useEffect(() => { // useEffect para salvar automaticamente
     saveQuantities(quantities); // Salva o objeto no localStorage
@@ -28,13 +29,24 @@ export function useStockTake() { // Criar os estados do hook.
   const suggestedOrder = getSuggestedOrder(items, quantities); // Cria uma lista “enriquecida” dos itens, com:
   const orderText = getOrderText(suggestedOrder); // Transforma a sugestão de pedido em texto.
 
-  function handleQuantityChange(itemId, value) {setQuantities((prev) => ({...prev, [itemId]: value,}));} // Essa função atualiza a quantidade de um item específico.
+  function handleQuantityChange(itemId, value) {
+  setQuantities((prev) => ({...prev,[itemId]: value === "" ? "" : Number(value),}));
+
+  setVoiceFilledItems((prev) => {
+    if (!prev[itemId]) return prev;
+
+    const updated = { ...prev };
+    delete updated[itemId];
+    return updated;
+  });
+} // Essa função atualiza a quantidade de um item específico.
 
   function handleReset() { //Essa função reseta o stocktake.
     const confirmed = window.confirm("Are you sure you want to reset the stock take?");
     if (!confirmed) return; // Se não confirmar a função para imediatamente e volta a tela normal
                         // Caso confirme ela continua nas linhas de baixo
     setQuantities({}); // Limpa o estado atual. Tudo some.
+    setVoiceFilledItems({}); // Limpa o badget de voz tbm
     clearQuantities(); // Apaga também do localStorage. Se nao tivesse isso, os valores voltariam ao atualizar a pagina, pq tava salvo
   }
 
@@ -57,6 +69,8 @@ export function useStockTake() { // Criar os estados do hook.
 }
 
 function applyVoiceEntries(voiceEntriesByArea) {
+  const appliedItemIds = [];
+
   setQuantities((prev) => {
     const updated = { ...prev };
 
@@ -73,17 +87,30 @@ function applyVoiceEntries(voiceEntriesByArea) {
         if (!shouldApply) return;
 
         updated[entry.matchedItemId] = Number(entry.quantity);
+        appliedItemIds.push(entry.matchedItemId);
       });
     });
 
     return updated;
   });
+
+  if (appliedItemIds.length > 0) {
+    setVoiceFilledItems((prev) => {
+      const updated = { ...prev };
+
+      appliedItemIds.forEach((itemId) => {
+        updated[itemId] = true;
+      });
+
+      return updated;
+    });
+  }
 }
 
             // Essa parte é a mais importante do hook. Ela define o que o hook entrega para quem usar ele.
   return {
       items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount,
       lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable, 
-      applyVoiceEntries,
+      applyVoiceEntries, voiceFilledItems,
       };
 }

@@ -35,6 +35,7 @@ function App() {
     handleCopyOrder,
     handleCopyTable,
     applyVoiceEntries,
+    voiceFilledItems,
   } = useStockTake();
 
   useEffect(() => {
@@ -95,6 +96,7 @@ function App() {
             search={search}
             inputRefs={inputRefs}
             handleQuantityChange={handleQuantityChange}
+            voiceFilledItems={voiceFilledItems}
           />
         </>
       )}
@@ -111,6 +113,7 @@ function App() {
           handleCopyOrder={handleCopyOrder}
           handleCopyTable={handleCopyTable}
           setCurrentPage={setCurrentPage}
+          voiceFilledItems={voiceFilledItems}
         />
       )}
 
@@ -131,6 +134,7 @@ function App() {
           handleBackToStock={handleBackToStock}
           applyVoiceEntries={applyVoiceEntries}
           clearVoiceSession={clearVoiceSession}
+          voiceFilledItems={voiceFilledItems}
         />
       )}
     </div>

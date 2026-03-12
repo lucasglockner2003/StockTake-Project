@@ -1,6 +1,6 @@
 import {getItemStatus, getStatusColor,} from "../utils/statusHelpers";
 
-function StockTakeTable({groupedItems, quantities, search, inputRefs, handleQuantityChange,}) 
+function StockTakeTable({groupedItems, quantities, search, inputRefs, handleQuantityChange, voiceFilledItems,}) 
 { 
     const filteredSearch = search.toLowerCase();
     const visibleItems = Object.entries(groupedItems).flatMap(([area, areaItems]) =>
@@ -41,7 +41,11 @@ function StockTakeTable({groupedItems, quantities, search, inputRefs, handleQuan
                     alignItems: "center", border: `2px solid ${statusColor}`, borderRadius: "6px", padding: "3px 8px",
                     marginBottom: "4px",}}>
 
-                    <div> <strong>{item.name}</strong> </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <strong>{item.name}</strong>
+                        {voiceFilledItems[item.id] && (<span title="Filled by voice"
+                        style={{fontSize: "11px", backgroundColor: "#1e88e5", color: "white",
+                                borderRadius: "999px", padding: "2px 6px", fontWeight: "bold",}}>🎤 Voice</span>)}</div>
                             <div>{item.idealStock}</div>
                             <div>{item.unit}</div>
 

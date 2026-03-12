@@ -1,7 +1,7 @@
 import { getItemStatus, getStatusColor, getNumericValue } from "../utils/statusHelpers";
 
 //recebe tudo por props que vem direto do app
-function ReviewPage({items, quantities, okCount, lowCount, criticalCount, checkCount, suggestedOrder, handleCopyOrder, setCurrentPage, handleCopyTable,})
+function ReviewPage({items, quantities, okCount, lowCount, criticalCount, checkCount, suggestedOrder, handleCopyOrder, setCurrentPage, handleCopyTable, voiceFilledItems,})
 {
   return (//começa o JSX da página de revisão
     <div> <h1>Stock Take Review</h1>
@@ -49,7 +49,11 @@ function ReviewPage({items, quantities, okCount, lowCount, criticalCount, checkC
             style={{display: "grid", gridTemplateColumns: "1.4fr 1fr 0.5fr 0.6fr 0.7fr 0.8fr 0.8fr", gap: "8px", alignItems: "center",
               padding: "8px 10px", marginBottom: "4px", border: "1px solid #5c5c5c", borderRadius: "6px", fontSize: "14px",}}>
 
-            <div><strong>{item.name}</strong></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <strong>{item.name}</strong>
+                        {voiceFilledItems[item.id] && (<span title="Filled by voice"
+                        style={{fontSize: "11px", backgroundColor: "#1e88e5", color: "white",
+                                borderRadius: "999px", padding: "2px 6px", fontWeight: "bold",}}>🎤 Voice</span>)}</div>
                     <div>{item.area}</div>
                     <div>{item.unit}</div>
                     <div>{item.idealStock}</div>
