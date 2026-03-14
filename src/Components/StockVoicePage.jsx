@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createSpeechRecognition } from "../utils/voiceHelpers";
 import { parseVoiceLine } from "../utils/parseHelpers";
 import { findBestMatchInArea } from "../utils/matchHelpers";
@@ -23,45 +23,117 @@ function StockVoicePage({
   const isAreaSelected = !!selectedArea;
   const voiceButtonLabel = isListening ? "Stop Listening" : "Start Listening";
   const recognitionRef = useRef(null);
+  const [openSearchKey, setOpenSearchKey] = useState(null);
 
-  function getVoiceStatusColor(status) 
-      {
-        if (status === "Matched") return "#4CAF50";
-        if (status === "Fuzzy Match") return "#ff9800";
-        if (status === "Not Found") return "#ff4d4d";
-        return "#999";
-      }
+  function handleEditEntryQuantity(areaName, indexToUpdate, newQuantity) {
+    setVoiceEntriesByArea((prev) => {
+      const updatedEntries = [...(prev[areaName] || [])];
 
-     function handleConfirmAndApply() {
-        if (isListening) {
-            alert("Stop listening before applying voice entries.");
-            return;
-        }
+      const parsedQuantity =
+        newQuantity === "" ? "" : Math.max(Number(newQuantity), 0);
 
-        const hasEntries = Object.values(voiceEntriesByArea).some(
-            (entries) => entries.length > 0
-        );
+      updatedEntries[indexToUpdate] = {
+        ...updatedEntries[indexToUpdate],
+        quantity: parsedQuantity,
+      };
 
-        if (!hasEntries) {
-            alert("There are no voice entries to apply.");
-            return;
-        }
+      return {
+        ...prev,
+        [areaName]: updatedEntries,
+      };
+    });
+  }
 
-        const confirmed = window.confirm(
-            "Confirmar o envio das informações para o Stock Take?"
-        );
+  function handleMatchSearchChange(areaName, indexToUpdate, newSearch) {
+    setVoiceEntriesByArea((prev) => {
+      const updatedEntries = [...(prev[areaName] || [])];
+      const currentEntry = updatedEntries[indexToUpdate];
 
-        if (!confirmed) return;
+      updatedEntries[indexToUpdate] = {
+        ...currentEntry,
+        matchSearch: newSearch,
+        matchedItem: newSearch === "" ? "-" : currentEntry.matchedItem,
+        matchedItemId: newSearch === "" ? null : currentEntry.matchedItemId,
+        status: newSearch === "" ? "Not Found" : currentEntry.status,
+      };
 
-        applyVoiceEntries(voiceEntriesByArea);
-        clearVoiceSession();
-        handleBackToStock();
-}
+      return {
+        ...prev,
+        [areaName]: updatedEntries,
+      };
+    });
+  }
+
+  function handleSelectMatchedItem(areaName, indexToUpdate, item) {
+    setVoiceEntriesByArea((prev) => {
+      const updatedEntries = [...(prev[areaName] || [])];
+
+      updatedEntries[indexToUpdate] = {
+        ...updatedEntries[indexToUpdate],
+        matchedItem: item.name,
+        matchedItemId: item.id,
+        status: "Matched",
+        matchSearch: item.name,
+      };
+
+      return {
+        ...prev,
+        [areaName]: updatedEntries,
+      };
+    });
+  }
+
+  function getVoiceStatusColor(status) {
+    if (status === "Matched") return "#4CAF50";
+    if (status === "Fuzzy Match") return "#ff9800";
+    if (status === "Not Found") return "#ff4d4d";
+    return "#999";
+  }
+
+  function handleConfirmAndApply() {
+    if (isListening) {
+      alert("Stop listening before applying voice entries.");
+      return;
+    }
+
+    const hasEntries = Object.values(voiceEntriesByArea).some(
+      (entries) => entries.length > 0
+    );
+
+    if (!hasEntries) {
+      alert("There are no voice entries to apply.");
+      return;
+    }
+
+    const hasInvalidQuantity = Object.values(voiceEntriesByArea).some((entries) =>
+      entries.some(
+        (entry) =>
+          (entry.status === "Matched" || entry.status === "Fuzzy Match") &&
+          (entry.quantity === "" ||
+            entry.quantity === null ||
+            entry.quantity === undefined)
+      )
+    );
+
+    if (hasInvalidQuantity) {
+      alert("Please fill in all quantities before applying.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Confirmar o envio das informações para o Stock Take?"
+    );
+
+    if (!confirmed) return;
+
+    applyVoiceEntries(voiceEntriesByArea);
+    clearVoiceSession();
+    handleBackToStock();
+  }
 
   function addVoiceEntryToArea(area, entry) {
     setVoiceEntriesByArea((prev) => {
       const existingAreaEntries = prev[area] || [];
-
 
       return {
         ...prev,
@@ -85,24 +157,31 @@ function StockVoicePage({
 
           if (parsedLine && selectedArea) {
             const matchResult = findBestMatchInArea(
-                parsedLine.spokenName,
-                selectedArea,
-                items
-                );
+              parsedLine.spokenName,
+              selectedArea,
+              items
+            );
 
-                addVoiceEntryToArea(selectedArea, {
-                spokenName: parsedLine.spokenName,
-                quantity: parsedLine.quantity,
-                matchedItem: matchResult.matchedItem ? matchResult.matchedItem.name : "-",
-                matchedItemId: matchResult.matchedItem ? matchResult.matchedItem.id : null,
-                status:
-                    matchResult.matchType === "exact"
-                    ? "Matched"
-                    : matchResult.matchType === "fuzzy"
-                    ? "Fuzzy Match"
-                    : "Not Found",
-                });
-}
+            addVoiceEntryToArea(selectedArea, {
+              spokenName: parsedLine.spokenName,
+              quantity: parsedLine.quantity,
+              matchedItem: matchResult.matchedItem
+                ? matchResult.matchedItem.name
+                : "-",
+              matchedItemId: matchResult.matchedItem
+                ? matchResult.matchedItem.id
+                : null,
+              status:
+                matchResult.matchType === "exact"
+                  ? "Matched"
+                  : matchResult.matchType === "fuzzy"
+                  ? "Fuzzy Match"
+                  : "Not Found",
+              matchSearch: matchResult.matchedItem
+                ? matchResult.matchedItem.name
+                : "",
+            });
+          }
         },
         () => {
           setIsListening(false);
@@ -142,9 +221,7 @@ function StockVoicePage({
         (_, index) => index !== indexToRemove
       );
 
-      const updated = {
-        ...prev,
-      };
+      const updated = { ...prev };
 
       if (updatedAreaEntries.length > 0) {
         updated[areaName] = updatedAreaEntries;
@@ -164,6 +241,11 @@ function StockVoicePage({
       if (remainingEntries.length > 0) return prev;
 
       return prev.filter((area) => area !== areaName);
+    });
+
+    setOpenSearchKey((prev) => {
+      const deletingKey = `${areaName}-${indexToRemove}`;
+      return prev === deletingKey ? null : prev;
     });
   }
 
@@ -214,6 +296,10 @@ function StockVoicePage({
             cursor: isListening ? "not-allowed" : "pointer",
           }}
         >
+          <option value="" disabled>
+            Select an area
+          </option>
+
           {areas.map((area) => (
             <option key={area} value={area}>
               {area}
@@ -327,45 +413,145 @@ function StockVoicePage({
                   <div>Action</div>
                 </div>
 
-                {entries.map((entry, index) => (
-                  <div
-                    key={`${area}-${entry.spokenName}-${index}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1.2fr 0.7fr 1fr 0.8fr 100px",
-                      gap: "8px",
-                      alignItems: "center",
-                      padding: "10px",
-                      marginBottom: "6px",
-                      border: "1px solid #555",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <div>{entry.spokenName}</div>
-                    <div>{entry.quantity}</div>
-                    <div>{entry.matchedItem}</div>
-                    <div style={{color: getVoiceStatusColor(entry.status),fontWeight: "bold",}}>
-                    {entry.status}
-</div>
+                {entries.map((entry, index) => {
+                  const searchKey = `${area}-${index}`;
 
-                    
+                  const filteredItems = items
+                    .filter((item) => item.area === area)
+                    .filter((item) =>
+                      !entry.matchSearch
+                        ? true
+                        : item.name
+                            .toLowerCase()
+                            .includes(entry.matchSearch.toLowerCase())
+                    )
+                    .slice(0, 8);
 
-                    <button
-                      onClick={() => handleDeleteEntry(area, index)}
+                  return (
+                    <div
+                      key={`${area}-${entry.spokenName}-${index}`}
                       style={{
-                        padding: "8px 10px",
-                        backgroundColor: "#d9534f",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
+                        display: "grid",
+                        gridTemplateColumns: "1.2fr 0.7fr 1fr 0.8fr 100px",
+                        gap: "8px",
+                        alignItems: "center",
+                        padding: "10px",
+                        marginBottom: "6px",
+                        border: "1px solid #555",
+                        borderRadius: "8px",
                       }}
                     >
-                      Delete
-                    </button>
-                  </div>
-                ))}
+                      <div>{entry.spokenName}</div>
+
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={entry.quantity === "" ? "" : entry.quantity}
+                        onChange={(e) =>
+                          handleEditEntryQuantity(area, index, e.target.value)
+                        }
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "6px",
+                          border: "1px solid #ccc",
+                          width: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      />
+
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="text"
+                          value={entry.matchSearch || ""}
+                          onFocus={() => setOpenSearchKey(searchKey)}
+                          onChange={(e) => {
+                            handleMatchSearchChange(area, index, e.target.value);
+                            setOpenSearchKey(searchKey);
+                          }}
+                          placeholder="Search item..."
+                          style={{
+                            padding: "6px 8px",
+                            borderRadius: "6px",
+                            border: "1px solid #ccc",
+                            width: "100%",
+                            boxSizing: "border-box",
+                          }}
+                        />
+
+                        {openSearchKey === searchKey && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              backgroundColor: "#2a2a2a",
+                              border: "1px solid #555",
+                              borderRadius: "6px",
+                              maxHeight: "160px",
+                              overflowY: "auto",
+                              zIndex: 20,
+                              marginTop: "4px",
+                            }}
+                          >
+                            {filteredItems.length === 0 ? (
+                              <div
+                                style={{
+                                  padding: "8px 10px",
+                                  color: "#999",
+                                }}
+                              >
+                                No items found
+                              </div>
+                            ) : (
+                              filteredItems.map((item) => (
+                                <div
+                                  key={item.id}
+                                  onMouseDown={() => {
+                                    handleSelectMatchedItem(area, index, item);
+                                    setOpenSearchKey(null);
+                                  }}
+                                  style={{
+                                    padding: "8px 10px",
+                                    cursor: "pointer",
+                                    borderBottom: "1px solid #444",
+                                    color: "white",
+                                  }}
+                                >
+                                  {item.name}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          color: getVoiceStatusColor(entry.status),
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {entry.status}
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteEntry(area, index)}
+                        style={{
+                          padding: "8px 10px",
+                          backgroundColor: "#d9534f",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             );
           })
@@ -375,16 +561,17 @@ function StockVoicePage({
       <button
         onClick={handleConfirmAndApply}
         style={{
-            padding: "12px 20px",
-            backgroundColor: "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-        }}>
-            Confirm and Apply
-        </button>
+          padding: "12px 20px",
+          backgroundColor: "#4CAF50",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Confirm and Apply
+      </button>
     </div>
   );
 }

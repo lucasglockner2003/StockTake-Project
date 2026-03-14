@@ -11,7 +11,7 @@ function App() {
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
 
-  const [selectedArea, setSelectedArea] = useState(() => loadVoiceData().selectedArea || "");
+  const [selectedArea, setSelectedArea] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [transcriptLines, setTranscriptLines] = useState(() => loadVoiceData().transcriptLines || []);
   const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(() => loadVoiceData().voiceEntriesByArea || {});
@@ -134,11 +134,8 @@ function App() {
           handleBackToStock={handleBackToStock}
           applyVoiceEntries={applyVoiceEntries}
           clearVoiceSession={clearVoiceSession}
-          voiceFilledItems={voiceFilledItems}
         />
       )}
     </div>
   );
-}
-
-export default App;
+} export default App;
