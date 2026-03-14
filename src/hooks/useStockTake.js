@@ -15,8 +15,7 @@ export function useStockTake() { // Criar os estados do hook.
 
   useEffect(() => { // useEffect para salvar automaticamente
     saveQuantities(quantities); // Salva o objeto no localStorage
-    setLastSaved(new Date());
-  }, [quantities]); // roda de novo sempre que quantities mudar
+    setLastSaved(new Date());}, [quantities]); // roda de novo sempre que quantities mudar
 
   const filledItems = getFilledItemsCount(quantities);         // Aqui é só pegar os calculos que ja foram feitos em stockhelpers
   const missingItems = getMissingItemsCount(items, quantities);// e passar para uma constante
@@ -24,6 +23,7 @@ export function useStockTake() { // Criar os estados do hook.
   const reviewTableText = getReviewTableText(items, quantities);
 
   const { okCount, criticalCount, lowCount, checkCount } = getStatusCounts(items,quantities); //pega apenas o que já foi contado
+
   // Apenas prepara dados que a interface precisa
   const groupedItems = groupItemsByArea(items); // Agrupa por area
   const suggestedOrder = getSuggestedOrder(items, quantities); // Cria uma lista “enriquecida” dos itens, com:
@@ -107,10 +107,33 @@ function applyVoiceEntries(voiceEntriesByArea) {
   }
 }
 
+ function applySingleVoiceEntry(entry) {
+    const shouldApply =
+      entry.matchedItemId !== null &&
+      entry.matchedItemId !== undefined &&
+      (entry.status === "Matched" || entry.status === "Fuzzy Match") &&
+      entry.quantity !== null &&
+      entry.quantity !== undefined &&
+      entry.quantity !== "";
+
+    if (!shouldApply) return false;
+
+    setQuantities((prev) => ({
+      ...prev,
+      [entry.matchedItemId]: Number(entry.quantity),
+    }));
+
+    setVoiceFilledItems((prev) => ({
+      ...prev,
+      [entry.matchedItemId]: true,
+    }));
+
+    return true;
+  }
+
             // Essa parte é a mais importante do hook. Ela define o que o hook entrega para quem usar ele.
   return {
-      items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount,
-      lowCount, checkCount, groupedItems, suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable, 
-      applyVoiceEntries, voiceFilledItems,
+      items, quantities, lastSaved, filledItems, missingItems, progress, okCount, criticalCount, lowCount, checkCount, groupedItems, 
+      suggestedOrder, handleQuantityChange, handleReset, handleCopyOrder, handleCopyTable, applyVoiceEntries, voiceFilledItems, applySingleVoiceEntry,
       };
 }

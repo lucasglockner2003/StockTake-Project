@@ -13,9 +13,18 @@ function App() {
 
   const [selectedArea, setSelectedArea] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [transcriptLines, setTranscriptLines] = useState(() => loadVoiceData().transcriptLines || []);
-  const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(() => loadVoiceData().voiceEntriesByArea || {});
-  const [usedAreasOrder, setUsedAreasOrder] = useState(() => loadVoiceData().usedAreasOrder || []);
+  const [transcriptLines, setTranscriptLines] = useState(
+    () => loadVoiceData().transcriptLines || []
+  );
+  const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(
+    () => loadVoiceData().voiceEntriesByArea || {}
+  );
+  const [usedAreasOrder, setUsedAreasOrder] = useState(
+    () => loadVoiceData().usedAreasOrder || []
+  );
+
+  const [autoApplyMode, setAutoApplyMode] = useState(false);
+  const [voiceToast, setVoiceToast] = useState("");
 
   const {
     items,
@@ -35,6 +44,7 @@ function App() {
     handleCopyOrder,
     handleCopyTable,
     applyVoiceEntries,
+    applySingleVoiceEntry,
     voiceFilledItems,
   } = useStockTake();
 
@@ -90,6 +100,7 @@ function App() {
             handleReset={handleReset}
             setCurrentPage={setCurrentPage}
           />
+
           <StockTakeTable
             groupedItems={groupedItems}
             quantities={quantities}
@@ -133,9 +144,16 @@ function App() {
           setUsedAreasOrder={setUsedAreasOrder}
           handleBackToStock={handleBackToStock}
           applyVoiceEntries={applyVoiceEntries}
+          applySingleVoiceEntry={applySingleVoiceEntry}
           clearVoiceSession={clearVoiceSession}
+          autoApplyMode={autoApplyMode}
+          setAutoApplyMode={setAutoApplyMode}
+          voiceToast={voiceToast}
+          setVoiceToast={setVoiceToast}
         />
       )}
     </div>
   );
-} export default App;
+}
+
+export default App;

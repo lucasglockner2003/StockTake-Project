@@ -18,7 +18,12 @@ function StockVoicePage({
   handleBackToStock,
   items,
   applyVoiceEntries,
+  applySingleVoiceEntry,
   clearVoiceSession,
+  autoApplyMode,
+  setAutoApplyMode,
+  voiceToast,
+  setVoiceToast,
 }) {
   const isAreaSelected = !!selectedArea;
   const voiceButtonLabel = isListening ? "Stop Listening" : "Start Listening";
@@ -88,6 +93,14 @@ function StockVoicePage({
     if (status === "Fuzzy Match") return "#ff9800";
     if (status === "Not Found") return "#ff4d4d";
     return "#999";
+  }
+
+  function showVoiceToast(message) {
+    setVoiceToast(message);
+
+    setTimeout(() => {
+      setVoiceToast("");
+    }, 2000);
   }
 
   function handleConfirmAndApply() {
@@ -162,7 +175,7 @@ function StockVoicePage({
               items
             );
 
-            addVoiceEntryToArea(selectedArea, {
+            const newEntry = {
               spokenName: parsedLine.spokenName,
               quantity: parsedLine.quantity,
               matchedItem: matchResult.matchedItem
@@ -180,7 +193,17 @@ function StockVoicePage({
               matchSearch: matchResult.matchedItem
                 ? matchResult.matchedItem.name
                 : "",
-            });
+            };
+
+            addVoiceEntryToArea(selectedArea, newEntry);
+
+            if (autoApplyMode) {
+              const applied = applySingleVoiceEntry(newEntry);
+
+              if (applied) {
+                showVoiceToast(`${newEntry.matchedItem} updated`);
+              }
+            }
           }
         },
         () => {
@@ -253,6 +276,21 @@ function StockVoicePage({
     <div>
       <h1>Stock Voice</h1>
 
+      {voiceToast && (
+        <div
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            marginBottom: "16px",
+            fontWeight: "bold",
+          }}
+        >
+          {voiceToast}
+        </div>
+      )}
+
       <button
         onClick={handleBackClick}
         style={{
@@ -306,6 +344,26 @@ function StockVoicePage({
             </option>
           ))}
         </select>
+      </div>
+
+      <div style={{ marginBottom: "20px" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: "white",
+            fontWeight: "bold",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={autoApplyMode}
+            onChange={(e) => setAutoApplyMode(e.target.checked)}
+            disabled={isListening}
+          />
+          Auto Apply Mode
+        </label>
       </div>
 
       <div style={{ marginBottom: "24px" }}>
