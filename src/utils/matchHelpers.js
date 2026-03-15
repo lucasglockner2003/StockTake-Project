@@ -50,19 +50,17 @@ function getSimilarityScore(a, b) {
   return 1 - distance / maxLength;
 }
 
-export function findBestMatchInArea(spokenName, selectedArea, items) {
+function findBestMatchFromList(spokenName, candidateItems) {
   const normalizedSpokenName = normalizeText(spokenName);
 
-  const areaItems = items.filter((item) => item.area === selectedArea);
-
-  if (areaItems.length === 0) {
+  if (!normalizedSpokenName || candidateItems.length === 0) {
     return {
       matchedItem: null,
       matchType: "none",
     };
   }
 
-  for (const item of areaItems) {
+  for (const item of candidateItems) {
     const searchTerms = getItemSearchTerms(item);
 
     if (searchTerms.includes(normalizedSpokenName)) {
@@ -73,7 +71,7 @@ export function findBestMatchInArea(spokenName, selectedArea, items) {
     }
   }
 
-  for (const item of areaItems) {
+  for (const item of candidateItems) {
     const searchTerms = getItemSearchTerms(item);
 
     const hasIncludesMatch = searchTerms.some(
@@ -93,7 +91,7 @@ export function findBestMatchInArea(spokenName, selectedArea, items) {
   let bestMatch = null;
   let bestScore = 0;
 
-  for (const item of areaItems) {
+  for (const item of candidateItems) {
     const searchTerms = getItemSearchTerms(item);
 
     for (const term of searchTerms) {
@@ -117,4 +115,13 @@ export function findBestMatchInArea(spokenName, selectedArea, items) {
     matchedItem: null,
     matchType: "none",
   };
+}
+
+export function findBestMatch(spokenName, items) {
+  return findBestMatchFromList(spokenName, items);
+}
+
+export function findBestMatchInArea(spokenName, selectedArea, items) {
+  const areaItems = items.filter((item) => item.area === selectedArea);
+  return findBestMatchFromList(spokenName, areaItems);
 }

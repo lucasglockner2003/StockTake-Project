@@ -5,6 +5,7 @@ import ReviewPage from "./Components/ReviewPage";
 import StockVoicePage from "./Components/StockVoicePage";
 import { useStockTake } from "./hooks/useStockTake";
 import { loadVoiceData, saveVoiceData, clearVoiceData } from "./utils/storage";
+import PhotoPage from "./Components/PhotoPage";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("stock");
@@ -46,6 +47,7 @@ function App() {
     applyVoiceEntries,
     applySingleVoiceEntry,
     voiceFilledItems,
+    applyPhotoEntries,
   } = useStockTake();
 
   useEffect(() => {
@@ -152,6 +154,15 @@ function App() {
           setVoiceToast={setVoiceToast}
         />
       )}
+
+      {currentPage === "photo" && (
+        <PhotoPage
+          items={items}
+          setCurrentPage={setCurrentPage}
+          applyPhotoEntries={applyPhotoEntries}
+        />
+      )}
+      
     </div>
   );
 }

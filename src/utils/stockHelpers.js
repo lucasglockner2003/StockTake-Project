@@ -9,6 +9,8 @@ export function getMissingItemsCount(items, quantities) { // Conta quantos itens
 }
 
 export function getProgress(items, quantities) { //Calcula a porcentagem de progresso do stocktake.
+  
+  if (items.length === 0) return 0;
   const filled = getFilledItemsCount(quantities);
   return Math.round((filled / items.length) * 100);
 }
@@ -35,10 +37,11 @@ export function getStatusCounts(items, quantities) { //Percorre todos os itens e
 
 export function groupItemsByArea(items) {  // Organiza os itens por area
   return items.reduce((acc, item) => {
-    if (!acc[item.area]) // Se essa área ainda não existe dentro do acumulador,
-        acc[item.area] = []; // cria um array vazio para ela.
+    if (!acc[item.area]) {// Se essa área ainda não existe dentro do acumulador,
+        acc[item.area] = [];} // cria um array vazio para ela.
+
         acc[item.area].push(item); // Empurra o item para dentro da área correspondente.
-    return acc; //retorna o contador para pro próximo item 1 -> 2 - > 3 
+        return acc; //retorna o contador para pro próximo item 1 -> 2 - > 3 
   }, {});
 }
 
@@ -58,14 +61,26 @@ export function getSuggestedOrder(items, quantities) { // sugerir a ordem
 }
 
 export function getOrderText(suggestedOrder) { // Essa função monta o texto que vai para a área de transferência quando você clica em Copy Order.
-  return suggestedOrder
+  const header = ["Item", "Current", "Ideal", "Order", "Unit"].join("\t");
+
+  const rows = suggestedOrder
     .filter((item) => item.orderAmount > 0) // Apenas filtra os itens que precisam ser pedidos, que o pedido é maior que 0
-    .map((item) => `${item.name} - ${item.orderAmount} ${item.unit}`) // Transforma em 1 linha para copiar o pedido
-    .join("\n"); // Junta todas as linhas com quebra de linha.
+    .map((item) => // Transforma em 1 linha para copiar o pedido
+      [
+        item.name,
+        item.currentStock,
+        item.idealStock,
+        item.orderAmount,
+        item.unit,
+      ].join("\t") // Junta todas as linhas com quebra de linha.
+    ); 
+
+  return [header, ...rows].join("\n");
 }
 
+
 export function getReviewTableText(items, quantities) {
-  const header = "Item | Area | Unit | Ideal | Count | Status | Order";
+  const header = ["Item", "Area", "Unit", "Ideal", "Count", "Status", "Order"].join("\t");
 
   const rows = items.map((item) => {
     const currentStock = getNumericValue(quantities[item.id]);
@@ -80,7 +95,7 @@ export function getReviewTableText(items, quantities) {
       currentStock,
       status,
       orderAmount,
-    ].join(" | ");
+    ].join("\t");
   });
 
   return [header, ...rows].join("\n");
