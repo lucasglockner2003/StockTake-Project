@@ -2,18 +2,34 @@ import { useEffect, useMemo, useState } from "react";
 import {
   extractTextFromImage,
   getMockPhotoText,
-  getPhotoResultText,
   parsePhotoTextToEntries,
+  getConfirmedPhotoEntries,
+  getPhotoResultTextFromConfirmedEntries,
+  buildPhotoAutomationPayloadFromConfirmedEntries,
+  buildPhotoAutomationJob,
 } from "../utils/photoHelpers";
+import { styles } from "../utils/uiStyles";
+import {
+  updateEntryQuantity,
+  updateEntryMatchSearch,
+  selectEntryMatchedItem,
+  deleteEntryAtIndex,
+  clearOpenSearchKeyIfDeleted,
+} from "../utils/entryHelpers";
+import { getFilteredItemsForEntry } from "../utils/entrySearchHelpers";
+import EditableEntrySection from "./EditableEntrySection";
 
 function PhotoPage({ items, setCurrentPage }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [rawExtractedText, setRawExtractedText] = useState("");
   const [photoEntries, setPhotoEntries] = useState([]);
+  const [confirmedEntries, setConfirmedEntries] = useState([]);
   const [openSearchKey, setOpenSearchKey] = useState(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [ocrError, setOcrError] = useState("");
+  const [isOutputLocked, setIsOutputLocked] = useState(false);
+  const [photoSessionId, setPhotoSessionId] = useState(null);
 
   useEffect(() => {
     return () => {
@@ -23,11 +39,12 @@ function PhotoPage({ items, setCurrentPage }) {
     };
   }, [selectedImage]);
 
-  function getStatusColor(status) {
-    if (status === "Matched") return "#4CAF50";
-    if (status === "Fuzzy Match") return "#ff9800";
-    if (status === "Not Found") return "#ff4d4d";
-    return "#999";
+  function resetPhotoFlowState() {
+    setPhotoEntries([]);
+    setConfirmedEntries([]);
+    setOpenSearchKey(null);
+    setOcrError("");
+    setIsOutputLocked(false);
   }
 
   function handleImageChange(event) {
@@ -43,13 +60,16 @@ function PhotoPage({ items, setCurrentPage }) {
     setSelectedFile(file);
     setSelectedImage(imageUrl);
     setRawExtractedText("");
-    setPhotoEntries([]);
-    setOcrError("");
+    resetPhotoFlowState();
   }
 
   function handleProcessText() {
     const parsedEntries = parsePhotoTextToEntries(rawExtractedText, items);
     setPhotoEntries(parsedEntries);
+    setConfirmedEntries([]);
+    setOpenSearchKey(null);
+    setIsOutputLocked(false);
+    setPhotoSessionId(Date.now());
   }
 
   async function handleProcessImage() {
@@ -61,12 +81,14 @@ function PhotoPage({ items, setCurrentPage }) {
     try {
       setIsProcessingImage(true);
       setOcrError("");
+      setOpenSearchKey(null);
 
       const extractedText = await extractTextFromImage(selectedFile);
       setRawExtractedText(extractedText);
-
-      const parsedEntries = parsePhotoTextToEntries(extractedText, items);
-      setPhotoEntries(parsedEntries);
+      setPhotoEntries(parsePhotoTextToEntries(extractedText, items));
+      setConfirmedEntries([]);
+      setIsOutputLocked(false);
+      setPhotoSessionId(Date.now());
     } catch (error) {
       setOcrError(error?.message || "Failed to process image.");
       console.error("Photo OCR error:", error);
@@ -78,12 +100,14 @@ function PhotoPage({ items, setCurrentPage }) {
   function handleProcessMockAi() {
     try {
       setOcrError("");
+      setOpenSearchKey(null);
 
       const mockText = getMockPhotoText();
       setRawExtractedText(mockText);
-
-      const parsedEntries = parsePhotoTextToEntries(mockText, items);
-      setPhotoEntries(parsedEntries);
+      setPhotoEntries(parsePhotoTextToEntries(mockText, items));
+      setConfirmedEntries([]);
+      setIsOutputLocked(false);
+      setPhotoSessionId(Date.now());
     } catch (error) {
       setOcrError("Failed to generate mock AI result.");
       console.error("Mock AI error:", error);
@@ -91,57 +115,62 @@ function PhotoPage({ items, setCurrentPage }) {
   }
 
   function handleDeleteEntry(indexToRemove) {
-    setPhotoEntries((prev) => prev.filter((_, index) => index !== indexToRemove));
+    if (isOutputLocked) return;
+
+    setPhotoEntries((prev) => deleteEntryAtIndex(prev, indexToRemove));
+    setConfirmedEntries([]);
+    setOpenSearchKey((prev) =>
+      clearOpenSearchKeyIfDeleted(prev, `photo-${indexToRemove}`)
+    );
   }
 
   function handleEditQuantity(indexToUpdate, newQuantity) {
+    if (isOutputLocked) return;
+
     setPhotoEntries((prev) =>
-      prev.map((entry, index) =>
-        index === indexToUpdate
-          ? {
-              ...entry,
-              quantity: newQuantity === "" ? "" : Math.max(Number(newQuantity), 0),
-            }
-          : entry
-      )
+      updateEntryQuantity(prev, indexToUpdate, newQuantity)
     );
+    setConfirmedEntries([]);
   }
 
   function handleMatchSearchChange(indexToUpdate, newSearch) {
+    if (isOutputLocked) return;
+
     setPhotoEntries((prev) =>
-      prev.map((entry, index) =>
-        index === indexToUpdate
-          ? {
-              ...entry,
-              matchSearch: newSearch,
-              matchedItem: newSearch === "" ? "-" : entry.matchedItem,
-              matchedItemId: newSearch === "" ? null : entry.matchedItemId,
-              status: newSearch === "" ? "Not Found" : entry.status,
-            }
-          : entry
-      )
+      updateEntryMatchSearch(prev, indexToUpdate, newSearch)
     );
+    setConfirmedEntries([]);
   }
 
   function handleSelectMatchedItem(indexToUpdate, item) {
+    if (isOutputLocked) return;
+
     setPhotoEntries((prev) =>
-      prev.map((entry, index) =>
-        index === indexToUpdate
-          ? {
-              ...entry,
-              matchedItem: item.name,
-              matchedItemId: item.id,
-              status: "Matched",
-              matchSearch: item.name,
-            }
-          : entry
-      )
+      selectEntryMatchedItem(prev, indexToUpdate, item)
     );
+    setConfirmedEntries([]);
+  }
+
+  function handleConfirmOutput() {
+    const nextConfirmedEntries = getConfirmedPhotoEntries(photoEntries);
+
+    if (nextConfirmedEntries.length === 0) {
+      alert("There are no valid entries to confirm.");
+      return;
+    }
+
+    setConfirmedEntries(nextConfirmedEntries);
+    setIsOutputLocked(true);
+  }
+
+  function handleUnlockOutput() {
+    setIsOutputLocked(false);
+    setConfirmedEntries([]);
   }
 
   async function handleCopyFinalText() {
     try {
-      const text = getPhotoResultText(photoEntries);
+      const text = getPhotoResultTextFromConfirmedEntries(confirmedEntries);
       await navigator.clipboard.writeText(text);
       alert("Final text copied!");
     } catch {
@@ -149,25 +178,34 @@ function PhotoPage({ items, setCurrentPage }) {
     }
   }
 
+  async function handleCopyAutomationPayload() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(automationJob, null, 2));
+      alert("Automation payload copied!");
+    } catch {
+      alert("Failed to copy automation payload.");
+    }
+  }
+
   const searchableItems = useMemo(() => items.slice(), [items]);
+  const liveValidEntriesCount = useMemo(
+    () => getConfirmedPhotoEntries(photoEntries).length,
+    [photoEntries]
+  );
+  const automationPayload = useMemo(
+    () => buildPhotoAutomationPayloadFromConfirmedEntries(confirmedEntries),
+    [confirmedEntries]
+  );
+  const automationJob = useMemo(
+    () => buildPhotoAutomationJob(confirmedEntries, photoSessionId),
+    [confirmedEntries, photoSessionId]
+  );
 
   return (
     <div>
       <h1>Photo Order</h1>
 
-      <button
-        onClick={() => setCurrentPage("stock")}
-        style={{
-          padding: "10px 16px",
-          backgroundColor: "#ccc",
-          color: "#111",
-          border: "none",
-          borderRadius: "8px",
-          cursor: "pointer",
-          fontWeight: "bold",
-          marginBottom: "20px",
-        }}
-      >
+      <button onClick={() => setCurrentPage("stock")} style={styles.backButton}>
         Back to Stock Take
       </button>
 
@@ -202,13 +240,9 @@ function PhotoPage({ items, setCurrentPage }) {
           onClick={handleProcessMockAi}
           disabled={isProcessingImage}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: isProcessingImage ? "#888" : "#8e44ad",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
             cursor: isProcessingImage ? "not-allowed" : "pointer",
-            fontWeight: "bold",
           }}
         >
           Process Mock AI
@@ -218,13 +252,10 @@ function PhotoPage({ items, setCurrentPage }) {
           onClick={handleProcessImage}
           disabled={!selectedFile || isProcessingImage}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: !selectedFile || isProcessingImage ? "#888" : "#7b3ff2",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: !selectedFile || isProcessingImage ? "not-allowed" : "pointer",
-            fontWeight: "bold",
+            cursor:
+              !selectedFile || isProcessingImage ? "not-allowed" : "pointer",
           }}
         >
           {isProcessingImage ? "Processing Image..." : "Process Image"}
@@ -234,13 +265,9 @@ function PhotoPage({ items, setCurrentPage }) {
           onClick={handleProcessText}
           disabled={isProcessingImage}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: isProcessingImage ? "#888" : "#2196F3",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
             cursor: isProcessingImage ? "not-allowed" : "pointer",
-            fontWeight: "bold",
           }}
         >
           Process Text
@@ -283,7 +310,12 @@ function PhotoPage({ items, setCurrentPage }) {
         <h2>OCR Raw Text</h2>
         <textarea
           value={rawExtractedText}
-          onChange={(e) => setRawExtractedText(e.target.value)}
+          onChange={(e) => {
+            if (isOutputLocked) return;
+            setRawExtractedText(e.target.value);
+            setConfirmedEntries([]);
+          }}
+          readOnly={isOutputLocked}
           placeholder={`Text will appear here automatically.
 
 Example:
@@ -304,192 +336,181 @@ Salsa: 15`}
         />
       </div>
 
-      <div style={{ marginBottom: "28px" }}>
+      <div style={{ marginBottom: "12px" }}>
         <h2 style={{ marginBottom: "10px" }}>Detected Entries</h2>
 
-        {photoEntries.length === 0 ? (
+        <EditableEntrySection
+          entries={photoEntries}
+          searchKeyPrefix="photo"
+          openSearchKey={openSearchKey}
+          setOpenSearchKey={setOpenSearchKey}
+          getFilteredItems={(entry) =>
+            getFilteredItemsForEntry(searchableItems, entry)
+          }
+          onEditQuantity={handleEditQuantity}
+          onMatchSearchChange={handleMatchSearchChange}
+          onSelectMatchedItem={handleSelectMatchedItem}
+          onDelete={handleDeleteEntry}
+          emptyText="No detected entries yet."
+          showAreaInDropdown
+          rowKeyBuilder={(entry, index) => `${entry.rawLine}-${index}`}
+          firstColumnLabel="Detected"
+          isLocked={isOutputLocked}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
+          marginBottom: "28px",
+        }}
+      >
+        <button
+          onClick={handleConfirmOutput}
+          disabled={liveValidEntriesCount === 0 || isOutputLocked}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor:
+              liveValidEntriesCount === 0 || isOutputLocked ? "#888" : "#4CAF50",
+            cursor:
+              liveValidEntriesCount === 0 || isOutputLocked
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {isOutputLocked
+            ? "Output Locked"
+            : `Confirm Output (${liveValidEntriesCount})`}
+        </button>
+
+        <button
+          onClick={handleUnlockOutput}
+          disabled={!isOutputLocked}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: !isOutputLocked ? "#888" : "#d9534f",
+            cursor: !isOutputLocked ? "not-allowed" : "pointer",
+          }}
+        >
+          Unlock Output
+        </button>
+      </div>
+
+      <div style={{ marginBottom: "20px" }}>
+        <h2 style={{ marginBottom: "10px" }}>
+          Confirmed Output ({confirmedEntries.length})
+        </h2>
+
+        {confirmedEntries.length === 0 ? (
+          <div style={styles.emptyState}>No confirmed entries ready yet.</div>
+        ) : (
           <div
             style={{
               border: "1px solid #555",
               borderRadius: "8px",
-              padding: "14px",
-              backgroundColor: "#1f1f1f",
-              color: "#999",
+              overflow: "hidden",
             }}
           >
-            No detected entries yet.
-          </div>
-        ) : (
-          <>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.2fr 0.7fr 1fr 0.8fr 100px",
+                gridTemplateColumns: "70px 1.4fr 0.8fr 0.8fr",
                 gap: "8px",
                 alignItems: "center",
                 padding: "8px 10px",
-                marginBottom: "8px",
                 fontSize: "12px",
                 fontWeight: "bold",
                 color: "#aaa",
                 borderBottom: "1px solid #444",
               }}
             >
-              <div>Detected</div>
-              <div>Quantity</div>
-              <div>Matched Item</div>
-              <div>Status</div>
-              <div>Action</div>
+              <div>Seq</div>
+              <div>Item</div>
+              <div>Qty</div>
+              <div>Source</div>
             </div>
 
-            {photoEntries.map((entry, index) => {
-              const searchKey = `photo-${index}`;
-
-              const filteredItems = searchableItems
-                .filter((item) =>
-                  !entry.matchSearch
-                    ? true
-                    : item.name.toLowerCase().includes(entry.matchSearch.toLowerCase())
-                )
-                .slice(0, 8);
-
-              return (
-                <div
-                  key={`${entry.rawLine}-${index}`}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.2fr 0.7fr 1fr 0.8fr 100px",
-                    gap: "8px",
-                    alignItems: "center",
-                    padding: "10px",
-                    marginBottom: "6px",
-                    border: "1px solid #555",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <div>{entry.spokenName}</div>
-
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={entry.quantity === "" ? "" : entry.quantity}
-                    onChange={(e) => handleEditQuantity(index, e.target.value)}
-                    style={{
-                      padding: "6px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #ccc",
-                      width: "100%",
-                      boxSizing: "border-box",
-                    }}
-                  />
-
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      value={entry.matchSearch || ""}
-                      onFocus={() => setOpenSearchKey(searchKey)}
-                      onChange={(e) => {
-                        handleMatchSearchChange(index, e.target.value);
-                        setOpenSearchKey(searchKey);
-                      }}
-                      placeholder="Search item..."
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid #ccc",
-                        width: "100%",
-                        boxSizing: "border-box",
-                      }}
-                    />
-
-                    {openSearchKey === searchKey && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          backgroundColor: "#2a2a2a",
-                          border: "1px solid #555",
-                          borderRadius: "6px",
-                          maxHeight: "160px",
-                          overflowY: "auto",
-                          zIndex: 20,
-                          marginTop: "4px",
-                        }}
-                      >
-                        {filteredItems.length === 0 ? (
-                          <div style={{ padding: "8px 10px", color: "#999" }}>
-                            No items found
-                          </div>
-                        ) : (
-                          filteredItems.map((item) => (
-                            <div
-                              key={item.id}
-                              onMouseDown={() => {
-                                handleSelectMatchedItem(index, item);
-                                setOpenSearchKey(null);
-                              }}
-                              style={{
-                                padding: "8px 10px",
-                                cursor: "pointer",
-                                borderBottom: "1px solid #444",
-                                color: "white",
-                              }}
-                            >
-                              {item.name} — {item.area}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      color: getStatusColor(entry.status),
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {entry.status}
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteEntry(index)}
-                    style={{
-                      padding: "8px 10px",
-                      backgroundColor: "#d9534f",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              );
-            })}
-          </>
+            {confirmedEntries.map((entry) => (
+              <div
+                key={`${entry.itemId}-${entry.sequence}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "70px 1.4fr 0.8fr 0.8fr",
+                  gap: "8px",
+                  alignItems: "center",
+                  padding: "10px",
+                  borderBottom: "1px solid #333",
+                }}
+              >
+                <div>{entry.sequence}</div>
+                <div>{entry.itemName}</div>
+                <div>{entry.quantity}</div>
+                <div>{entry.source}</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      <button
-        onClick={handleCopyFinalText}
-        disabled={photoEntries.length === 0}
+      <div style={{ marginBottom: "20px" }}>
+        <h2 style={{ marginBottom: "10px" }}>
+          Automation Payload Preview ({automationPayload.length})
+        </h2>
+
+        <textarea
+          readOnly
+          value={
+            automationPayload.length > 0
+              ? JSON.stringify(automationJob, null, 2)
+              : ""
+          }
+          placeholder="Automation payload will appear here."
+          style={{
+            width: "100%",
+            minHeight: "220px",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid #555",
+            backgroundColor: "#1f1f1f",
+            color: "white",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+
+      <div
         style={{
-          padding: "12px 20px",
-          backgroundColor: photoEntries.length === 0 ? "#888" : "#4CAF50",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          cursor: photoEntries.length === 0 ? "not-allowed" : "pointer",
-          fontWeight: "bold",
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
         }}
       >
-        Copy Final Text
-      </button>
+        <button
+          onClick={handleCopyFinalText}
+          disabled={confirmedEntries.length === 0}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: confirmedEntries.length === 0 ? "#888" : "#4CAF50",
+            cursor: confirmedEntries.length === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          Copy Final Text
+        </button>
+
+        <button
+          onClick={handleCopyAutomationPayload}
+          disabled={automationPayload.length === 0}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: automationPayload.length === 0 ? "#888" : "#6f42c1",
+            cursor: automationPayload.length === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          Copy Automation Payload
+        </button>
+      </div>
     </div>
   );
 }

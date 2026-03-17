@@ -12,16 +12,27 @@ export function createSpeechRecognition(onResult, onEnd) {
   recognition.lang = "en-NZ";
   recognition.continuous = true;
   recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
 
   recognition.onresult = (event) => {
-    const text = event.results[event.results.length - 1][0].transcript
+    const latestResult = event.results[event.results.length - 1];
+
+    if (!latestResult || !latestResult[0]) return;
+
+    const text = String(latestResult[0].transcript || "")
       .trim()
       .toLowerCase();
+
+    if (!text) return;
 
     onResult(text);
   };
 
   recognition.onend = () => {
+    if (onEnd) onEnd();
+  };
+
+  recognition.onerror = () => {
     if (onEnd) onEnd();
   };
 

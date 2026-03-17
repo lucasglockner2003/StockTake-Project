@@ -3,25 +3,32 @@ import TopSummary from "./Components/TopSummary";
 import StockTakeTable from "./Components/StockTakeTable";
 import ReviewPage from "./Components/ReviewPage";
 import StockVoicePage from "./Components/StockVoicePage";
-import { useStockTake } from "./hooks/useStockTake";
-import { loadVoiceData, saveVoiceData, clearVoiceData } from "./utils/storage";
 import PhotoPage from "./Components/PhotoPage";
+import { useStockTake } from "./hooks/useStockTake";
+import {
+  loadVoiceData,
+  saveVoiceData,
+  clearVoiceData,
+  getInitialVoiceData,
+} from "./utils/storage";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("stock");
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
 
-  const [selectedArea, setSelectedArea] = useState("");
+  const initialVoiceData = useMemo(() => loadVoiceData(), []);
+
+  const [selectedArea, setSelectedArea] = useState(initialVoiceData.selectedArea);
   const [isListening, setIsListening] = useState(false);
   const [transcriptLines, setTranscriptLines] = useState(
-    () => loadVoiceData().transcriptLines || []
+    initialVoiceData.transcriptLines
   );
   const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(
-    () => loadVoiceData().voiceEntriesByArea || {}
+    initialVoiceData.voiceEntriesByArea
   );
   const [usedAreasOrder, setUsedAreasOrder] = useState(
-    () => loadVoiceData().usedAreasOrder || []
+    initialVoiceData.usedAreasOrder
   );
 
   const [autoApplyMode, setAutoApplyMode] = useState(false);
@@ -47,7 +54,6 @@ function App() {
     applyVoiceEntries,
     applySingleVoiceEntry,
     voiceFilledItems,
-    applyPhotoEntries,
   } = useStockTake();
 
   useEffect(() => {
@@ -64,10 +70,14 @@ function App() {
   }, [items]);
 
   function clearVoiceSession() {
-    setSelectedArea("");
-    setTranscriptLines([]);
-    setVoiceEntriesByArea({});
-    setUsedAreasOrder([]);
+    const emptyVoiceData = getInitialVoiceData();
+
+    setSelectedArea(emptyVoiceData.selectedArea);
+    setTranscriptLines(emptyVoiceData.transcriptLines);
+    setVoiceEntriesByArea(emptyVoiceData.voiceEntriesByArea);
+    setUsedAreasOrder(emptyVoiceData.usedAreasOrder);
+    setVoiceToast("");
+
     clearVoiceData();
   }
 
@@ -156,13 +166,8 @@ function App() {
       )}
 
       {currentPage === "photo" && (
-        <PhotoPage
-          items={items}
-          setCurrentPage={setCurrentPage}
-          applyPhotoEntries={applyPhotoEntries}
-        />
+        <PhotoPage items={items} setCurrentPage={setCurrentPage} />
       )}
-      
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { SummaryBadge, ProgressBar } from "./SummaryComponents";
+import { styles } from "../utils/uiStyles";
 
 function TopSummary({
   filledItems,
@@ -74,13 +75,8 @@ function TopSummary({
         <button
           onClick={() => setCurrentPage("voice")}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: "#002fff",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
           }}
         >
           Stock Voice
@@ -89,13 +85,8 @@ function TopSummary({
         <button
           onClick={handleReset}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: "#d9534f",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
           }}
         >
           Reset Stock Take
@@ -105,13 +96,9 @@ function TopSummary({
           disabled={missingItems > 0}
           onClick={() => setCurrentPage("review")}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: missingItems > 0 ? "#ccc" : "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
             cursor: missingItems > 0 ? "not-allowed" : "pointer",
-            fontWeight: "bold",
           }}
         >
           {missingItems > 0
@@ -122,13 +109,8 @@ function TopSummary({
         <button
           onClick={() => setCurrentPage("photo")}
           style={{
-            padding: "12px 20px",
+            ...styles.primaryButton,
             backgroundColor: "#6f42c1",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
           }}
         >
           Photo Order

@@ -1,4 +1,8 @@
 import { findBestMatch } from "./matchHelpers";
+import {
+  createMatchedEntryFromMatchResult,
+  createUnmatchedEntry,
+} from "./entryFactories";
 
 function cleanLine(line) {
   return String(line || "")
@@ -100,33 +104,23 @@ export function parsePhotoTextToEntries(text, items) {
     const parsed = parsePhotoLine(line);
 
     if (!parsed) {
-      return {
+      return createUnmatchedEntry({
         rawLine: line,
         spokenName: line,
         quantity: "",
-        matchedItem: "-",
-        matchedItemId: null,
-        status: "Not Found",
-        matchSearch: "",
-      };
+        source: "photo",
+      });
     }
 
     const matchResult = findBestMatch(parsed.name, items);
 
-    return {
+    return createMatchedEntryFromMatchResult({
       rawLine: parsed.rawLine,
       spokenName: parsed.name,
       quantity: parsed.quantity,
-      matchedItem: matchResult.matchedItem ? matchResult.matchedItem.name : "-",
-      matchedItemId: matchResult.matchedItem ? matchResult.matchedItem.id : null,
-      status:
-        matchResult.matchType === "exact"
-          ? "Matched"
-          : matchResult.matchType === "fuzzy"
-          ? "Fuzzy Match"
-          : "Not Found",
-      matchSearch: matchResult.matchedItem ? matchResult.matchedItem.name : "",
-    };
+      matchResult,
+      source: "photo",
+    });
   });
 }
 
@@ -143,34 +137,76 @@ export function getValidPhotoEntries(entries) {
   );
 }
 
-export function getPhotoResultText(entries) {
-  if (!entries || entries.length === 0) return "";
+export function getConfirmedPhotoEntries(entries) {
+  return getValidPhotoEntries(entries).map((entry, index) => ({
+    sequence: index + 1,
+    itemId: entry.matchedItemId,
+    itemName: entry.matchedItem,
+    displayName: entry.matchedItem,
+    quantity: Number(entry.quantity),
+    source: entry.source || "photo",
+    spokenName: entry.spokenName,
+    rawLine: entry.rawLine,
+    status: entry.status,
+  }));
+}
 
-  const header = ["Item", "Quantity"].join("\t");
+export function getPhotoResultTextFromConfirmedEntries(confirmedEntries) {
+  if (!confirmedEntries || confirmedEntries.length === 0) return "";
 
-  const rows = entries
-    .filter(
-      (entry) =>
-        entry.matchedItemId !== null &&
-        entry.matchedItemId !== undefined &&
-        entry.quantity !== "" &&
-        entry.quantity !== null &&
-        entry.quantity !== undefined
-    )
-    .map((entry) => [entry.matchedItem, entry.quantity].join("\t"));
+  const header = ["Seq", "Item", "Quantity", "Source"].join("\t");
+
+  const rows = confirmedEntries.map((entry) =>
+    [entry.sequence, entry.itemName, entry.quantity, entry.source].join("\t")
+  );
 
   return [header, ...rows].join("\n");
 }
 
-export function buildPhotoApplyPayload(entries) {
-  return getValidPhotoEntries(entries).map((entry) => ({
-    itemId: entry.matchedItemId,
-    itemName: entry.matchedItem,
-    quantity: Number(entry.quantity),
-    source: "photo",
+export function getPhotoResultText(entries) {
+  return getPhotoResultTextFromConfirmedEntries(
+    getConfirmedPhotoEntries(entries)
+  );
+}
+
+export function buildPhotoAutomationPayloadFromConfirmedEntries(confirmedEntries) {
+  return (confirmedEntries || []).map((entry) => ({
+    sequence: entry.sequence,
+    itemId: entry.itemId,
+    itemName: entry.itemName,
+    quantity: entry.quantity,
+    source: entry.source,
     spokenName: entry.spokenName,
     rawLine: entry.rawLine,
   }));
+}
+
+export function buildPhotoAutomationPayload(entries) {
+  return buildPhotoAutomationPayloadFromConfirmedEntries(
+    getConfirmedPhotoEntries(entries)
+  );
+}
+
+export function buildPhotoAutomationJob(confirmedEntries, sessionId) {
+  const items = buildPhotoAutomationPayloadFromConfirmedEntries(confirmedEntries);
+
+  return {
+    sessionId: sessionId || Date.now(),
+    createdAt: new Date().toISOString(),
+    totalItems: items.length,
+    source: "photo-order",
+    items,
+  };
+}
+
+export function getPhotoAutomationPreviewText(entries) {
+  const payload = buildPhotoAutomationPayload(entries);
+
+  if (payload.length === 0) return "";
+
+  return payload
+    .map((entry) => `${entry.sequence}. ${entry.itemName}\t${entry.quantity}`)
+    .join("\n");
 }
 
 export function getMockPhotoText() {

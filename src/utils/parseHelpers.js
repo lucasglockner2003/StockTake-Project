@@ -16,7 +16,6 @@ const numberWords = {
   four: 4,
   for: 4,
   fore: 4,
-  through: 4,
 
   five: 5,
   hive: 5,
@@ -33,7 +32,7 @@ const numberWords = {
 };
 
 function normalizeText(text) {
-  return text.trim().toLowerCase();
+  return String(text || "").trim().toLowerCase();
 }
 
 function normalizeNumberToken(token) {
@@ -76,35 +75,25 @@ export function parseVoiceLine(line) {
   const parts = normalized.split(" ").filter(Boolean);
   if (parts.length < 2) return null;
 
-  const lastWord = parts.slice(-1).join(" ");
-  const lastTwoWords = parts.slice(-2).join(" ");
-  const lastThreeWords = parts.slice(-3).join(" ");
+  for (let tokenCount = 3; tokenCount >= 1; tokenCount -= 1) {
+    if (parts.length <= tokenCount) continue;
 
-  let quantity = parseSpokenNumber(lastWord);
-  let spokenName = parts.slice(0, -1).join(" ");
+    const quantityText = parts.slice(-tokenCount).join(" ");
+    const quantity = parseSpokenNumber(quantityText);
 
-  if (quantity === null && parts.length >= 3) {
-    quantity = parseSpokenNumber(lastTwoWords);
-    spokenName = parts.slice(0, -2).join(" ");
+    if (quantity === null) continue;
+
+    const spokenName = parts.slice(0, -tokenCount).join(" ").trim();
+
+    if (!spokenName) continue;
+
+    return {
+      rawLine: normalized,
+      spokenName,
+      quantity,
+      source: "voice",
+    };
   }
 
-  if (quantity === null && parts.length >= 4) {
-    quantity = parseSpokenNumber(lastThreeWords);
-    spokenName = parts.slice(0, -3).join(" ");
-  }
-
-  if (quantity === null) {
-    return null;
-  }
-
-  spokenName = spokenName.trim();
-
-  if (!spokenName) {
-    return null;
-  }
-
-  return {
-    spokenName,
-    quantity,
-  };
+  return null;
 }

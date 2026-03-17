@@ -1,5 +1,5 @@
 function normalizeText(text) {
-  return text
+  return String(text || "")
     .trim()
     .toLowerCase()
     .replace(/[^\w\s]/g, "")
@@ -8,22 +8,22 @@ function normalizeText(text) {
 
 function getItemSearchTerms(item) {
   const aliases = item.aliases || [];
-  return [item.name, ...aliases].map(normalizeText);
+  return [item.name, ...aliases].map(normalizeText).filter(Boolean);
 }
 
 function levenshteinDistance(a, b) {
   const matrix = [];
 
-  for (let i = 0; i <= b.length; i++) {
+  for (let i = 0; i <= b.length; i += 1) {
     matrix[i] = [i];
   }
 
-  for (let j = 0; j <= a.length; j++) {
+  for (let j = 0; j <= a.length; j += 1) {
     matrix[0][j] = j;
   }
 
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
+  for (let i = 1; i <= b.length; i += 1) {
+    for (let j = 1; j <= a.length; j += 1) {
       if (b[i - 1] === a[j - 1]) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
@@ -76,8 +76,9 @@ function findBestMatchFromList(spokenName, candidateItems) {
 
     const hasIncludesMatch = searchTerms.some(
       (term) =>
-        term.includes(normalizedSpokenName) ||
-        normalizedSpokenName.includes(term)
+        term.length >= 3 &&
+        (term.includes(normalizedSpokenName) ||
+          normalizedSpokenName.includes(term))
     );
 
     if (hasIncludesMatch) {
