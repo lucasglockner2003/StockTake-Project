@@ -229,15 +229,7 @@ function PhotoPage({ items, setCurrentPage }) {
           Back to Stock Take
         </button>
 
-        <button
-          onClick={() => setCurrentPage("automation")}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#ff9800",
-          }}
-        >
-          View Automation Jobs
-        </button>
+        
       </div>
 
       <div style={{ marginBottom: "20px" }}>
@@ -303,6 +295,17 @@ function PhotoPage({ items, setCurrentPage }) {
         >
           Process Text
         </button>
+
+        <button
+          onClick={() => setCurrentPage("automation")}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#ff9800",
+          }}
+        >
+          View Automation Jobs
+        </button>
+        
       </div>
 
       {isProcessingImage && (

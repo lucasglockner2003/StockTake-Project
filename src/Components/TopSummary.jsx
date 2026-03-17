@@ -75,8 +75,13 @@ function TopSummary({
         <button
           onClick={() => setCurrentPage("voice")}
           style={{
-            ...styles.primaryButton,
+            padding: "12px 20px",
             backgroundColor: "#002fff",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
           }}
         >
           Stock Voice
@@ -85,8 +90,13 @@ function TopSummary({
         <button
           onClick={handleReset}
           style={{
-            ...styles.primaryButton,
+            padding: "12px 20px",
             backgroundColor: "#d9534f",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
           }}
         >
           Reset Stock Take
@@ -96,9 +106,13 @@ function TopSummary({
           disabled={missingItems > 0}
           onClick={() => setCurrentPage("review")}
           style={{
-            ...styles.primaryButton,
+            padding: "12px 20px",
             backgroundColor: missingItems > 0 ? "#ccc" : "#4CAF50",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
             cursor: missingItems > 0 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
           }}
         >
           {missingItems > 0
@@ -109,11 +123,26 @@ function TopSummary({
         <button
           onClick={() => setCurrentPage("photo")}
           style={{
-            ...styles.primaryButton,
+            padding: "12px 20px",
             backgroundColor: "#6f42c1",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
           }}
         >
           Photo Order
+        </button>
+
+        <button
+          onClick={() => setCurrentPage("automation")}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#ff9800",
+          }}
+        >
+          View Automation Jobs
         </button>
       </div>
 

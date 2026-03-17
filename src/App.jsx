@@ -94,7 +94,7 @@ function App() {
         padding: "20px",
         fontFamily: "Arial, sans-serif",
         width: "100%",
-        maxWidth: "1000px",
+        maxWidth: "1460px",
         margin: "0 auto",
       }}
     >
