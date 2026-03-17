@@ -4,6 +4,7 @@ import StockTakeTable from "./Components/StockTakeTable";
 import ReviewPage from "./Components/ReviewPage";
 import StockVoicePage from "./Components/StockVoicePage";
 import PhotoPage from "./Components/PhotoPage";
+import AutomationJobsPage from "./Components/AutomationJobsPage";
 import { useStockTake } from "./hooks/useStockTake";
 import {
   loadVoiceData,
@@ -19,16 +20,18 @@ function App() {
 
   const initialVoiceData = useMemo(() => loadVoiceData(), []);
 
-  const [selectedArea, setSelectedArea] = useState(initialVoiceData.selectedArea);
+  const [selectedArea, setSelectedArea] = useState(
+    initialVoiceData.selectedArea || ""
+  );
   const [isListening, setIsListening] = useState(false);
   const [transcriptLines, setTranscriptLines] = useState(
-    initialVoiceData.transcriptLines
+    initialVoiceData.transcriptLines || []
   );
   const [voiceEntriesByArea, setVoiceEntriesByArea] = useState(
-    initialVoiceData.voiceEntriesByArea
+    initialVoiceData.voiceEntriesByArea || {}
   );
   const [usedAreasOrder, setUsedAreasOrder] = useState(
-    initialVoiceData.usedAreasOrder
+    initialVoiceData.usedAreasOrder || []
   );
 
   const [autoApplyMode, setAutoApplyMode] = useState(false);
@@ -76,7 +79,6 @@ function App() {
     setTranscriptLines(emptyVoiceData.transcriptLines);
     setVoiceEntriesByArea(emptyVoiceData.voiceEntriesByArea);
     setUsedAreasOrder(emptyVoiceData.usedAreasOrder);
-    setVoiceToast("");
 
     clearVoiceData();
   }
@@ -167,6 +169,10 @@ function App() {
 
       {currentPage === "photo" && (
         <PhotoPage items={items} setCurrentPage={setCurrentPage} />
+      )}
+
+      {currentPage === "automation" && (
+        <AutomationJobsPage setCurrentPage={setCurrentPage} />
       )}
     </div>
   );

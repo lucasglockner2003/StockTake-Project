@@ -8,6 +8,7 @@ import {
   buildPhotoAutomationPayloadFromConfirmedEntries,
   buildPhotoAutomationJob,
 } from "../utils/photoHelpers";
+import { pushAutomationJob } from "../utils/automationHelpers";
 import { styles } from "../utils/uiStyles";
 import {
   updateEntryQuantity,
@@ -187,6 +188,17 @@ function PhotoPage({ items, setCurrentPage }) {
     }
   }
 
+  function handleSendToAutomationQueue() {
+    if (confirmedEntries.length === 0) {
+      alert("There is no confirmed output to send.");
+      return;
+    }
+
+    const job = pushAutomationJob(automationJob);
+    alert(`Automation job created: ${job.jobId}`);
+    setCurrentPage("automation");
+  }
+
   const searchableItems = useMemo(() => items.slice(), [items]);
   const liveValidEntriesCount = useMemo(
     () => getConfirmedPhotoEntries(photoEntries).length,
@@ -205,9 +217,28 @@ function PhotoPage({ items, setCurrentPage }) {
     <div>
       <h1>Photo Order</h1>
 
-      <button onClick={() => setCurrentPage("stock")} style={styles.backButton}>
-        Back to Stock Take
-      </button>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
+          marginBottom: "20px",
+        }}
+      >
+        <button onClick={() => setCurrentPage("stock")} style={styles.backButton}>
+          Back to Stock Take
+        </button>
+
+        <button
+          onClick={() => setCurrentPage("automation")}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#ff9800",
+          }}
+        >
+          View Automation Jobs
+        </button>
+      </div>
 
       <div style={{ marginBottom: "20px" }}>
         <input type="file" accept="image/*" onChange={handleImageChange} />
@@ -509,6 +540,18 @@ Salsa: 15`}
           }}
         >
           Copy Automation Payload
+        </button>
+
+        <button
+          onClick={handleSendToAutomationQueue}
+          disabled={confirmedEntries.length === 0}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: confirmedEntries.length === 0 ? "#888" : "#ff9800",
+            cursor: confirmedEntries.length === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          Send To Automation Queue
         </button>
       </div>
     </div>
