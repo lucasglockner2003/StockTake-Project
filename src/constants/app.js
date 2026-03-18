@@ -1,6 +1,7 @@
 export const PAGE_IDS = {
   STOCK: "stock",
   REVIEW: "review",
+  SUPPLIER_REVIEW: "supplier-review",
   VOICE: "voice",
   PHOTO: "photo",
   AUTOMATION: "automation",
@@ -33,4 +34,5 @@ export const SOURCES = {
   PHOTO_ORDER: "photo-order",
   REVIEW_SUGGESTED_ORDER: "review-suggested-order",
   REVIEW_STOCK_TABLE: "review-stock-table",
+  REVIEW_SUPPLIER_ORDER: "review-supplier-order",
 };

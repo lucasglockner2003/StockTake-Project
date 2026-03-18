@@ -232,6 +232,64 @@ export function buildStockTableAutomationJob(items, quantities) {
   });
 }
 
+export function buildSupplierOrderAutomationItems(supplier, supplierItems) {
+  return (supplierItems || [])
+    .filter((item) => item.orderAmount > 0)
+    .map((item, index) => ({
+      sequence: index + 1,
+      itemId: item.id,
+      itemName: item.name,
+      quantity: item.orderAmount,
+      source: SOURCES.REVIEW_SUPPLIER_ORDER,
+      supplier,
+      currentStock: item.currentStock,
+      idealStock: item.idealStock,
+      unit: item.unit,
+      rawLine: `${item.name}\t${item.orderAmount}`,
+    }));
+}
+
+export function buildSupplierOrderPayload(supplier, supplierItems) {
+  const items = buildSupplierOrderAutomationItems(supplier, supplierItems);
+
+  return {
+    supplier,
+    source: SOURCES.REVIEW_SUPPLIER_ORDER,
+    totalItems: items.length,
+    items,
+  };
+}
+
+export function buildSupplierOrderText(supplier, supplierItems) {
+  const payload = buildSupplierOrderPayload(supplier, supplierItems);
+
+  if (payload.items.length === 0) return "";
+
+  const header = ["Item", "Current", "Ideal", "Order", "Unit"].join("\t");
+  const rows = payload.items.map((item) =>
+    [
+      item.itemName,
+      item.currentStock,
+      item.idealStock,
+      item.quantity,
+      item.unit,
+    ].join("\t")
+  );
+
+  return [`Supplier: ${supplier}`, header, ...rows].join("\n");
+}
+
+export function buildSupplierOrderAutomationJob(supplier, supplierItems) {
+  const payload = buildSupplierOrderPayload(supplier, supplierItems);
+
+  return createAutomationJob({
+    sessionId: Date.now(),
+    source: payload.source,
+    totalItems: payload.totalItems,
+    items: payload.items,
+  });
+}
+
 /* =========================
    EXECUTOR
 ========================= */

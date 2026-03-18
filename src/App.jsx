@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import StockTakePage from "./Pages/StockTakePage";
 import ReviewPage from "./Pages/ReviewPage";
+import SupplierOrderReviewPage from "./Pages/SupplierOrderReviewPage";
 import StockVoicePage from "./Pages/StockVoicePage";
 import PhotoPage from "./Pages/PhotoPage";
 import AutomationJobsPage from "./Pages/AutomationJobsPage";
@@ -133,6 +134,13 @@ function App() {
           handleCopyTable={handleCopyTable}
           setCurrentPage={setCurrentPage}
           voiceFilledItems={voiceFilledItems}
+        />
+      )}
+
+      {currentPage === PAGE_IDS.SUPPLIER_REVIEW && (
+        <SupplierOrderReviewPage
+          suggestedOrder={suggestedOrder}
+          setCurrentPage={setCurrentPage}
         />
       )}
 

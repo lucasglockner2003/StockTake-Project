@@ -118,6 +118,16 @@ function ReviewPage({
         >
           View Automation Jobs
         </button>
+
+        <button
+          onClick={() => setCurrentPage(PAGE_IDS.SUPPLIER_REVIEW)}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#607d8b",
+          }}
+        >
+          Supplier Order Review
+        </button>
       </PageActionBar>
 
       <hr style={{ margin: "15px 0" }} />

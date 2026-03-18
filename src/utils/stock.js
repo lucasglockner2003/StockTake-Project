@@ -1,3 +1,5 @@
+export const UNKNOWN_SUPPLIER_LABEL = "Unknown Supplier";
+
 export function isFilled(quantity) {
   return quantity !== undefined && quantity !== null && quantity !== "";
 }
@@ -142,4 +144,19 @@ export function getReviewTableText(items, quantities) {
   });
 
   return [header, ...rows].join("\n");
+}
+
+export function groupSuggestedOrderBySupplier(suggestedOrder) {
+  const validItems = (suggestedOrder || []).filter((item) => item.orderAmount > 0);
+
+  return validItems.reduce((acc, item) => {
+    const supplier = item.supplier || UNKNOWN_SUPPLIER_LABEL;
+
+    if (!acc[supplier]) {
+      acc[supplier] = [];
+    }
+
+    acc[supplier].push(item);
+    return acc;
+  }, {});
 }
