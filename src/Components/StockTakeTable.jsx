@@ -1,4 +1,4 @@
-import { getItemStatus, getStatusColor } from "../utils/statusHelpers";
+import { getItemStatus, getStatusColor } from "../utils/stock";
 
 function StockTakeTable({
   groupedItems,

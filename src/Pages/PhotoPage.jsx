@@ -7,8 +7,8 @@ import {
   getPhotoResultTextFromConfirmedEntries,
   buildPhotoAutomationPayloadFromConfirmedEntries,
   buildPhotoAutomationJob,
-} from "../utils/photoHelpers";
-import { pushAutomationJob } from "../utils/automationHelpers";
+} from "../utils/photo";
+import { addAutomationJob } from "../utils/automation";
 import { styles } from "../utils/uiStyles";
 import {
   updateEntryQuantity,
@@ -16,9 +16,9 @@ import {
   selectEntryMatchedItem,
   deleteEntryAtIndex,
   clearOpenSearchKeyIfDeleted,
-} from "../utils/entryHelpers";
-import { getFilteredItemsForEntry } from "../utils/entrySearchHelpers";
-import EditableEntrySection from "./EditableEntrySection";
+  getFilteredItemsForEntry,
+} from "../utils/entries";
+import EditableEntrySection from "../components/EditableEntrySection";
 
 function PhotoPage({ items, setCurrentPage }) {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -194,7 +194,7 @@ function PhotoPage({ items, setCurrentPage }) {
       return;
     }
 
-    const job = pushAutomationJob(automationJob);
+    const job = addAutomationJob(automationJob);
     alert(`Automation job created: ${job.jobId}`);
     setCurrentPage("automation");
   }

@@ -2,8 +2,8 @@ import {
   getItemStatus,
   getStatusColor,
   getNumericValue,
-} from "../utils/statusHelpers";
-import { pushAutomationJob } from "../utils/automationHelpers";
+} from "../utils/stock";
+import { addAutomationJob } from "../utils/automation";
 import { styles } from "../utils/uiStyles";
 
 function ReviewPage({
@@ -39,7 +39,7 @@ function ReviewPage({
       return;
     }
 
-    const job = pushAutomationJob({
+    const job = addAutomationJob({
       sessionId: Date.now(),
       source: "review-suggested-order",
       totalItems: orderItems.length,
@@ -85,7 +85,7 @@ function ReviewPage({
       return;
     }
 
-    const job = pushAutomationJob({
+    const job = addAutomationJob({
       sessionId: Date.now(),
       source: "review-stock-table",
       totalItems: stockItems.length,

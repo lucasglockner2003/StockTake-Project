@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   clearAutomationQueue,
-  deleteAutomationJob,
   filterAutomationJobs,
   getAutomationJobCounts,
-  incrementAutomationJobAttempt,
-  loadAutomationQueue,
-  resetAutomationJob,
-  setAutomationJobError,
-  updateAutomationJobNotes,
-  updateAutomationJobStatus,
-} from "../utils/automationHelpers";
-import { executeAutomationJob } from "../utils/automationExecutor";
+  getAutomationQueue,
+  removeAutomationJob,
+  updateAutomationJob,
+  executeAutomationJob,
+} from "../utils/automation";
 import { styles } from "../utils/uiStyles";
 
 function badgeStyle(backgroundColor, color) {
@@ -32,48 +28,66 @@ function AutomationJobsPage({ setCurrentPage }) {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    setJobs(loadAutomationQueue());
+    setJobs(getAutomationQueue());
   }, []);
 
   function refreshJobs() {
-    setJobs(loadAutomationQueue());
+    setJobs(getAutomationQueue());
   }
 
   function handleSetStatus(jobId, status) {
-    const nextQueue = updateAutomationJobStatus(jobId, status);
+    const nextQueue = updateAutomationJob(jobId, (job) => ({
+      ...job,
+      status,
+      lastError: status === "failed" ? job.lastError : "",
+    }));
     setJobs(nextQueue);
   }
 
   function handleIncrementAttempt(jobId) {
-    const nextQueue = incrementAutomationJobAttempt(jobId);
-    setJobs(nextQueue);
-  }
+  const nextQueue = updateAutomationJob(jobId, (job) => ({
+    ...job,
+    attemptCount: (job.attemptCount || 0) + 1,
+  }));
+  setJobs(nextQueue);
+}
 
   function handleSetError(jobId) {
-    const errorMessage = window.prompt("Enter the last error message:");
-    if (errorMessage === null) return;
+  const errorMessage = window.prompt("Enter the last error message:");
+  if (errorMessage === null) return;
 
-    const nextQueue = setAutomationJobError(jobId, errorMessage);
-    setJobs(nextQueue);
-  }
+  const nextQueue = updateAutomationJob(jobId, {
+    status: "failed",
+    lastError: errorMessage || "",
+  });
+
+  setJobs(nextQueue);
+}
 
   function handleUpdateNotes(jobId, currentNotes) {
-    const nextNotes = window.prompt("Edit notes for this job:", currentNotes || "");
-    if (nextNotes === null) return;
+  const nextNotes = window.prompt("Edit notes for this job:", currentNotes || "");
+  if (nextNotes === null) return;
 
-    const nextQueue = updateAutomationJobNotes(jobId, nextNotes);
-    setJobs(nextQueue);
-  }
+  const nextQueue = updateAutomationJob(jobId, {
+    notes: nextNotes,
+  });
+
+  setJobs(nextQueue);
+}
 
   function handleResetJob(jobId) {
-    const nextQueue = resetAutomationJob(jobId);
-    setJobs(nextQueue);
-  }
+  const nextQueue = updateAutomationJob(jobId, {
+    status: "pending",
+    lastError: "",
+  });
+
+  setJobs(nextQueue);
+}
 
   function handleDeleteJob(jobId) {
-    const nextQueue = deleteAutomationJob(jobId);
-    setJobs(nextQueue);
-  }
+  const nextQueue = removeAutomationJob(jobId);
+  setJobs(nextQueue);
+}
 
   function handleClearQueue() {
     const confirmed = window.confirm(

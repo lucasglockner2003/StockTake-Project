@@ -1,8 +1,8 @@
-import { findBestMatch } from "./matchHelpers";
+import { findBestMatch } from "./matching";
 import {
   createMatchedEntryFromMatchResult,
   createUnmatchedEntry,
-} from "./entryFactories";
+} from "./entries";
 
 function cleanLine(line) {
   return String(line || "")

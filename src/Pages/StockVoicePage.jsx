@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { createSpeechRecognition } from "../utils/voiceHelpers";
-import { parseVoiceLine } from "../utils/parseHelpers";
-import { findBestMatchInArea } from "../utils/matchHelpers";
-import { createMatchedEntryFromMatchResult } from "../utils/entryFactories";
+import { createSpeechRecognition, parseVoiceLine } from "../utils/voice";
+import { findBestMatchInArea } from "../utils/matching";
 import { styles } from "../utils/uiStyles";
 import {
+  createMatchedEntryFromMatchResult,
   updateEntryQuantity,
   updateEntryMatchSearch,
   selectEntryMatchedItem,
   deleteEntryAtIndex,
   clearOpenSearchKeyIfDeleted,
-} from "../utils/entryHelpers";
-import { getFilteredItemsForEntry } from "../utils/entrySearchHelpers";
-import EditableEntrySection from "./EditableEntrySection";
+  getFilteredItemsForEntry,
+} from "../utils/entries";
+import EditableEntrySection from "../components/EditableEntrySection";
 
 function StockVoicePage({
   areas,

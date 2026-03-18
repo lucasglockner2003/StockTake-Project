@@ -14,7 +14,7 @@ import {
   getOrderText,
   groupItemsByArea,
   getReviewTableText,
-} from "../utils/stockHelpers";
+} from "../utils/stock";
 
 function canApplyEntry(entry) {
   return (

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import TopSummary from "./Components/TopSummary";
-import StockTakeTable from "./Components/StockTakeTable";
-import ReviewPage from "./Components/ReviewPage";
-import StockVoicePage from "./Components/StockVoicePage";
-import PhotoPage from "./Components/PhotoPage";
-import AutomationJobsPage from "./Components/AutomationJobsPage";
+import StockTakePage from "./Pages/StockTakePage";
+import ReviewPage from "./Pages/ReviewPage";
+import StockVoicePage from "./Pages/StockVoicePage";
+import PhotoPage from "./Pages/PhotoPage";
+import AutomationJobsPage from "./Pages/AutomationJobsPage";
 import { useStockTake } from "./hooks/useStockTake";
 import {
   loadVoiceData,
@@ -99,31 +98,25 @@ function App() {
       }}
     >
       {currentPage === "stock" && (
-        <>
-          <TopSummary
-            filledItems={filledItems}
-            totalItems={items.length}
-            criticalCount={criticalCount}
-            lowCount={lowCount}
-            checkCount={checkCount}
-            progress={progress}
-            lastSaved={lastSaved}
-            missingItems={missingItems}
-            search={search}
-            setSearch={setSearch}
-            handleReset={handleReset}
-            setCurrentPage={setCurrentPage}
-          />
-
-          <StockTakeTable
-            groupedItems={groupedItems}
-            quantities={quantities}
-            search={search}
-            inputRefs={inputRefs}
-            handleQuantityChange={handleQuantityChange}
-            voiceFilledItems={voiceFilledItems}
-          />
-        </>
+        <StockTakePage
+          filledItems={filledItems}
+          items={items}
+          criticalCount={criticalCount}
+          lowCount={lowCount}
+          checkCount={checkCount}
+          progress={progress}
+          lastSaved={lastSaved}
+          missingItems={missingItems}
+          search={search}
+          setSearch={setSearch}
+          handleReset={handleReset}
+          setCurrentPage={setCurrentPage}
+          groupedItems={groupedItems}
+          quantities={quantities}
+          inputRefs={inputRefs}
+          handleQuantityChange={handleQuantityChange}
+          voiceFilledItems={voiceFilledItems}
+        />
       )}
 
       {currentPage === "review" && (
