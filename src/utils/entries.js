@@ -1,12 +1,14 @@
+import { ENTRY_MATCH_TYPES, ENTRY_STATUSES, SOURCES } from "../constants/app";
+
 export function createEntry({
   rawLine = "",
   spokenName = "",
   quantity = "",
   matchedItem = "-",
   matchedItemId = null,
-  status = "Not Found",
+  status = ENTRY_STATUSES.NOT_FOUND,
   matchSearch = "",
-  source = "unknown",
+  source = SOURCES.UNKNOWN,
 }) {
   return {
     rawLine,
@@ -24,7 +26,7 @@ export function createUnmatchedEntry({
   rawLine = "",
   spokenName = "",
   quantity = "",
-  source = "unknown",
+  source = SOURCES.UNKNOWN,
 }) {
   return createEntry({
     rawLine,
@@ -32,7 +34,7 @@ export function createUnmatchedEntry({
     quantity,
     matchedItem: "-",
     matchedItemId: null,
-    status: "Not Found",
+    status: ENTRY_STATUSES.NOT_FOUND,
     matchSearch: "",
     source,
   });
@@ -43,7 +45,7 @@ export function createMatchedEntryFromMatchResult({
   spokenName = "",
   quantity = "",
   matchResult,
-  source = "unknown",
+  source = SOURCES.UNKNOWN,
 }) {
   return createEntry({
     rawLine,
@@ -52,11 +54,11 @@ export function createMatchedEntryFromMatchResult({
     matchedItem: matchResult?.matchedItem ? matchResult.matchedItem.name : "-",
     matchedItemId: matchResult?.matchedItem ? matchResult.matchedItem.id : null,
     status:
-      matchResult?.matchType === "exact"
-        ? "Matched"
-        : matchResult?.matchType === "fuzzy"
-        ? "Fuzzy Match"
-        : "Not Found",
+      matchResult?.matchType === ENTRY_MATCH_TYPES.EXACT
+        ? ENTRY_STATUSES.MATCHED
+        : matchResult?.matchType === ENTRY_MATCH_TYPES.FUZZY
+        ? ENTRY_STATUSES.FUZZY_MATCH
+        : ENTRY_STATUSES.NOT_FOUND,
     matchSearch: matchResult?.matchedItem ? matchResult.matchedItem.name : "",
     source,
   });
@@ -85,7 +87,7 @@ export function updateEntryMatchSearch(entries, indexToUpdate, newSearch) {
           matchSearch: newSearch,
           matchedItem: newSearch === "" ? "-" : entry.matchedItem,
           matchedItemId: newSearch === "" ? null : entry.matchedItemId,
-          status: newSearch === "" ? "Not Found" : entry.status,
+          status: newSearch === "" ? ENTRY_STATUSES.NOT_FOUND : entry.status,
         }
       : entry
   );
@@ -98,7 +100,7 @@ export function selectEntryMatchedItem(entries, indexToUpdate, item) {
           ...entry,
           matchedItem: item.name,
           matchedItemId: item.id,
-          status: "Matched",
+          status: ENTRY_STATUSES.MATCHED,
           matchSearch: item.name,
         }
       : entry
@@ -128,8 +130,8 @@ export function getFilteredItemsForEntry(items, entry, limit = 8) {
 }
 
 export function getEntryStatusColor(status) {
-  if (status === "Matched") return "#4CAF50";
-  if (status === "Fuzzy Match") return "#ff9800";
-  if (status === "Not Found") return "#ff4d4d";
+  if (status === ENTRY_STATUSES.MATCHED) return "#4CAF50";
+  if (status === ENTRY_STATUSES.FUZZY_MATCH) return "#ff9800";
+  if (status === ENTRY_STATUSES.NOT_FOUND) return "#ff4d4d";
   return "#999";
 }

@@ -1,3 +1,4 @@
+import { SOURCES } from "../constants/app";
 import { findBestMatch } from "./matching";
 import {
   createMatchedEntryFromMatchResult,
@@ -108,7 +109,7 @@ export function parsePhotoTextToEntries(text, items) {
         rawLine: line,
         spokenName: line,
         quantity: "",
-        source: "photo",
+        source: SOURCES.PHOTO,
       });
     }
 
@@ -119,7 +120,7 @@ export function parsePhotoTextToEntries(text, items) {
       spokenName: parsed.name,
       quantity: parsed.quantity,
       matchResult,
-      source: "photo",
+      source: SOURCES.PHOTO,
     });
   });
 }
@@ -144,7 +145,7 @@ export function getConfirmedPhotoEntries(entries) {
     itemName: entry.matchedItem,
     displayName: entry.matchedItem,
     quantity: Number(entry.quantity),
-    source: entry.source || "photo",
+    source: entry.source || SOURCES.PHOTO,
     spokenName: entry.spokenName,
     rawLine: entry.rawLine,
     status: entry.status,
@@ -194,7 +195,7 @@ export function buildPhotoAutomationJob(confirmedEntries, sessionId) {
     sessionId: sessionId || Date.now(),
     createdAt: new Date().toISOString(),
     totalItems: items.length,
-    source: "photo-order",
+    source: SOURCES.PHOTO_ORDER,
     items,
   };
 }

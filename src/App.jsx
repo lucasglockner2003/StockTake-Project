@@ -4,7 +4,7 @@ import ReviewPage from "./Pages/ReviewPage";
 import StockVoicePage from "./Pages/StockVoicePage";
 import PhotoPage from "./Pages/PhotoPage";
 import AutomationJobsPage from "./Pages/AutomationJobsPage";
-import { PAGE_IDS } from "./constants/pages";
+import { PAGE_IDS } from "./constants/app";
 import { useStockTake } from "./hooks/useStockTake";
 import {
   loadVoiceData,

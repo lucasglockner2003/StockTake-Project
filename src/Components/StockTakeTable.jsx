@@ -1,4 +1,6 @@
 import { getItemStatus, getStatusColor } from "../utils/stock";
+import SectionTableHeader from "./SectionTableHeader";
+import VoiceTag from "./VoiceTag";
 
 function StockTakeTable({
   groupedItems,
@@ -11,9 +13,7 @@ function StockTakeTable({
   const filteredSearch = String(search || "").toLowerCase();
 
   const visibleItems = Object.entries(groupedItems).flatMap(([, areaItems]) =>
-    areaItems.filter((item) =>
-      item.name.toLowerCase().includes(filteredSearch)
-    )
+    areaItems.filter((item) => item.name.toLowerCase().includes(filteredSearch))
   );
 
   return (
@@ -29,27 +29,13 @@ function StockTakeTable({
           <div key={area} style={{ marginBottom: "30px" }}>
             <h2 style={{ marginBottom: "10px", fontSize: "24px" }}>{area}</h2>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1.1fr 0.4fr 0.4fr 0.7fr auto 0.6fr",
-                gap: "7px",
-                alignItems: "center",
-                padding: "6px 10px",
-                marginBottom: "6px",
-                fontSize: "12px",
-                fontWeight: "bold",
-                color: "#aaa",
-                borderBottom: "1px solid #444",
-              }}
-            >
-              <div>Item</div>
-              <div>Ideal</div>
-              <div>Unit</div>
-              <div>Count</div>
-              <div>Action</div>
-              <div>Status</div>
-            </div>
+            <SectionTableHeader
+              columns={["Item", "Ideal", "Unit", "Count", "Action", "Status"]}
+              gridTemplateColumns="1.1fr 0.4fr 0.4fr 0.7fr auto 0.6fr"
+              gap="7px"
+              padding="6px 10px"
+              marginBottom="6px"
+            />
 
             {filteredItems.map((item) => {
               const status = getItemStatus(item, quantities[item.id]);
@@ -75,21 +61,7 @@ function StockTakeTable({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <strong>{item.name}</strong>
-                    {voiceFilledItems[item.id] && (
-                      <span
-                        title="Filled by voice"
-                        style={{
-                          fontSize: "11px",
-                          backgroundColor: "#1e88e5",
-                          color: "white",
-                          borderRadius: "999px",
-                          padding: "2px 6px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        🎤 Voice
-                      </span>
-                    )}
+                    {voiceFilledItems[item.id] && <VoiceTag />}
                   </div>
 
                   <div>{item.idealStock}</div>

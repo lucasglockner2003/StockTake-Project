@@ -1,10 +1,19 @@
+import { PAGE_IDS } from "../constants/app";
+import {
+  addAutomationJob,
+  buildStockTableAutomationJob,
+  buildSuggestedOrderAutomationJob,
+} from "../utils/automation";
 import {
   getItemStatus,
   getStatusColor,
   getNumericValue,
 } from "../utils/stock";
-import { addAutomationJob } from "../utils/automation";
 import { styles } from "../utils/uiStyles";
+import PageActionBar from "../components/PageActionBar";
+import SectionTableHeader from "../components/SectionTableHeader";
+import StatusBadge from "../components/StatusBadge";
+import VoiceTag from "../components/VoiceTag";
 
 function ReviewPage({
   items,
@@ -20,110 +29,73 @@ function ReviewPage({
   voiceFilledItems,
 }) {
   function handleSendSuggestedOrderToQueue() {
-    const orderItems = suggestedOrder
-      .filter((item) => item.orderAmount > 0)
-      .map((item, index) => ({
-        sequence: index + 1,
-        itemId: item.id,
-        itemName: item.name,
-        quantity: item.orderAmount,
-        source: "review-suggested-order",
-        currentStock: item.currentStock,
-        idealStock: item.idealStock,
-        unit: item.unit,
-        rawLine: `${item.name}\t${item.orderAmount}`,
-      }));
+    const jobData = buildSuggestedOrderAutomationJob(suggestedOrder);
 
-    if (orderItems.length === 0) {
+    if (jobData.items.length === 0) {
       alert("There are no suggested order items to send.");
       return;
     }
 
-    const job = addAutomationJob({
-      sessionId: Date.now(),
-      source: "review-suggested-order",
-      totalItems: orderItems.length,
-      items: orderItems,
-    });
-
+    const job = addAutomationJob(jobData);
     alert(`Suggested order job created: ${job.jobId}`);
-    setCurrentPage("automation");
+    setCurrentPage(PAGE_IDS.AUTOMATION);
   }
 
   function handleSendStockTableToQueue() {
-    const stockItems = items.map((item, index) => {
-      const currentStock = getNumericValue(quantities[item.id]);
-      const status = getItemStatus(item, quantities[item.id]);
-      const orderAmount = Math.max(item.idealStock - currentStock, 0);
+    const jobData = buildStockTableAutomationJob(items, quantities);
 
-      return {
-        sequence: index + 1,
-        itemId: item.id,
-        itemName: item.name,
-        quantity: currentStock,
-        source: "review-stock-table",
-        currentStock,
-        idealStock: item.idealStock,
-        orderAmount,
-        status,
-        area: item.area,
-        unit: item.unit,
-        rawLine: [
-          item.name,
-          item.area,
-          item.unit,
-          item.idealStock,
-          currentStock,
-          status,
-          orderAmount,
-        ].join("\t"),
-      };
-    });
-
-    if (stockItems.length === 0) {
+    if (jobData.items.length === 0) {
       alert("There is no stock table data to send.");
       return;
     }
 
-    const job = addAutomationJob({
-      sessionId: Date.now(),
-      source: "review-stock-table",
-      totalItems: stockItems.length,
-      items: stockItems,
-    });
-
+    const job = addAutomationJob(jobData);
     alert(`Stock table job created: ${job.jobId}`);
-    setCurrentPage("automation");
+    setCurrentPage(PAGE_IDS.AUTOMATION);
   }
 
   return (
     <div>
       <h1>Stock Take Review</h1>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
-        }}
-      >
-        <div style={badgeStyle("#e8f5e9", "#4CAF50")}>OK {okCount}</div>
-        <div style={badgeStyle("#fff3e0", "#ff9800")}>Low {lowCount}</div>
-        <div style={badgeStyle("#ffebee", "#ff4d4d")}>Critical {criticalCount}</div>
-        <div style={badgeStyle("#fff8e1", "#ff9800")}>Check {checkCount}</div>
-      </div>
+      <PageActionBar gap="12px">
+        <StatusBadge
+          label="OK"
+          value={okCount}
+          backgroundColor="#e8f5e9"
+          textColor="#4CAF50"
+          padding="12px 18px"
+          borderRadius="12px"
+        />
+        <StatusBadge
+          label="Low"
+          value={lowCount}
+          backgroundColor="#fff3e0"
+          textColor="#ff9800"
+          padding="12px 18px"
+          borderRadius="12px"
+        />
+        <StatusBadge
+          label="Critical"
+          value={criticalCount}
+          backgroundColor="#ffebee"
+          textColor="#ff4d4d"
+          padding="12px 18px"
+          borderRadius="12px"
+        />
+        <StatusBadge
+          label="Check"
+          value={checkCount}
+          backgroundColor="#fff8e1"
+          textColor="#ff9800"
+          padding="12px 18px"
+          borderRadius="12px"
+        />
+      </PageActionBar>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "15px",
-        }}
-      >
+      <PageActionBar marginBottom="15px">
         <button
-          onClick={() => setCurrentPage("stock")}
+          onClick={() => setCurrentPage(PAGE_IDS.STOCK)}
           style={{
             padding: "10px 16px",
             backgroundColor: "#ccc",
@@ -138,7 +110,7 @@ function ReviewPage({
         </button>
 
         <button
-          onClick={() => setCurrentPage("automation")}
+          onClick={() => setCurrentPage(PAGE_IDS.AUTOMATION)}
           style={{
             ...styles.primaryButton,
             backgroundColor: "#ff9800",
@@ -146,32 +118,22 @@ function ReviewPage({
         >
           View Automation Jobs
         </button>
-        
-      </div>
+      </PageActionBar>
 
       <hr style={{ margin: "15px 0" }} />
 
-     <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "15px",
-        }}
-      >
-      
-      <button
-        onClick={handleCopyTable}
-        style={{
-          ...styles.primaryButton,
-          backgroundColor: "#0077ff",
-    }}
-      >
-        Copy Full Table
-      </button>
-       
+      <PageActionBar marginBottom="15px">
+        <button
+          onClick={handleCopyTable}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#0077ff",
+          }}
+        >
+          Copy Full Table
+        </button>
 
-      <button
+        <button
           onClick={handleSendStockTableToQueue}
           style={{
             ...styles.primaryButton,
@@ -180,30 +142,12 @@ function ReviewPage({
         >
           Send Stock Table To Queue
         </button>
-    </div>
-     
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.4fr 1fr 0.5fr 0.6fr 0.7fr 0.8fr 0.8fr",
-          gap: "8px",
-          alignItems: "center",
-          padding: "8px 10px",
-          marginBottom: "8px",
-          fontSize: "12px",
-          fontWeight: "bold",
-          color: "#aaa",
-          borderBottom: "1px solid #444",
-        }}
-      >
-        <div>Item</div>
-        <div>Area</div>
-        <div>Unit</div>
-        <div>Ideal</div>
-        <div>Count</div>
-        <div>Status</div>
-        <div>Order</div>
-      </div>
+      </PageActionBar>
+
+      <SectionTableHeader
+        columns={["Item", "Area", "Unit", "Ideal", "Count", "Status", "Order"]}
+        gridTemplateColumns="1.4fr 1fr 0.5fr 0.6fr 0.7fr 0.8fr 0.8fr"
+      />
 
       {items.map((item) => {
         const currentStock = getNumericValue(quantities[item.id]);
@@ -228,21 +172,7 @@ function ReviewPage({
           >
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <strong>{item.name}</strong>
-              {voiceFilledItems[item.id] && (
-                <span
-                  title="Filled by voice"
-                  style={{
-                    fontSize: "11px",
-                    backgroundColor: "#1e88e5",
-                    color: "white",
-                    borderRadius: "999px",
-                    padding: "2px 6px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  🎤 Voice
-                </span>
-              )}
+              {voiceFilledItems[item.id] && <VoiceTag />}
             </div>
             <div>{item.area}</div>
             <div>{item.unit}</div>
@@ -256,15 +186,7 @@ function ReviewPage({
 
       <h2>Suggested Order</h2>
 
-
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "15px",
-        }}
-      >
+      <PageActionBar marginBottom="15px">
         <button
           onClick={handleCopyOrder}
           style={{
@@ -284,27 +206,15 @@ function ReviewPage({
         >
           Send Suggested Order To Queue
         </button>
-      </div>
+      </PageActionBar>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.2fr 0.7fr 0.7fr 1fr",
-          gap: "6px",
-          alignItems: "center",
-          padding: "6px 10px",
-          marginBottom: "6px",
-          fontSize: "12px",
-          fontWeight: "bold",
-          color: "#aaa",
-          borderBottom: "1px solid #444",
-        }}
-      >
-        <div>Item</div>
-        <div>Current</div>
-        <div>Ideal</div>
-        <div>Order</div>
-      </div>
+      <SectionTableHeader
+        columns={["Item", "Current", "Ideal", "Order"]}
+        gridTemplateColumns="1.2fr 0.7fr 0.7fr 1fr"
+        gap="6px"
+        padding="6px 10px"
+        marginBottom="6px"
+      />
 
       {suggestedOrder
         .filter((item) => item.orderAmount > 0)
@@ -334,16 +244,6 @@ function ReviewPage({
         ))}
     </div>
   );
-}
-
-function badgeStyle(backgroundColor, color) {
-  return {
-    backgroundColor,
-    color,
-    padding: "12px 18px",
-    borderRadius: "12px",
-    fontWeight: "bold",
-  };
 }
 
 export default ReviewPage;

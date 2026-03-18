@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ENTRY_STATUSES } from "../constants/app";
 import { items } from "../data/items";
 import {
   clearQuantities,
@@ -20,7 +21,8 @@ function canApplyEntry(entry) {
   return (
     entry?.matchedItemId !== null &&
     entry?.matchedItemId !== undefined &&
-    (entry?.status === "Matched" || entry?.status === "Fuzzy Match") &&
+    (entry?.status === ENTRY_STATUSES.MATCHED ||
+      entry?.status === ENTRY_STATUSES.FUZZY_MATCH) &&
     entry?.quantity !== null &&
     entry?.quantity !== undefined &&
     entry?.quantity !== ""

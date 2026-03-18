@@ -1,21 +1,7 @@
+import { PAGE_IDS } from "../constants/app";
 import { styles } from "../utils/uiStyles";
-
-function SummaryBadge({ label, value, backgroundColor, textColor }) {
-  return (
-    <div
-      style={{
-        backgroundColor,
-        color: textColor,
-        padding: "8px 14px",
-        borderRadius: "999px",
-        fontWeight: "bold",
-        fontSize: "14px",
-      }}
-    >
-      {label} {value}
-    </div>
-  );
-}
+import PageActionBar from "./PageActionBar";
+import StatusBadge from "./StatusBadge";
 
 function ProgressBar({ progress }) {
   return (
@@ -61,42 +47,39 @@ function TopSummary({
     <div>
       <h1>SmartOps Stock Take</h1>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "12px",
-        }}
-      >
-        <SummaryBadge
+      <PageActionBar marginBottom="12px">
+        <StatusBadge
           label="Filled"
           value={`${filledItems}/${totalItems}`}
           backgroundColor="#1f1f1f"
           textColor="white"
+          padding="8px 14px"
         />
 
-        <SummaryBadge
+        <StatusBadge
           label="Critical"
           value={criticalCount}
           backgroundColor="#fff7ca"
           textColor="#ff4d4d"
+          padding="8px 14px"
         />
 
-        <SummaryBadge
+        <StatusBadge
           label="Low"
           value={lowCount}
           backgroundColor="#fff7ca"
           textColor="#ff9900"
+          padding="8px 14px"
         />
 
-        <SummaryBadge
+        <StatusBadge
           label="Check"
           value={checkCount}
           backgroundColor="#fff7ca"
           textColor="#ff7b00"
+          padding="8px 14px"
         />
-      </div>
+      </PageActionBar>
 
       <ProgressBar progress={progress} />
 
@@ -106,16 +89,9 @@ function TopSummary({
         </p>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "15px",
-        }}
-      >
+      <PageActionBar marginBottom="15px">
         <button
-          onClick={() => setCurrentPage("voice")}
+          onClick={() => setCurrentPage(PAGE_IDS.VOICE)}
           style={{
             padding: "12px 20px",
             backgroundColor: "#002fff",
@@ -146,7 +122,7 @@ function TopSummary({
 
         <button
           disabled={missingItems > 0}
-          onClick={() => setCurrentPage("review")}
+          onClick={() => setCurrentPage(PAGE_IDS.REVIEW)}
           style={{
             padding: "12px 20px",
             backgroundColor: missingItems > 0 ? "#ccc" : "#4CAF50",
@@ -163,7 +139,7 @@ function TopSummary({
         </button>
 
         <button
-          onClick={() => setCurrentPage("photo")}
+          onClick={() => setCurrentPage(PAGE_IDS.PHOTO)}
           style={{
             padding: "12px 20px",
             backgroundColor: "#6f42c1",
@@ -178,7 +154,7 @@ function TopSummary({
         </button>
 
         <button
-          onClick={() => setCurrentPage("automation")}
+          onClick={() => setCurrentPage(PAGE_IDS.AUTOMATION)}
           style={{
             ...styles.primaryButton,
             backgroundColor: "#ff9800",
@@ -186,7 +162,7 @@ function TopSummary({
         >
           View Automation Jobs
         </button>
-      </div>
+      </PageActionBar>
 
       <input
         type="text"

@@ -1,5 +1,6 @@
 import { getEntryStatusColor } from "../utils/entries";
 import { styles } from "../utils/uiStyles";
+import SectionTableHeader from "./SectionTableHeader";
 
 function EditableEntryRow({
   entry,
@@ -112,13 +113,10 @@ function EditableEntrySection({
     <div style={{ marginBottom: "24px" }}>
       {title ? <h3 style={{ marginBottom: "10px" }}>{title}</h3> : null}
 
-      <div style={styles.sectionHeaderRow}>
-        <div>{firstColumnLabel}</div>
-        <div>Quantity</div>
-        <div>Matched Item</div>
-        <div>Status</div>
-        <div>Action</div>
-      </div>
+      <SectionTableHeader
+        columns={[firstColumnLabel, "Quantity", "Matched Item", "Status", "Action"]}
+        gridTemplateColumns={styles.sectionHeaderRow.gridTemplateColumns}
+      />
 
       {entries.map((entry, index) => {
         const searchKey = `${searchKeyPrefix}-${index}`;

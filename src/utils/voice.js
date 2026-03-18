@@ -1,3 +1,5 @@
+import { SOURCES } from "../constants/app";
+
 const numberWords = {
   zero: 0,
   oh: 0,
@@ -91,7 +93,7 @@ export function parseVoiceLine(line) {
       rawLine: normalized,
       spokenName,
       quantity,
-      source: "voice",
+      source: SOURCES.VOICE,
     };
   }
 

@@ -1,3 +1,6 @@
+import { JOB_STATUSES, SOURCES } from "../constants/app";
+import { getItemStatus, getNumericValue } from "./stock";
+
 const AUTOMATION_QUEUE_KEY = "smartops-automation-queue";
 
 function wait(ms) {
@@ -16,8 +19,8 @@ export function createAutomationJob(jobData = {}) {
     sessionId: jobData.sessionId || Date.now(),
     createdAt: jobData.createdAt || now,
     updatedAt: jobData.updatedAt || now,
-    status: jobData.status || "pending",
-    source: jobData.source || "unknown",
+    status: jobData.status || JOB_STATUSES.PENDING,
+    source: jobData.source || SOURCES.UNKNOWN,
     notes: jobData.notes || "",
     attemptCount: jobData.attemptCount || 0,
     lastError: jobData.lastError || "",
@@ -118,10 +121,10 @@ export function getAutomationJobCounts(jobs) {
   return (jobs || []).reduce(
     (acc, job) => {
       acc.total += 1;
-      if (job.status === "pending") acc.pending += 1;
-      if (job.status === "running") acc.running += 1;
-      if (job.status === "done") acc.done += 1;
-      if (job.status === "failed") acc.failed += 1;
+      if (job.status === JOB_STATUSES.PENDING) acc.pending += 1;
+      if (job.status === JOB_STATUSES.RUNNING) acc.running += 1;
+      if (job.status === JOB_STATUSES.DONE) acc.done += 1;
+      if (job.status === JOB_STATUSES.FAILED) acc.failed += 1;
       return acc;
     },
     {
@@ -134,12 +137,16 @@ export function getAutomationJobCounts(jobs) {
   );
 }
 
-export function filterAutomationJobs(jobs, statusFilter = "all", search = "") {
+export function filterAutomationJobs(
+  jobs,
+  statusFilter = JOB_STATUSES.ALL,
+  search = ""
+) {
   const normalizedSearch = String(search || "").trim().toLowerCase();
 
   return (jobs || []).filter((job) => {
     const matchesStatus =
-      statusFilter === "all" ? true : job.status === statusFilter;
+      statusFilter === JOB_STATUSES.ALL ? true : job.status === statusFilter;
 
     const matchesSearch =
       normalizedSearch === ""
@@ -154,6 +161,75 @@ export function filterAutomationJobs(jobs, statusFilter = "all", search = "") {
   });
 }
 
+export function buildSuggestedOrderAutomationItems(suggestedOrder) {
+  return (suggestedOrder || [])
+    .filter((item) => item.orderAmount > 0)
+    .map((item, index) => ({
+      sequence: index + 1,
+      itemId: item.id,
+      itemName: item.name,
+      quantity: item.orderAmount,
+      source: SOURCES.REVIEW_SUGGESTED_ORDER,
+      currentStock: item.currentStock,
+      idealStock: item.idealStock,
+      unit: item.unit,
+      rawLine: `${item.name}\t${item.orderAmount}`,
+    }));
+}
+
+export function buildSuggestedOrderAutomationJob(suggestedOrder) {
+  const items = buildSuggestedOrderAutomationItems(suggestedOrder);
+
+  return createAutomationJob({
+    sessionId: Date.now(),
+    source: SOURCES.REVIEW_SUGGESTED_ORDER,
+    totalItems: items.length,
+    items,
+  });
+}
+
+export function buildStockTableAutomationItems(items, quantities) {
+  return (items || []).map((item, index) => {
+    const currentStock = getNumericValue(quantities[item.id]);
+    const status = getItemStatus(item, quantities[item.id]);
+    const orderAmount = Math.max(item.idealStock - currentStock, 0);
+
+    return {
+      sequence: index + 1,
+      itemId: item.id,
+      itemName: item.name,
+      quantity: currentStock,
+      source: SOURCES.REVIEW_STOCK_TABLE,
+      currentStock,
+      idealStock: item.idealStock,
+      orderAmount,
+      status,
+      area: item.area,
+      unit: item.unit,
+      rawLine: [
+        item.name,
+        item.area,
+        item.unit,
+        item.idealStock,
+        currentStock,
+        status,
+        orderAmount,
+      ].join("\t"),
+    };
+  });
+}
+
+export function buildStockTableAutomationJob(items, quantities) {
+  const stockItems = buildStockTableAutomationItems(items, quantities);
+
+  return createAutomationJob({
+    sessionId: Date.now(),
+    source: SOURCES.REVIEW_STOCK_TABLE,
+    totalItems: stockItems.length,
+    items: stockItems,
+  });
+}
+
 /* =========================
    EXECUTOR
 ========================= */
@@ -163,7 +239,7 @@ function markJobRunning(queue, jobId) {
     job.jobId === jobId
       ? {
           ...job,
-          status: "running",
+          status: JOB_STATUSES.RUNNING,
           attemptCount: (job.attemptCount || 0) + 1,
           lastError: "",
           updatedAt: new Date().toISOString(),
@@ -177,7 +253,7 @@ function markJobDone(queue, jobId) {
     job.jobId === jobId
       ? {
           ...job,
-          status: "done",
+          status: JOB_STATUSES.DONE,
           updatedAt: new Date().toISOString(),
         }
       : job
@@ -189,7 +265,7 @@ function markJobFailed(queue, jobId, errorMessage) {
     job.jobId === jobId
       ? {
           ...job,
-          status: "failed",
+          status: JOB_STATUSES.FAILED,
           lastError: errorMessage || "Unknown automation error.",
           updatedAt: new Date().toISOString(),
         }
