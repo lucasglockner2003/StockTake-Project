@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import { fileURLToPath } from "url";
 import { runDailyOrderBot } from "../bot-poc/dailyOrderBotRunner.mjs";
+import { runDailyOrderFinalSubmit } from "./finalSubmitRunner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,6 +134,67 @@ app.post("/execute-daily-order", async (req, res) => {
       filledAt: null,
       readyForReviewAt: null,
       executionNotes: error?.message || "Unexpected bot service error.",
+    });
+  } finally {
+    isExecuting = false;
+  }
+});
+
+app.post("/submit-daily-order", async (req, res) => {
+  if (isExecuting) {
+    return res.status(409).json({
+      ok: false,
+      status: "failed",
+      finalExecutionNotes: "Another daily order execution is in progress.",
+    });
+  }
+
+  const normalized = normalizeOrderInput(req.body);
+  if (!normalized.ok) {
+    return res.status(400).json({
+      ok: false,
+      status: "failed",
+      finalExecutionNotes: normalized.message,
+    });
+  }
+
+  isExecuting = true;
+  const finalScreenshotFileName = `final-${Date.now()}-${Math.floor(
+    Math.random() * 10000
+  )}.png`;
+  const finalScreenshotPath = path.join(artifactsDir, finalScreenshotFileName);
+
+  try {
+    const result = await runDailyOrderFinalSubmit({
+      order: normalized.order,
+      baseUrl: BOT_BASE_URL,
+      finalScreenshotPath,
+      headless: true,
+    });
+
+    return res.status(result.ok ? 200 : 500).json({
+      ok: result.ok,
+      status: result.status,
+      supplier: result.supplier,
+      orderNumber: result.orderNumber,
+      finalScreenshot: result.ok ? `/artifacts/${finalScreenshotFileName}` : "",
+      submitStartedAt: result.submitStartedAt,
+      submittedAt: result.submittedAt,
+      submitFinishedAt: result.submitFinishedAt,
+      submitDuration: result.submitDuration,
+      finalExecutionNotes: result.finalExecutionNotes,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      status: "failed",
+      orderNumber: "",
+      finalScreenshot: "",
+      submitStartedAt: new Date().toISOString(),
+      submittedAt: null,
+      submitFinishedAt: new Date().toISOString(),
+      submitDuration: 0,
+      finalExecutionNotes: error?.message || "Unexpected final submit error.",
     });
   } finally {
     isExecuting = false;

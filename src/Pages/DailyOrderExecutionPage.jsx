@@ -4,9 +4,9 @@ import { styles } from "../utils/uiStyles";
 import {
   getDailyOrderQueue,
   getDailyOrderQueueCounts,
-  markDailyOrderChefApproved,
   markDailyOrderReady,
   runDailyOrderBotFill,
+  submitDailyOrderAfterChefApproval,
   unlockDailyOrder,
   updateDailyOrderItemQuantity,
 } from "../utils/dailyOrders";
@@ -78,6 +78,7 @@ function formatDateTime(value) {
 function DailyOrderExecutionPage({ setCurrentPage }) {
   const [dailyOrders, setDailyOrders] = useState([]);
   const [runningBotFillOrderId, setRunningBotFillOrderId] = useState(null);
+  const [runningFinalSubmitOrderId, setRunningFinalSubmitOrderId] = useState(null);
   const [isExecutingAllReady, setIsExecutingAllReady] = useState(false);
   const [executionWarningByOrderId, setExecutionWarningByOrderId] = useState({});
 
@@ -138,20 +139,40 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     refreshDailyOrders();
   }
 
-  function handleMarkChefApproved(orderId) {
-    const result = markDailyOrderChefApproved(orderId);
-    refreshDailyOrders();
-
-    if (!result.ok) {
-      if (result.reason === "already-executed") {
-        setWarning(orderId, "This order is already approved/executed.");
-      } else {
-        setWarning(orderId, "Order is not ready for chef approval.");
-      }
+  async function handleChefApprovedFinalSubmit(orderId) {
+    if (runningBotFillOrderId || isExecutingAllReady) {
+      setWarning(orderId, "A bot fill is in progress. Wait before final submit.");
       return;
     }
 
-    alert("Order marked as chef approved.");
+    if (runningFinalSubmitOrderId && runningFinalSubmitOrderId !== orderId) {
+      setWarning(orderId, "Another final submit is already in progress.");
+      return;
+    }
+
+    clearWarning(orderId);
+
+    try {
+      setRunningFinalSubmitOrderId(orderId);
+      const result = await submitDailyOrderAfterChefApproval(orderId);
+      refreshDailyOrders();
+
+      if (result.reason === "already-executed") {
+        setWarning(orderId, "This order was already finally submitted.");
+      } else if (result.reason === "not-ready-for-final-submit") {
+        setWarning(orderId, "Final submit is allowed only for READY FOR CHEF REVIEW orders.");
+      } else if (result.reason === "another-order-filling") {
+        setWarning(orderId, "Another order is currently being processed.");
+      } else if (result.ok) {
+        alert("Final submit completed successfully.");
+      } else {
+        alert("Final submit failed. Check final execution notes.");
+      }
+    } catch {
+      alert("Failed to submit final order.");
+    } finally {
+      setRunningFinalSubmitOrderId(null);
+    }
   }
 
   function handleOpenSupplierReviewPlaceholder(orderId) {
@@ -162,6 +183,11 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
   async function handleRunBotFill(orderId) {
     const order = sortedDailyOrders.find((entry) => entry.id === orderId);
     if (!order) return;
+
+    if (runningFinalSubmitOrderId) {
+      setWarning(orderId, "A final submit is in progress. Wait until it finishes.");
+      return;
+    }
 
     if (runningBotFillOrderId) {
       setWarning(orderId, "Another order is already filling via bot.");
@@ -213,7 +239,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
       return;
     }
 
-    if (runningBotFillOrderId || hasOrderFilling) {
+    if (runningBotFillOrderId || runningFinalSubmitOrderId || hasOrderFilling) {
       alert("Another order is currently filling. Wait until it finishes.");
       return;
     }
@@ -270,6 +296,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             counts.ready === 0 ||
             isExecutingAllReady ||
             runningBotFillOrderId !== null ||
+            runningFinalSubmitOrderId !== null ||
             hasOrderFilling
           }
           style={{
@@ -278,6 +305,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
               counts.ready === 0 ||
               isExecutingAllReady ||
               runningBotFillOrderId !== null ||
+              runningFinalSubmitOrderId !== null ||
               hasOrderFilling
                 ? "#888"
                 : "#00b894",
@@ -285,6 +313,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
               counts.ready === 0 ||
               isExecutingAllReady ||
               runningBotFillOrderId !== null ||
+              runningFinalSubmitOrderId !== null ||
               hasOrderFilling
                 ? "not-allowed"
                 : "pointer",
@@ -306,14 +335,18 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         <StatusBadge label="Failed" value={counts.failed} backgroundColor="#ffebee" textColor="#d9534f" />
       </PageActionBar>
 
-      {(runningBotFillOrderId !== null || isExecutingAllReady) && (
+      {(runningBotFillOrderId !== null ||
+        runningFinalSubmitOrderId !== null ||
+        isExecutingAllReady) && (
         <NoticePanel
           backgroundColor="#1f1f1f"
           border="1px solid #555"
           color="#8de0ea"
           marginBottom="12px"
         >
-          Bot service is filling order items on mock portal. Final submit remains manual.
+          {runningFinalSubmitOrderId !== null
+            ? "Bot service is performing final submit on mock portal."
+            : "Bot service is filling order items on mock portal. Final submit remains manual."}
         </NoticePanel>
       )}
 
@@ -324,6 +357,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
           const statusColors = getStatusBadgeColors(order.status);
           const warning = executionWarningByOrderId[order.id];
           const isRunningBotFillThis = runningBotFillOrderId === order.id;
+          const isRunningFinalSubmitThis = runningFinalSubmitOrderId === order.id;
           const canEditItems = !order.isLocked && order.status === DAILY_ORDER_STATUSES.DRAFT;
           const canRunBotFill =
             order.status === DAILY_ORDER_STATUSES.READY ||
@@ -333,7 +367,8 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             order.isLocked &&
             order.status !== DAILY_ORDER_STATUSES.EXECUTED &&
             order.status !== DAILY_ORDER_STATUSES.FILLING_ORDER;
-          const canApprove = order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
+          const canFinalSubmit =
+            order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
 
           return (
             <div
@@ -460,6 +495,35 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 </div>
               )}
 
+              {order.status === DAILY_ORDER_STATUSES.EXECUTED && order.orderNumber && (
+                <NoticePanel
+                  backgroundColor="#102410"
+                  border="1px solid #2f6f2f"
+                  color="#9be79b"
+                  padding="10px"
+                  marginBottom="10px"
+                >
+                  Order Number: {order.orderNumber}
+                </NoticePanel>
+              )}
+
+              {order.finalScreenshot && order.status === DAILY_ORDER_STATUSES.EXECUTED && (
+                <div style={{ marginBottom: "10px" }}>
+                  <div style={{ marginBottom: "6px", color: "#aaa", fontSize: "13px" }}>
+                    Final Submit Screenshot
+                  </div>
+                  <img
+                    src={order.finalScreenshot}
+                    alt={`Final submit screenshot ${order.supplier}`}
+                    style={{
+                      maxWidth: "100%",
+                      borderRadius: "8px",
+                      border: "1px solid #444",
+                    }}
+                  />
+                </div>
+              )}
+
               <NoticePanel
                 backgroundColor="#111"
                 border="1px solid #444"
@@ -479,6 +543,14 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 Duration: {order.executionDuration || 0} ms
                 <br />
                 Notes: {order.executionNotes || "No execution notes."}
+                <br />
+                Chef Approved At: {formatDateTime(order.chefApprovedAt)}
+                <br />
+                Submitted At: {formatDateTime(order.submittedAt)}
+                <br />
+                Submit Duration: {order.submitDuration || 0} ms
+                <br />
+                Final Notes: {order.finalExecutionNotes || "No final submit notes."}
               </NoticePanel>
 
               <PageActionBar marginBottom="0">
@@ -488,7 +560,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     !canMarkReady ||
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
-                    runningBotFillOrderId !== null
+                    isRunningFinalSubmitThis ||
+                    runningBotFillOrderId !== null ||
+                    runningFinalSubmitOrderId !== null
                   }
                   style={{
                     ...styles.primaryButton,
@@ -496,7 +570,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       !canMarkReady ||
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
-                      runningBotFillOrderId !== null
+                      isRunningFinalSubmitThis ||
+                      runningBotFillOrderId !== null ||
+                      runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#ff9800",
                   }}
@@ -510,7 +586,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     !canUnlock ||
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
-                    runningBotFillOrderId !== null
+                    isRunningFinalSubmitThis ||
+                    runningBotFillOrderId !== null ||
+                    runningFinalSubmitOrderId !== null
                   }
                   style={{
                     ...styles.primaryButton,
@@ -518,7 +596,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       !canUnlock ||
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
-                      runningBotFillOrderId !== null
+                      isRunningFinalSubmitThis ||
+                      runningBotFillOrderId !== null ||
+                      runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#607d8b",
                   }}
@@ -532,7 +612,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     !canRunBotFill ||
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
+                    isRunningFinalSubmitThis ||
                     runningBotFillOrderId !== null ||
+                    runningFinalSubmitOrderId !== null ||
                     hasOrderFilling
                   }
                   style={{
@@ -541,7 +623,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       !canRunBotFill ||
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
+                      isRunningFinalSubmitThis ||
                       runningBotFillOrderId !== null ||
+                      runningFinalSubmitOrderId !== null ||
                       hasOrderFilling
                         ? "#888"
                         : "#0288d1",
@@ -551,25 +635,31 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 </button>
 
                 <button
-                  onClick={() => handleMarkChefApproved(order.id)}
+                  onClick={() => handleChefApprovedFinalSubmit(order.id)}
                   disabled={
-                    !canApprove ||
+                    !canFinalSubmit ||
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
-                    runningBotFillOrderId !== null
+                    isRunningFinalSubmitThis ||
+                    runningBotFillOrderId !== null ||
+                    runningFinalSubmitOrderId !== null
                   }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      !canApprove ||
+                      !canFinalSubmit ||
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
-                      runningBotFillOrderId !== null
+                      isRunningFinalSubmitThis ||
+                      runningBotFillOrderId !== null ||
+                      runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#4CAF50",
                   }}
                 >
-                  Mark as Chef Approved
+                  {isRunningFinalSubmitThis
+                    ? "Submitting Final Order..."
+                    : "Chef Approved - Final Submit"}
                 </button>
 
                 <button

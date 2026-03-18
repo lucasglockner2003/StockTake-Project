@@ -76,6 +76,12 @@ function normalizeExecutionFields(order) {
     order.readyForReviewAt || executionResult.readyForReviewAt || null;
   const executionNotes =
     order.executionNotes || executionResult.message || "No execution notes.";
+  const chefApprovedAt = order.chefApprovedAt || null;
+  const submittedAt = order.submittedAt || null;
+  const orderNumber = order.orderNumber || "";
+  const finalScreenshot = order.finalScreenshot || "";
+  const submitDuration = order.submitDuration || null;
+  const finalExecutionNotes = order.finalExecutionNotes || "";
 
   return {
     executionStartedAt,
@@ -85,6 +91,12 @@ function normalizeExecutionFields(order) {
     filledAt,
     readyForReviewAt,
     executionNotes,
+    chefApprovedAt,
+    submittedAt,
+    orderNumber,
+    finalScreenshot,
+    submitDuration,
+    finalExecutionNotes,
   };
 }
 
@@ -245,6 +257,12 @@ export function buildDailyConfirmedOrdersFromConfirmedEntries(
       filledAt: null,
       readyForReviewAt: null,
       executionNotes: "",
+      chefApprovedAt: null,
+      submittedAt: null,
+      orderNumber: "",
+      finalScreenshot: "",
+      submitDuration: null,
+      finalExecutionNotes: "",
     })
   );
 }
@@ -514,6 +532,12 @@ export async function runDailyOrderBotFill(orderId) {
     filledAt: null,
     readyForReviewAt: null,
     executionNotes: "Bot service started fill on mock supplier portal.",
+    chefApprovedAt: null,
+    submittedAt: null,
+    orderNumber: "",
+    finalScreenshot: "",
+    submitDuration: null,
+    finalExecutionNotes: "",
   }));
 
   try {
@@ -622,6 +646,136 @@ export async function runDailyOrderBotFill(orderId) {
       queue,
       order: queue.find((order) => order.id === orderId) || null,
       reason: "bot-service-error",
+    };
+  }
+}
+
+export async function submitDailyOrderAfterChefApproval(orderId) {
+  const queueBefore = getDailyOrderQueue();
+  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
+
+  if (!orderBefore) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: null,
+      reason: "not-found",
+    };
+  }
+
+  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "already-executed",
+    };
+  }
+
+  if (orderBefore.status !== DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "not-ready-for-final-submit",
+    };
+  }
+
+  if (hasAnotherOrderFilling(orderId, queueBefore)) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "another-order-filling",
+    };
+  }
+
+  const botPayload = buildDailyOrderBotPayload(orderBefore);
+  if (botPayload.items.length === 0) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "invalid-order-items",
+    };
+  }
+
+  const chefApprovedAt = new Date().toISOString();
+
+  updateDailyOrder(orderId, (order) => ({
+    ...order,
+    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
+    isLocked: true,
+    chefApprovedAt,
+    finalExecutionNotes: "Chef approved. Submitting final order on mock portal.",
+  }));
+
+  try {
+    const response = await fetch(
+      `${DAILY_ORDER_BOT_SERVICE_URL}/submit-daily-order`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(botPayload),
+      }
+    );
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    const success =
+      response.ok && data?.ok && data?.status === DAILY_ORDER_STATUSES.EXECUTED;
+    const queue = updateDailyOrder(orderId, (order) => ({
+      ...order,
+      status: success ? DAILY_ORDER_STATUSES.EXECUTED : DAILY_ORDER_STATUSES.FAILED,
+      isLocked: true,
+      chefApprovedAt,
+      submittedAt: success ? data?.submittedAt || new Date().toISOString() : order.submittedAt || null,
+      orderNumber: success ? data?.orderNumber || "" : order.orderNumber || "",
+      finalScreenshot: success
+        ? resolveBotServiceScreenshotUrl(data?.finalScreenshot)
+        : order.finalScreenshot || "",
+      submitDuration: success
+        ? data?.submitDuration || 0
+        : order.submitDuration || null,
+      finalExecutionNotes: success
+        ? data?.finalExecutionNotes || "Final submit executed."
+        : data?.finalExecutionNotes ||
+          data?.message ||
+          `Final submit failed (${response.status}).`,
+      executionNotes: success
+        ? "Final submit completed on mock portal."
+        : order.executionNotes || "Bot fill completed and ready for review.",
+    }));
+
+    return {
+      ok: success,
+      queue,
+      order: queue.find((order) => order.id === orderId) || null,
+      reason: success ? "success" : "failed",
+    };
+  } catch (error) {
+    const queue = updateDailyOrder(orderId, (order) => ({
+      ...order,
+      status: DAILY_ORDER_STATUSES.FAILED,
+      isLocked: true,
+      chefApprovedAt,
+      finalExecutionNotes:
+        error?.message || "Final submit request failed unexpectedly.",
+      executionNotes: order.executionNotes || "Bot fill completed and ready for review.",
+    }));
+
+    return {
+      ok: false,
+      queue,
+      order: queue.find((order) => order.id === orderId) || null,
+      reason: "final-submit-error",
     };
   }
 }
