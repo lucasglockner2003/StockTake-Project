@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "server": "node server.js",
     "mock:portal": "node mock-portal/server.mjs",
-    "bot:poc": "node bot-poc/runDailyOrderBot.mjs --order ./bot-poc/sample-order.json"
+    "bot:service": "node bot-service/server.mjs",
+    "bot:poc": "node bot-poc/runDailyOrderBot.mjs --order ./bot-poc/sample-order.json",
+    "bot:bridge": "node bot-poc/bridgeServer.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

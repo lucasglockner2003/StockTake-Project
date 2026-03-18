@@ -2,6 +2,9 @@ import { DAILY_ORDER_STATUSES } from "../constants/app";
 import { UNKNOWN_SUPPLIER_LABEL } from "./stock";
 
 const DAILY_ORDER_QUEUE_KEY = "smartops-daily-order-queue";
+const DAILY_ORDER_BOT_SERVICE_URL = String(
+  import.meta.env.VITE_DAILY_ORDER_BOT_SERVICE_URL || "http://localhost:4190"
+).replace(/\/+$/, "");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -120,6 +123,49 @@ function canExecuteStatus(status) {
   return (
     status === DAILY_ORDER_STATUSES.READY || status === DAILY_ORDER_STATUSES.FAILED
   );
+}
+
+function hasAnotherOrderFilling(orderId, queue = []) {
+  return queue.some(
+    (order) =>
+      order.id !== orderId && order.status === DAILY_ORDER_STATUSES.FILLING_ORDER
+  );
+}
+
+function normalizeBotOrderItems(items = []) {
+  return (items || [])
+    .map((item) => ({
+      itemName: item.itemName || "",
+      quantity: normalizeQuantity(item.quantity),
+      unit: item.unit || "",
+    }))
+    .filter((item) => item.itemName && item.quantity > 0);
+}
+
+function buildDailyOrderBotPayload(order) {
+  return {
+    supplier: order?.supplier || UNKNOWN_SUPPLIER_LABEL,
+    items: normalizeBotOrderItems(order?.items || []),
+  };
+}
+
+function resolveBotServiceScreenshotUrl(value) {
+  const screenshot = String(value || "").trim();
+  if (!screenshot) return "";
+
+  if (
+    screenshot.startsWith("http://") ||
+    screenshot.startsWith("https://") ||
+    screenshot.startsWith("data:image")
+  ) {
+    return screenshot;
+  }
+
+  if (screenshot.startsWith("/")) {
+    return `${DAILY_ORDER_BOT_SERVICE_URL}${screenshot}`;
+  }
+
+  return `${DAILY_ORDER_BOT_SERVICE_URL}/${screenshot}`;
 }
 
 function hasAnyExecutableStatus(queue = []) {
@@ -401,6 +447,183 @@ export async function executeDailyOrder(orderId) {
     order: queue.find((order) => order.id === orderId) || null,
     reason: success ? "success" : "failed",
   };
+}
+
+export async function runDailyOrderBotFill(orderId) {
+  const queueBefore = getDailyOrderQueue();
+  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
+
+  if (!orderBefore) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: null,
+      reason: "not-found",
+    };
+  }
+
+  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "already-executed",
+    };
+  }
+
+  if (hasAnotherOrderFilling(orderId, queueBefore)) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "another-order-filling",
+    };
+  }
+
+  if (!canExecuteStatus(orderBefore.status)) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "not-ready",
+    };
+  }
+
+  const botPayload = buildDailyOrderBotPayload(orderBefore);
+  if (botPayload.items.length === 0) {
+    return {
+      ok: false,
+      queue: queueBefore,
+      order: orderBefore,
+      reason: "invalid-order-items",
+    };
+  }
+
+  const executionStartedAt = new Date().toISOString();
+  const startedAtMs = Date.now();
+
+  updateDailyOrder(orderId, (order) => ({
+    ...order,
+    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
+    isLocked: true,
+    attempts: Number(order.attempts || 0) + 1,
+    executionStartedAt,
+    executionFinishedAt: null,
+    executionDuration: null,
+    reviewScreenshot: "",
+    filledAt: null,
+    readyForReviewAt: null,
+    executionNotes: "Bot service started fill on mock supplier portal.",
+  }));
+
+  try {
+    const response = await fetch(
+      `${DAILY_ORDER_BOT_SERVICE_URL}/execute-daily-order`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(botPayload),
+      }
+    );
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    const executionFinishedAt = new Date().toISOString();
+    const executionDuration = Date.now() - startedAtMs;
+    const success =
+      response.ok &&
+      data?.ok &&
+      data?.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
+
+    const executionNotes = success
+      ? data?.executionNotes ||
+        "Bot filled items and stopped before submit. Ready for chef review."
+      : data?.executionNotes ||
+        data?.message ||
+        `Bot service request failed (${response.status}).`;
+
+    const queue = updateDailyOrder(orderId, (order) => ({
+      ...order,
+      status: success
+        ? DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW
+        : DAILY_ORDER_STATUSES.FAILED,
+      isLocked: true,
+      executionStartedAt,
+      executionFinishedAt,
+      executionDuration,
+      reviewScreenshot: success
+        ? resolveBotServiceScreenshotUrl(
+            data?.reviewScreenshot || data?.screenshotPath
+          )
+        : "",
+      filledAt: success ? data?.filledAt || executionFinishedAt : null,
+      readyForReviewAt: success
+        ? data?.readyForReviewAt || executionFinishedAt
+        : null,
+      executionNotes,
+      executionResult: {
+        duration: executionDuration,
+        timestamp: executionFinishedAt,
+        filledAt: success ? data?.filledAt || executionFinishedAt : null,
+        readyForReviewAt: success
+          ? data?.readyForReviewAt || executionFinishedAt
+          : null,
+        reviewScreenshot: success
+          ? resolveBotServiceScreenshotUrl(
+              data?.reviewScreenshot || data?.screenshotPath
+            )
+          : "",
+        success,
+        message: executionNotes,
+      },
+    }));
+
+    return {
+      ok: success,
+      queue,
+      order: queue.find((order) => order.id === orderId) || null,
+      reason: success ? "success" : "failed",
+    };
+  } catch (error) {
+    const executionFinishedAt = new Date().toISOString();
+    const executionDuration = Date.now() - startedAtMs;
+    const queue = updateDailyOrder(orderId, (order) => ({
+      ...order,
+      status: DAILY_ORDER_STATUSES.FAILED,
+      isLocked: true,
+      executionStartedAt,
+      executionFinishedAt,
+      executionDuration,
+      reviewScreenshot: "",
+      filledAt: null,
+      readyForReviewAt: null,
+      executionNotes:
+        error?.message || "Bot service request failed unexpectedly.",
+      executionResult: {
+        duration: executionDuration,
+        timestamp: executionFinishedAt,
+        filledAt: null,
+        readyForReviewAt: null,
+        reviewScreenshot: "",
+        success: false,
+        message: error?.message || "Bot service request failed unexpectedly.",
+      },
+    }));
+
+    return {
+      ok: false,
+      queue,
+      order: queue.find((order) => order.id === orderId) || null,
+      reason: "bot-service-error",
+    };
+  }
 }
 
 export function markDailyOrderChefApproved(orderId) {

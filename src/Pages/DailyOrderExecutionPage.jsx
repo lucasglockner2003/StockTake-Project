@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { DAILY_ORDER_STATUSES, PAGE_IDS } from "../constants/app";
 import { styles } from "../utils/uiStyles";
 import {
-  executeDailyOrder,
-  executeReadyDailyOrders,
   getDailyOrderQueue,
   getDailyOrderQueueCounts,
   markDailyOrderChefApproved,
   markDailyOrderReady,
+  runDailyOrderBotFill,
   unlockDailyOrder,
   updateDailyOrderItemQuantity,
 } from "../utils/dailyOrders";
@@ -78,14 +77,9 @@ function formatDateTime(value) {
 
 function DailyOrderExecutionPage({ setCurrentPage }) {
   const [dailyOrders, setDailyOrders] = useState([]);
-  const [runningOrderId, setRunningOrderId] = useState(null);
+  const [runningBotFillOrderId, setRunningBotFillOrderId] = useState(null);
   const [isExecutingAllReady, setIsExecutingAllReady] = useState(false);
   const [executionWarningByOrderId, setExecutionWarningByOrderId] = useState({});
-  const [previewState, setPreviewState] = useState({
-    open: false,
-    orderIds: [],
-    mode: "single",
-  });
 
   function refreshDailyOrders() {
     setDailyOrders(getDailyOrderQueue());
@@ -110,12 +104,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     () => getDailyOrderQueueCounts(sortedDailyOrders),
     [sortedDailyOrders]
   );
-
-  const previewOrders = useMemo(() => {
-    if (!previewState.open) return [];
-    const selected = new Set(previewState.orderIds);
-    return sortedDailyOrders.filter((order) => selected.has(order.id));
-  }, [previewState, sortedDailyOrders]);
+  const hasOrderFilling = counts.fillingOrder > 0;
 
   function setWarning(orderId, message) {
     setExecutionWarningByOrderId((previous) => ({
@@ -170,12 +159,12 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     alert("Placeholder: open supplier review flow in a future phase.");
   }
 
-  function openPreviewForSingle(orderId) {
+  async function handleRunBotFill(orderId) {
     const order = sortedDailyOrders.find((entry) => entry.id === orderId);
     if (!order) return;
 
-    if (order.status === DAILY_ORDER_STATUSES.EXECUTED) {
-      setWarning(orderId, "This order was already executed and cannot run again.");
+    if (runningBotFillOrderId) {
+      setWarning(orderId, "Another order is already filling via bot.");
       return;
     }
 
@@ -183,88 +172,73 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
       order.status !== DAILY_ORDER_STATUSES.READY &&
       order.status !== DAILY_ORDER_STATUSES.FAILED
     ) {
-      setWarning(orderId, "Order must be READY (or FAILED for retry) before execution.");
+      setWarning(orderId, "Order must be READY (or FAILED for retry) before bot fill.");
       return;
     }
 
     clearWarning(orderId);
-    setPreviewState({
-      open: true,
-      orderIds: [orderId],
-      mode: "single",
-    });
+
+    try {
+      setRunningBotFillOrderId(orderId);
+      const result = await runDailyOrderBotFill(orderId);
+      refreshDailyOrders();
+
+      if (result.reason === "already-executed") {
+        setWarning(orderId, "This order is already executed and cannot run again.");
+      } else if (result.reason === "not-ready") {
+        setWarning(orderId, "Order must be READY (or FAILED for retry) before bot fill.");
+      } else if (result.reason === "another-order-filling") {
+        setWarning(orderId, "Another order is already filling. Wait before running again.");
+      } else if (result.reason === "invalid-order-items") {
+        setWarning(orderId, "Order has no valid items with quantity > 0.");
+      } else if (result.ok) {
+        alert("Bot filled order and stopped at review page.");
+      } else {
+        alert("Bot fill failed. Check execution notes.");
+      }
+    } catch {
+      alert("Failed to run bot fill.");
+    } finally {
+      setRunningBotFillOrderId(null);
+    }
   }
 
-  function openPreviewForAllReady() {
-    const readyIds = sortedDailyOrders
-      .filter((order) => order.status === DAILY_ORDER_STATUSES.READY)
-      .map((order) => order.id);
+  async function handleRunBotFillForAllReady() {
+    const readyOrders = sortedDailyOrders.filter(
+      (order) => order.status === DAILY_ORDER_STATUSES.READY
+    );
 
-    if (readyIds.length === 0) {
+    if (readyOrders.length === 0) {
       alert("There are no READY orders to execute.");
       return;
     }
 
-    setPreviewState({
-      open: true,
-      orderIds: readyIds,
-      mode: "all-ready",
-    });
-  }
-
-  function closePreview() {
-    setPreviewState({
-      open: false,
-      orderIds: [],
-      mode: "single",
-    });
-  }
-
-  async function confirmPreviewExecution() {
-    if (previewState.orderIds.length === 0) {
-      closePreview();
-      return;
-    }
-
-    if (previewState.mode === "single") {
-      const orderId = previewState.orderIds[0];
-
-      try {
-        setRunningOrderId(orderId);
-        const result = await executeDailyOrder(orderId);
-        refreshDailyOrders();
-
-        if (result.reason === "already-executed") {
-          setWarning(orderId, "This order was already executed and cannot run again.");
-        } else if (result.reason === "not-ready") {
-          setWarning(orderId, "Order is not ready to execute.");
-        } else if (result.ok) {
-          alert("Order filled and ready for chef review.");
-        } else {
-          alert("Bot failed while filling the order.");
-        }
-      } catch {
-        alert("Failed to execute order.");
-      } finally {
-        setRunningOrderId(null);
-        closePreview();
-      }
-
+    if (runningBotFillOrderId || hasOrderFilling) {
+      alert("Another order is currently filling. Wait until it finishes.");
       return;
     }
 
     try {
       setIsExecutingAllReady(true);
-      const result = await executeReadyDailyOrders();
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (let index = 0; index < readyOrders.length; index += 1) {
+        const order = readyOrders[index];
+        const result = await runDailyOrderBotFill(order.id);
+        if (result.ok) successCount += 1;
+        if (!result.ok) failedCount += 1;
+      }
+
       refreshDailyOrders();
       alert(
-        `Batch fill finished. Ready for chef review: ${result.successCount} | Failed: ${result.failedCount}`
+        `Batch fill finished. Ready for chef review: ${successCount} | Failed: ${failedCount}`
       );
     } catch {
       alert("Failed to execute ready orders.");
     } finally {
       setIsExecutingAllReady(false);
-      closePreview();
+      setRunningBotFillOrderId(null);
     }
   }
 
@@ -291,23 +265,34 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         </button>
 
         <button
-          onClick={openPreviewForAllReady}
-          disabled={counts.ready === 0 || isExecutingAllReady || runningOrderId !== null}
+          onClick={handleRunBotFillForAllReady}
+          disabled={
+            counts.ready === 0 ||
+            isExecutingAllReady ||
+            runningBotFillOrderId !== null ||
+            hasOrderFilling
+          }
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              counts.ready === 0 || isExecutingAllReady || runningOrderId !== null
+              counts.ready === 0 ||
+              isExecutingAllReady ||
+              runningBotFillOrderId !== null ||
+              hasOrderFilling
                 ? "#888"
                 : "#00b894",
             cursor:
-              counts.ready === 0 || isExecutingAllReady || runningOrderId !== null
+              counts.ready === 0 ||
+              isExecutingAllReady ||
+              runningBotFillOrderId !== null ||
+              hasOrderFilling
                 ? "not-allowed"
                 : "pointer",
           }}
         >
           {isExecutingAllReady
-            ? "Filling All Ready Orders..."
-            : `Execute All Ready Orders (${counts.ready})`}
+            ? "Running Bot Fill For All Ready..."
+            : `Run Bot Fill For All Ready (${counts.ready})`}
         </button>
       </PageActionBar>
 
@@ -321,18 +306,28 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         <StatusBadge label="Failed" value={counts.failed} backgroundColor="#ffebee" textColor="#d9534f" />
       </PageActionBar>
 
+      {(runningBotFillOrderId !== null || isExecutingAllReady) && (
+        <NoticePanel
+          backgroundColor="#1f1f1f"
+          border="1px solid #555"
+          color="#8de0ea"
+          marginBottom="12px"
+        >
+          Bot service is filling order items on mock portal. Final submit remains manual.
+        </NoticePanel>
+      )}
+
       {sortedDailyOrders.length === 0 ? (
         <div style={styles.emptyState}>No daily confirmed orders yet.</div>
       ) : (
         sortedDailyOrders.map((order) => {
           const statusColors = getStatusBadgeColors(order.status);
           const warning = executionWarningByOrderId[order.id];
-          const isExecutingThis = runningOrderId === order.id;
+          const isRunningBotFillThis = runningBotFillOrderId === order.id;
           const canEditItems = !order.isLocked && order.status === DAILY_ORDER_STATUSES.DRAFT;
-          const canExecute =
+          const canRunBotFill =
             order.status === DAILY_ORDER_STATUSES.READY ||
-            order.status === DAILY_ORDER_STATUSES.FAILED ||
-            order.status === DAILY_ORDER_STATUSES.EXECUTED;
+            order.status === DAILY_ORDER_STATUSES.FAILED;
           const canMarkReady = order.status === DAILY_ORDER_STATUSES.DRAFT;
           const canUnlock =
             order.isLocked &&
@@ -489,11 +484,19 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
               <PageActionBar marginBottom="0">
                 <button
                   onClick={() => handleMarkReady(order.id)}
-                  disabled={!canMarkReady || isExecutingThis || isExecutingAllReady}
+                  disabled={
+                    !canMarkReady ||
+                    isExecutingAllReady ||
+                    isRunningBotFillThis ||
+                    runningBotFillOrderId !== null
+                  }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      !canMarkReady || isExecutingThis || isExecutingAllReady
+                      !canMarkReady ||
+                      isExecutingAllReady ||
+                      isRunningBotFillThis ||
+                      runningBotFillOrderId !== null
                         ? "#888"
                         : "#ff9800",
                   }}
@@ -503,11 +506,19 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
 
                 <button
                   onClick={() => handleUnlockOrder(order.id)}
-                  disabled={!canUnlock || isExecutingThis || isExecutingAllReady}
+                  disabled={
+                    !canUnlock ||
+                    isExecutingAllReady ||
+                    isRunningBotFillThis ||
+                    runningBotFillOrderId !== null
+                  }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      !canUnlock || isExecutingThis || isExecutingAllReady
+                      !canUnlock ||
+                      isExecutingAllReady ||
+                      isRunningBotFillThis ||
+                      runningBotFillOrderId !== null
                         ? "#888"
                         : "#607d8b",
                   }}
@@ -516,26 +527,44 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 </button>
 
                 <button
-                  onClick={() => openPreviewForSingle(order.id)}
-                  disabled={!canExecute || isExecutingThis || isExecutingAllReady}
+                  onClick={() => handleRunBotFill(order.id)}
+                  disabled={
+                    !canRunBotFill ||
+                    isExecutingAllReady ||
+                    isRunningBotFillThis ||
+                    runningBotFillOrderId !== null ||
+                    hasOrderFilling
+                  }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      !canExecute || isExecutingThis || isExecutingAllReady
+                      !canRunBotFill ||
+                      isExecutingAllReady ||
+                      isRunningBotFillThis ||
+                      runningBotFillOrderId !== null ||
+                      hasOrderFilling
                         ? "#888"
-                        : "#00b894",
+                        : "#0288d1",
                   }}
                 >
-                  {isExecutingThis ? "Filling..." : "Execute Order"}
+                  {isRunningBotFillThis ? "Running Bot Fill..." : "Run Bot Fill"}
                 </button>
 
                 <button
                   onClick={() => handleMarkChefApproved(order.id)}
-                  disabled={!canApprove || isExecutingThis || isExecutingAllReady}
+                  disabled={
+                    !canApprove ||
+                    isExecutingAllReady ||
+                    isRunningBotFillThis ||
+                    runningBotFillOrderId !== null
+                  }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      !canApprove || isExecutingThis || isExecutingAllReady
+                      !canApprove ||
+                      isExecutingAllReady ||
+                      isRunningBotFillThis ||
+                      runningBotFillOrderId !== null
                         ? "#888"
                         : "#4CAF50",
                   }}
@@ -556,103 +585,6 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             </div>
           );
         })
-      )}
-
-      {previewState.open && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 999,
-            padding: "20px",
-            boxSizing: "border-box",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "760px",
-              maxHeight: "85vh",
-              overflowY: "auto",
-              backgroundColor: "#1a1a1a",
-              border: "1px solid #555",
-              borderRadius: "10px",
-              padding: "16px",
-              boxSizing: "border-box",
-            }}
-          >
-            <h2 style={{ marginTop: 0, marginBottom: "12px" }}>Execution Preview</h2>
-
-            {previewOrders.map((order) => (
-              <div
-                key={`preview-${order.id}`}
-                style={{
-                  border: "1px solid #444",
-                  borderRadius: "8px",
-                  padding: "10px",
-                  marginBottom: "10px",
-                }}
-              >
-                <div style={{ marginBottom: "8px", fontWeight: "bold" }}>
-                  {order.supplier}
-                </div>
-                <div style={{ marginBottom: "8px", color: "#aaa", fontSize: "13px" }}>
-                  Total Qty: {order.totalQuantity}
-                </div>
-
-                <SectionTableHeader
-                  columns={["Item", "Qty", "Unit"]}
-                  gridTemplateColumns="1.4fr 0.7fr 0.7fr"
-                  marginBottom="4px"
-                />
-
-                {(order.items || []).map((item, index) => (
-                  <div
-                    key={`preview-item-${order.id}-${item.itemId}-${index}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1.4fr 0.7fr 0.7fr",
-                      gap: "8px",
-                      alignItems: "center",
-                      padding: "8px 10px",
-                      borderBottom: "1px solid #333",
-                    }}
-                  >
-                    <div>{item.itemName}</div>
-                    <div>{item.quantity}</div>
-                    <div>{item.unit || "-"}</div>
-                  </div>
-                ))}
-              </div>
-            ))}
-
-            <PageActionBar marginBottom="0">
-              <button
-                onClick={closePreview}
-                style={{
-                  ...styles.primaryButton,
-                  backgroundColor: "#666",
-                }}
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={confirmPreviewExecution}
-                style={{
-                  ...styles.primaryButton,
-                  backgroundColor: "#00b894",
-                }}
-              >
-                Confirm Fill (No Submit)
-              </button>
-            </PageActionBar>
-          </div>
-        </div>
       )}
     </div>
   );
