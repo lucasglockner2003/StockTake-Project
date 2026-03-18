@@ -4,6 +4,7 @@ import ReviewPage from "./Pages/ReviewPage";
 import StockVoicePage from "./Pages/StockVoicePage";
 import PhotoPage from "./Pages/PhotoPage";
 import AutomationJobsPage from "./Pages/AutomationJobsPage";
+import { PAGE_IDS } from "./constants/pages";
 import { useStockTake } from "./hooks/useStockTake";
 import {
   loadVoiceData,
@@ -13,7 +14,7 @@ import {
 } from "./utils/storage";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState("stock");
+  const [currentPage, setCurrentPage] = useState(PAGE_IDS.STOCK);
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
 
@@ -84,7 +85,7 @@ function App() {
 
   function handleBackToStock() {
     setIsListening(false);
-    setCurrentPage("stock");
+    setCurrentPage(PAGE_IDS.STOCK);
   }
 
   return (
@@ -97,7 +98,7 @@ function App() {
         margin: "0 auto",
       }}
     >
-      {currentPage === "stock" && (
+      {currentPage === PAGE_IDS.STOCK && (
         <StockTakePage
           filledItems={filledItems}
           items={items}
@@ -119,7 +120,7 @@ function App() {
         />
       )}
 
-      {currentPage === "review" && (
+      {currentPage === PAGE_IDS.REVIEW && (
         <ReviewPage
           items={items}
           quantities={quantities}
@@ -135,7 +136,7 @@ function App() {
         />
       )}
 
-      {currentPage === "voice" && (
+      {currentPage === PAGE_IDS.VOICE && (
         <StockVoicePage
           items={items}
           areas={areas}
@@ -160,11 +161,11 @@ function App() {
         />
       )}
 
-      {currentPage === "photo" && (
+      {currentPage === PAGE_IDS.PHOTO && (
         <PhotoPage items={items} setCurrentPage={setCurrentPage} />
       )}
 
-      {currentPage === "automation" && (
+      {currentPage === PAGE_IDS.AUTOMATION && (
         <AutomationJobsPage setCurrentPage={setCurrentPage} />
       )}
     </div>
