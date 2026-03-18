@@ -1,4 +1,4 @@
-import { PAGE_IDS } from "../constants/app";
+import { PAGE_IDS } from "../constants/pages";
 import { styles } from "../utils/uiStyles";
 import PageActionBar from "./PageActionBar";
 import StatusBadge from "./StatusBadge";

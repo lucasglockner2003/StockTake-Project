@@ -6,6 +6,7 @@ export function createEntry({
   quantity = "",
   matchedItem = "-",
   matchedItemId = null,
+  supplier = "",
   status = ENTRY_STATUSES.NOT_FOUND,
   matchSearch = "",
   source = SOURCES.UNKNOWN,
@@ -16,6 +17,7 @@ export function createEntry({
     quantity,
     matchedItem,
     matchedItemId,
+    supplier,
     status,
     matchSearch,
     source,
@@ -53,6 +55,7 @@ export function createMatchedEntryFromMatchResult({
     quantity,
     matchedItem: matchResult?.matchedItem ? matchResult.matchedItem.name : "-",
     matchedItemId: matchResult?.matchedItem ? matchResult.matchedItem.id : null,
+    supplier: matchResult?.matchedItem ? matchResult.matchedItem.supplier || "" : "",
     status:
       matchResult?.matchType === ENTRY_MATCH_TYPES.EXACT
         ? ENTRY_STATUSES.MATCHED
@@ -87,6 +90,7 @@ export function updateEntryMatchSearch(entries, indexToUpdate, newSearch) {
           matchSearch: newSearch,
           matchedItem: newSearch === "" ? "-" : entry.matchedItem,
           matchedItemId: newSearch === "" ? null : entry.matchedItemId,
+          supplier: newSearch === "" ? "" : entry.supplier,
           status: newSearch === "" ? ENTRY_STATUSES.NOT_FOUND : entry.status,
         }
       : entry
@@ -100,6 +104,7 @@ export function selectEntryMatchedItem(entries, indexToUpdate, item) {
           ...entry,
           matchedItem: item.name,
           matchedItemId: item.id,
+          supplier: item.supplier || "",
           status: ENTRY_STATUSES.MATCHED,
           matchSearch: item.name,
         }
@@ -109,10 +114,6 @@ export function selectEntryMatchedItem(entries, indexToUpdate, item) {
 
 export function deleteEntryAtIndex(entries, indexToRemove) {
   return entries.filter((_, index) => index !== indexToRemove);
-}
-
-export function buildEntrySearchKey(prefix, index) {
-  return `${prefix}-${index}`;
 }
 
 export function clearOpenSearchKeyIfDeleted(currentOpenSearchKey, deletingKey) {

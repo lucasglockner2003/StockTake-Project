@@ -60,7 +60,7 @@ function EditableEntryRow({
                   }}
                   style={styles.dropdownItem}
                 >
-                  {showAreaInDropdown ? `${item.name} — ${item.area}` : item.name}
+                  {showAreaInDropdown ? `${item.name} - ${item.area}` : item.name}
                 </div>
               ))
             )}

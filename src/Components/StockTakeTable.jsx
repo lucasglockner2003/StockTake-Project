@@ -50,23 +50,47 @@ function StockTakeTable({
                   key={item.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.2fr 0.4fr 0.4fr 0.7fr auto 0.6fr",
-                    gap: "10px",
+                    gridTemplateColumns:
+                      "1.1fr 0.4fr 0.4fr 0.7fr auto 0.6fr",
+                    gap: "7px",
                     alignItems: "center",
                     border: `2px solid ${statusColor}`,
                     borderRadius: "6px",
-                    padding: "3px 8px",
-                    marginBottom: "4px",
+                    padding: "6px 10px",
+                    marginBottom: "6px",
+                    minHeight: "40px",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <strong>{item.name}</strong>
+                  {/* ITEM + VOICE TAG */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      minWidth: 0,
+                      width: "100%",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {item.name}
+                    </strong>
+
                     {voiceFilledItems[item.id] && <VoiceTag />}
                   </div>
 
+                  {/* IDEAL */}
                   <div>{item.idealStock}</div>
+
+                  {/* UNIT */}
                   <div>{item.unit}</div>
 
+                  {/* COUNT INPUT */}
                   <input
                     ref={(el) => {
                       inputRefs.current[visibleIndex] = el;
@@ -75,7 +99,9 @@ function StockTakeTable({
                     step="0.1"
                     placeholder={`Enter ${item.unit}`}
                     value={quantities[item.id] ?? ""}
-                    onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                    onChange={(e) =>
+                      handleQuantityChange(item.id, e.target.value)
+                    }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -85,6 +111,7 @@ function StockTakeTable({
                     style={{
                       padding: "5px 6px",
                       width: "100%",
+                      height: "28px",
                       borderRadius: "5px",
                       border: "1px solid #ccc",
                       boxSizing: "border-box",
@@ -92,10 +119,12 @@ function StockTakeTable({
                     }}
                   />
 
+                  {/* ZERO BUTTON */}
                   <button
                     onClick={() => handleQuantityChange(item.id, 0)}
                     style={{
                       padding: "4px 10px",
+                      minHeight: "28px",
                       borderRadius: "6px",
                       border: "1px solid #ccc",
                       cursor: "pointer",
@@ -104,6 +133,7 @@ function StockTakeTable({
                     Zero
                   </button>
 
+                  {/* STATUS */}
                   <div
                     style={{
                       color: statusColor,
