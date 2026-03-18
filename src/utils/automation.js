@@ -1,10 +1,218 @@
-import { JOB_STATUSES, SOURCES } from "../constants/app";
+import {
+  JOB_STATUSES,
+  SOURCES,
+  SUPPLIER_ORDER_EXECUTION_STATUSES,
+} from "../constants/app";
 import { getItemStatus, getNumericValue } from "./stock";
 
 const AUTOMATION_QUEUE_KEY = "smartops-automation-queue";
+const SUPPLIER_ORDER_HISTORY_KEY = "smartops-supplier-order-history";
+const SUPPLIER_HISTORY_LIMIT = 60;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isSupplierOrderJob(job) {
+  return job?.source === SOURCES.REVIEW_SUPPLIER_ORDER;
+}
+
+function mapJobStatusToSupplierExecutionStatus(jobStatus) {
+  if (jobStatus === JOB_STATUSES.DONE) {
+    return SUPPLIER_ORDER_EXECUTION_STATUSES.EXECUTED;
+  }
+
+  if (jobStatus === JOB_STATUSES.FAILED) {
+    return SUPPLIER_ORDER_EXECUTION_STATUSES.FAILED;
+  }
+
+  return SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE;
+}
+
+function getSupplierFromJob(job) {
+  if (job?.metadata?.supplierOrder?.supplier) {
+    return job.metadata.supplierOrder.supplier;
+  }
+
+  if (Array.isArray(job?.items) && job.items[0]?.supplier) {
+    return job.items[0].supplier;
+  }
+
+  return "";
+}
+
+function getSupplierTotalQuantity(items = []) {
+  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
+function normalizeSnapshotItems(items = []) {
+  return items
+    .map((item) => ({
+      name: item.name || item.itemName || "",
+      quantity: Number(item.quantity || item.orderAmount || 0),
+      unit: item.unit || "",
+    }))
+    .filter((item) => item.quantity > 0)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+export function buildSupplierOrderSnapshot(
+  supplier,
+  supplierItems,
+  revisionNumber = 1,
+  timestamp = new Date().toISOString()
+) {
+  const snapshotItems = normalizeSnapshotItems(supplierItems);
+  const totalQuantity = snapshotItems.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
+
+  return {
+    supplier,
+    items: snapshotItems,
+    totalQuantity,
+    timestamp,
+    revisionNumber,
+  };
+}
+
+export function getSupplierOrderSnapshotSignature(snapshot) {
+  if (!snapshot) return "";
+
+  const supplier = String(snapshot.supplier || "").trim().toLowerCase();
+  const normalizedItems = normalizeSnapshotItems(snapshot.items || []);
+  const itemSignature = normalizedItems
+    .map((item) => `${item.name.toLowerCase()}|${item.quantity}|${item.unit}`)
+    .join(";");
+
+  return `${supplier}::${itemSignature}`;
+}
+
+function buildSnapshotFromJobItems(job) {
+  const supplier = getSupplierFromJob(job);
+  return buildSupplierOrderSnapshot(
+    supplier,
+    (job.items || []).map((item) => ({
+      itemName: item.itemName,
+      quantity: item.quantity,
+      unit: item.unit,
+    })),
+    1,
+    job.createdAt || new Date().toISOString()
+  );
+}
+
+function syncSupplierOrderMetadata(job) {
+  if (!isSupplierOrderJob(job)) return job;
+
+  const supplier = getSupplierFromJob(job);
+  const attempts = Number(job.attemptCount || 0);
+  const totalQuantity = getSupplierTotalQuantity(job.items || []);
+  const currentMetadata = job.metadata?.supplierOrder || {};
+  const snapshot = currentMetadata.snapshot || buildSnapshotFromJobItems(job);
+  const revisionNumber =
+    Number(currentMetadata.revisionNumber || snapshot?.revisionNumber || 1) || 1;
+  const sentAt =
+    currentMetadata.lastSentAt ||
+    currentMetadata.sentAt ||
+    snapshot?.timestamp ||
+    job.createdAt;
+
+  return {
+    ...job,
+    metadata: {
+      ...(job.metadata || {}),
+      supplierOrder: {
+        ...currentMetadata,
+        supplier,
+        itemCount: Array.isArray(job.items) ? job.items.length : 0,
+        totalQuantity: snapshot?.totalQuantity || totalQuantity,
+        status: mapJobStatusToSupplierExecutionStatus(job.status),
+        attempts,
+        revisionNumber,
+        snapshot,
+        sentAt,
+        lastSentAt: sentAt,
+      },
+    },
+  };
+}
+
+function toSupplierOrderHistoryRecord(job) {
+  if (!isSupplierOrderJob(job)) return null;
+
+  const syncedJob = syncSupplierOrderMetadata(job);
+  const supplierOrderMeta = syncedJob.metadata?.supplierOrder || {};
+  const snapshot = supplierOrderMeta.snapshot || buildSnapshotFromJobItems(syncedJob);
+
+  return {
+    jobId: syncedJob.jobId,
+    supplier: supplierOrderMeta.supplier || "",
+    items: Array.isArray(snapshot?.items) ? snapshot.items : [],
+    totalQuantity: snapshot?.totalQuantity || supplierOrderMeta.totalQuantity || 0,
+    timestamp: syncedJob.updatedAt || syncedJob.createdAt,
+    snapshotTimestamp:
+      snapshot?.timestamp || supplierOrderMeta.lastSentAt || syncedJob.createdAt,
+    revisionNumber:
+      supplierOrderMeta.revisionNumber || snapshot?.revisionNumber || 1,
+    snapshot,
+    status:
+      supplierOrderMeta.status || SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE,
+    attempts: supplierOrderMeta.attempts || 0,
+  };
+}
+
+export function loadSupplierOrderHistoryFromStorage() {
+  try {
+    const saved = localStorage.getItem(SUPPLIER_ORDER_HISTORY_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSupplierOrderHistoryToStorage(history) {
+  try {
+    localStorage.setItem(SUPPLIER_ORDER_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function getSupplierOrderHistory() {
+  return loadSupplierOrderHistoryFromStorage();
+}
+
+function syncSupplierOrderHistoryWithQueue(queue) {
+  const supplierJobs = (queue || []).filter(isSupplierOrderJob);
+  if (supplierJobs.length === 0) return;
+
+  const history = loadSupplierOrderHistoryFromStorage();
+  const historyMap = history.reduce((acc, entry) => {
+    if (entry?.jobId !== undefined && entry?.jobId !== null) {
+      acc[String(entry.jobId)] = entry;
+    }
+    return acc;
+  }, {});
+
+  supplierJobs.forEach((job) => {
+    const nextRecord = toSupplierOrderHistoryRecord(job);
+    if (!nextRecord) return;
+
+    historyMap[String(nextRecord.jobId)] = nextRecord;
+  });
+
+  const nextHistory = Object.values(historyMap)
+    .sort((a, b) => {
+      const aTime = new Date(a.timestamp || 0).getTime();
+      const bTime = new Date(b.timestamp || 0).getTime();
+      return bTime - aTime;
+    })
+    .slice(0, SUPPLIER_HISTORY_LIMIT);
+
+  saveSupplierOrderHistoryToStorage(nextHistory);
 }
 
 /* =========================
@@ -14,7 +222,7 @@ function wait(ms) {
 export function createAutomationJob(jobData = {}) {
   const now = new Date().toISOString();
 
-  return {
+  const nextJob = {
     jobId: jobData.jobId || Date.now(),
     sessionId: jobData.sessionId || Date.now(),
     createdAt: jobData.createdAt || now,
@@ -28,7 +236,10 @@ export function createAutomationJob(jobData = {}) {
       ? jobData.items.length
       : jobData.totalItems || 0,
     items: Array.isArray(jobData.items) ? jobData.items : [],
+    metadata: jobData.metadata || {},
   };
+
+  return syncSupplierOrderMetadata(nextJob);
 }
 
 /* =========================
@@ -79,6 +290,7 @@ export function addAutomationJob(jobData) {
   const newJob = createAutomationJob(jobData);
   const nextQueue = [newJob, ...queue];
   replaceAutomationQueue(nextQueue);
+  syncSupplierOrderHistoryWithQueue(nextQueue);
   return newJob;
 }
 
@@ -91,13 +303,16 @@ export function updateAutomationJob(jobId, updater) {
     const updatedJob =
       typeof updater === "function" ? updater(job) : { ...job, ...updater };
 
-    return {
+    const nextJob = {
       ...updatedJob,
       updatedAt: new Date().toISOString(),
     };
+
+    return syncSupplierOrderMetadata(nextJob);
   });
 
   replaceAutomationQueue(nextQueue);
+  syncSupplierOrderHistoryWithQueue(nextQueue);
   return nextQueue;
 }
 
@@ -279,14 +494,43 @@ export function buildSupplierOrderText(supplier, supplierItems) {
   return [`Supplier: ${supplier}`, header, ...rows].join("\n");
 }
 
-export function buildSupplierOrderAutomationJob(supplier, supplierItems) {
+export function buildSupplierOrderAutomationJob(
+  supplier,
+  supplierItems,
+  options = {}
+) {
   const payload = buildSupplierOrderPayload(supplier, supplierItems);
+  const now = new Date().toISOString();
+  const revisionNumber = Number(options.revisionNumber || 1) || 1;
+  const snapshot = buildSupplierOrderSnapshot(
+    supplier,
+    (supplierItems || []).map((item) => ({
+      name: item.name,
+      quantity: item.orderAmount,
+      unit: item.unit,
+    })),
+    revisionNumber,
+    now
+  );
 
   return createAutomationJob({
     sessionId: Date.now(),
     source: payload.source,
     totalItems: payload.totalItems,
     items: payload.items,
+    metadata: {
+      supplierOrder: {
+        supplier,
+        itemCount: payload.totalItems,
+        totalQuantity: snapshot.totalQuantity,
+        status: SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE,
+        attempts: 0,
+        revisionNumber,
+        snapshot,
+        sentAt: now,
+        lastSentAt: now,
+      },
+    },
   });
 }
 
@@ -297,13 +541,13 @@ export function buildSupplierOrderAutomationJob(supplier, supplierItems) {
 function markJobRunning(queue, jobId) {
   return queue.map((job) =>
     job.jobId === jobId
-      ? {
+      ? syncSupplierOrderMetadata({
           ...job,
           status: JOB_STATUSES.RUNNING,
           attemptCount: (job.attemptCount || 0) + 1,
           lastError: "",
           updatedAt: new Date().toISOString(),
-        }
+        })
       : job
   );
 }
@@ -311,11 +555,11 @@ function markJobRunning(queue, jobId) {
 function markJobDone(queue, jobId) {
   return queue.map((job) =>
     job.jobId === jobId
-      ? {
+      ? syncSupplierOrderMetadata({
           ...job,
           status: JOB_STATUSES.DONE,
           updatedAt: new Date().toISOString(),
-        }
+        })
       : job
   );
 }
@@ -323,12 +567,12 @@ function markJobDone(queue, jobId) {
 function markJobFailed(queue, jobId, errorMessage) {
   return queue.map((job) =>
     job.jobId === jobId
-      ? {
+      ? syncSupplierOrderMetadata({
           ...job,
           status: JOB_STATUSES.FAILED,
           lastError: errorMessage || "Unknown automation error.",
           updatedAt: new Date().toISOString(),
-        }
+        })
       : job
   );
 }
@@ -343,6 +587,7 @@ export async function executeAutomationJob(jobId, options = {}) {
   let queue = getAutomationQueue();
   queue = markJobRunning(queue, jobId);
   replaceAutomationQueue(queue);
+  syncSupplierOrderHistoryWithQueue(queue);
 
   await wait(delayMs);
 
@@ -351,6 +596,7 @@ export async function executeAutomationJob(jobId, options = {}) {
   if (shouldFail) {
     queue = markJobFailed(queue, jobId, failureMessage);
     replaceAutomationQueue(queue);
+    syncSupplierOrderHistoryWithQueue(queue);
 
     return {
       ok: false,
@@ -360,6 +606,7 @@ export async function executeAutomationJob(jobId, options = {}) {
 
   queue = markJobDone(queue, jobId);
   replaceAutomationQueue(queue);
+  syncSupplierOrderHistoryWithQueue(queue);
 
   return {
     ok: true,

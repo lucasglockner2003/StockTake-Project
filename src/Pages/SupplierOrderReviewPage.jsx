@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { PAGE_IDS } from "../constants/app";
+import {
+  JOB_STATUSES,
+  PAGE_IDS,
+  SOURCES,
+  SUPPLIER_ORDER_EXECUTION_STATUSES,
+} from "../constants/app";
 import {
   addAutomationJob,
   buildSupplierOrderAutomationJob,
   buildSupplierOrderPayload,
+  buildSupplierOrderSnapshot,
   buildSupplierOrderText,
+  getAutomationQueue,
+  getSupplierOrderSnapshotSignature,
+  getSupplierOrderHistory,
 } from "../utils/automation";
 import {
   groupSuggestedOrderBySupplier,
@@ -14,6 +23,56 @@ import { styles } from "../utils/uiStyles";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
+import StatusBadge from "../components/StatusBadge";
+
+function mapJobStatusToExecutionStatus(status) {
+  if (status === JOB_STATUSES.DONE) {
+    return SUPPLIER_ORDER_EXECUTION_STATUSES.EXECUTED;
+  }
+
+  if (status === JOB_STATUSES.FAILED) {
+    return SUPPLIER_ORDER_EXECUTION_STATUSES.FAILED;
+  }
+
+  return SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE;
+}
+
+function getExecutionStatusColors(status) {
+  if (status === SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE) {
+    return {
+      backgroundColor: "#fff3e0",
+      textColor: "#ff9800",
+    };
+  }
+
+  if (status === SUPPLIER_ORDER_EXECUTION_STATUSES.EXECUTED) {
+    return {
+      backgroundColor: "#e8f5e9",
+      textColor: "#4CAF50",
+    };
+  }
+
+  if (status === SUPPLIER_ORDER_EXECUTION_STATUSES.FAILED) {
+    return {
+      backgroundColor: "#ffebee",
+      textColor: "#d9534f",
+    };
+  }
+
+  return {
+    backgroundColor: "#2a2a2a",
+    textColor: "#aaa",
+  };
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString();
+}
 
 function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
   const initialEditableItems = useMemo(() => {
@@ -29,10 +88,22 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
   }, [suggestedOrder]);
 
   const [editableItems, setEditableItems] = useState(initialEditableItems);
+  const [automationJobs, setAutomationJobs] = useState(() => getAutomationQueue());
+  const [supplierOrderHistory, setSupplierOrderHistory] = useState(() =>
+    getSupplierOrderHistory()
+  );
+  const [showHistory, setShowHistory] = useState(false);
+  const [revisionDraftBySupplier, setRevisionDraftBySupplier] = useState({});
+  const [snapshotWarnings, setSnapshotWarnings] = useState({});
 
   useEffect(() => {
     setEditableItems(initialEditableItems);
   }, [initialEditableItems]);
+
+  useEffect(() => {
+    setAutomationJobs(getAutomationQueue());
+    setSupplierOrderHistory(getSupplierOrderHistory());
+  }, []);
 
   const groupedBySupplier = useMemo(
     () =>
@@ -88,6 +159,72 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
     [activeItemsBySupplier, suppliers]
   );
 
+  const latestSupplierJobBySupplier = useMemo(() => {
+    const supplierJobs = (automationJobs || []).filter(
+      (job) => job.source === SOURCES.REVIEW_SUPPLIER_ORDER
+    );
+
+    return supplierJobs.reduce((acc, job) => {
+      const supplier =
+        job?.metadata?.supplierOrder?.supplier ||
+        job?.items?.[0]?.supplier ||
+        UNKNOWN_SUPPLIER_LABEL;
+
+      const previousJob = acc[supplier];
+      const currentTime = new Date(job.updatedAt || job.createdAt || 0).getTime();
+      const previousTime = previousJob
+        ? new Date(previousJob.updatedAt || previousJob.createdAt || 0).getTime()
+        : -1;
+
+      if (!previousJob || currentTime > previousTime) {
+        acc[supplier] = job;
+      }
+
+      return acc;
+    }, {});
+  }, [automationJobs]);
+
+  const supplierHistoryBySupplier = useMemo(
+    () =>
+      (supplierOrderHistory || []).reduce((acc, entry) => {
+        const supplier = entry.supplier || UNKNOWN_SUPPLIER_LABEL;
+
+        if (!acc[supplier]) {
+          acc[supplier] = [];
+        }
+
+        acc[supplier].push(entry);
+        return acc;
+      }, {}),
+    [supplierOrderHistory]
+  );
+
+  const latestRevisionBySupplier = useMemo(
+    () =>
+      suppliers.reduce((acc, supplier) => {
+        const entries = supplierHistoryBySupplier[supplier] || [];
+        const latestRevision = entries.reduce((maxRevision, entry) => {
+          const revision = Number(entry.revisionNumber || 1);
+          return Math.max(maxRevision, revision);
+        }, 0);
+
+        acc[supplier] = latestRevision;
+        return acc;
+      }, {}),
+    [supplierHistoryBySupplier, suppliers]
+  );
+
+  const sendableSuppliers = useMemo(
+    () =>
+      activeSuppliers.filter((supplier) => {
+        const hasSentSnapshot = (latestRevisionBySupplier[supplier] || 0) > 0;
+        const hasDraftRevision = Number(revisionDraftBySupplier[supplier] || 0) > 0;
+
+        return !hasSentSnapshot || hasDraftRevision;
+      }),
+    [activeSuppliers, latestRevisionBySupplier, revisionDraftBySupplier]
+  );
+
   function normalizeOrderAmount(value) {
     const numeric = Number(value);
 
@@ -100,12 +237,17 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
 
   function handleOrderAmountChange(itemId, nextValue) {
     const normalizedValue = normalizeOrderAmount(nextValue);
+    const editedItem = editableItems.find((item) => item.id === itemId);
 
     setEditableItems((prev) =>
       prev.map((item) =>
         item.id === itemId ? { ...item, orderAmount: normalizedValue } : item
       )
     );
+
+    if (editedItem?.supplier) {
+      clearSupplierWarning(editedItem.supplier);
+    }
   }
 
   function getSupplierSummary(supplier) {
@@ -134,6 +276,100 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
     };
   }
 
+  function refreshExecutionData() {
+    setAutomationJobs(getAutomationQueue());
+    setSupplierOrderHistory(getSupplierOrderHistory());
+  }
+
+  function clearSupplierWarning(supplier) {
+    setSnapshotWarnings((previous) => ({
+      ...previous,
+      [supplier]: "",
+    }));
+  }
+
+  function setSupplierWarning(supplier, message) {
+    setSnapshotWarnings((previous) => ({
+      ...previous,
+      [supplier]: message,
+    }));
+  }
+
+  function createNewRevisionForSupplier(supplier) {
+    const latestRevision = Number(latestRevisionBySupplier[supplier] || 0);
+    const nextRevision = latestRevision + 1;
+
+    setRevisionDraftBySupplier((previous) => ({
+      ...previous,
+      [supplier]: nextRevision,
+    }));
+    clearSupplierWarning(supplier);
+  }
+
+  function clearRevisionDraftForSupplier(supplier) {
+    setRevisionDraftBySupplier((previous) => {
+      const next = { ...previous };
+      delete next[supplier];
+      return next;
+    });
+  }
+
+  function getRevisionToSend(supplier) {
+    const hasSentSnapshot = Number(latestRevisionBySupplier[supplier] || 0) > 0;
+    const draftRevision = Number(revisionDraftBySupplier[supplier] || 0);
+
+    if (hasSentSnapshot) {
+      return draftRevision;
+    }
+
+    return 1;
+  }
+
+  function hasDuplicateSnapshot(candidateSnapshot) {
+    const candidateSignature = getSupplierOrderSnapshotSignature(candidateSnapshot);
+
+    if (!candidateSignature) return false;
+
+    return (supplierOrderHistory || []).some((entry) => {
+      const entrySnapshot =
+        entry.snapshot ||
+        buildSupplierOrderSnapshot(
+          entry.supplier,
+          entry.items || [],
+          entry.revisionNumber || 1,
+          entry.snapshotTimestamp || entry.timestamp
+        );
+
+      return (
+        getSupplierOrderSnapshotSignature(entrySnapshot) === candidateSignature
+      );
+    });
+  }
+
+  function getSupplierExecutionInfo(supplier) {
+    const latestJob = latestSupplierJobBySupplier[supplier];
+
+    if (latestJob) {
+      const metadata = latestJob.metadata?.supplierOrder || {};
+
+      return {
+        status: metadata.status || mapJobStatusToExecutionStatus(latestJob.status),
+        lastSentAt:
+          metadata.lastSentAt || metadata.sentAt || latestJob.createdAt || null,
+        attempts:
+          metadata.attempts !== undefined
+            ? metadata.attempts
+            : Number(latestJob.attemptCount || 0),
+      };
+    }
+
+    return {
+      status: SUPPLIER_ORDER_EXECUTION_STATUSES.PENDING,
+      lastSentAt: null,
+      attempts: 0,
+    };
+  }
+
   async function copyTextToClipboard(text, successMessage, failureMessage) {
     try {
       await navigator.clipboard.writeText(text);
@@ -144,8 +380,35 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
   }
 
   function handleSendSupplierToQueue(supplier) {
+    const revisionNumber = getRevisionToSend(supplier);
+
+    if (!revisionNumber) {
+      alert("This supplier has a locked snapshot. Create a new revision first.");
+      return;
+    }
+
     const supplierItems = activeItemsBySupplier[supplier] || [];
-    const jobData = buildSupplierOrderAutomationJob(supplier, supplierItems);
+    const snapshot = buildSupplierOrderSnapshot(
+      supplier,
+      supplierItems.map((item) => ({
+        name: item.name,
+        quantity: item.orderAmount,
+        unit: item.unit,
+      })),
+      revisionNumber
+    );
+
+    if (hasDuplicateSnapshot(snapshot)) {
+      setSupplierWarning(
+        supplier,
+        "An identical snapshot already exists in supplier order history. Change quantities before sending."
+      );
+      return;
+    }
+
+    const jobData = buildSupplierOrderAutomationJob(supplier, supplierItems, {
+      revisionNumber,
+    });
 
     if (jobData.items.length === 0) {
       alert("There are no items to send for this supplier.");
@@ -153,6 +416,9 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
     }
 
     const job = addAutomationJob(jobData);
+    clearRevisionDraftForSupplier(supplier);
+    clearSupplierWarning(supplier);
+    refreshExecutionData();
     alert(`Supplier order job created: ${job.jobId}`);
     setCurrentPage(PAGE_IDS.AUTOMATION);
   }
@@ -190,16 +456,71 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
   }
 
   function handleSendAllSuppliersToQueue() {
-    if (activeSuppliers.length === 0) {
+    if (sendableSuppliers.length === 0) {
+      if (activeSuppliers.length > 0) {
+        alert("All active suppliers have locked snapshots. Create a revision first.");
+        return;
+      }
+
       alert("There are no supplier items to send.");
       return;
     }
 
-    const createdJobs = activeSuppliers.map((supplier) => {
+    const suppliersWithDuplicateSnapshot = sendableSuppliers.filter((supplier) => {
+      const revisionNumber = getRevisionToSend(supplier);
+      if (!revisionNumber) return true;
+
       const supplierItems = activeItemsBySupplier[supplier] || [];
-      return addAutomationJob(buildSupplierOrderAutomationJob(supplier, supplierItems));
+      const snapshot = buildSupplierOrderSnapshot(
+        supplier,
+        supplierItems.map((item) => ({
+          name: item.name,
+          quantity: item.orderAmount,
+          unit: item.unit,
+        })),
+        revisionNumber
+      );
+
+      return hasDuplicateSnapshot(snapshot);
     });
 
+    if (suppliersWithDuplicateSnapshot.length > 0) {
+      setSnapshotWarnings((previous) => {
+        const next = { ...previous };
+        suppliersWithDuplicateSnapshot.forEach((supplier) => {
+          next[supplier] =
+            "An identical snapshot already exists in supplier order history. Change quantities before sending.";
+        });
+        return next;
+      });
+    }
+
+    const suppliersReadyToSend = sendableSuppliers.filter(
+      (supplier) => !suppliersWithDuplicateSnapshot.includes(supplier)
+    );
+
+    if (suppliersReadyToSend.length === 0) {
+      alert("No supplier order was sent because all snapshots are duplicates.");
+      return;
+    }
+
+    const createdJobs = suppliersReadyToSend.map((supplier) => {
+      const supplierItems = activeItemsBySupplier[supplier] || [];
+      const revisionNumber = getRevisionToSend(supplier);
+
+      return addAutomationJob(
+        buildSupplierOrderAutomationJob(supplier, supplierItems, {
+          revisionNumber,
+        })
+      );
+    });
+
+    suppliersReadyToSend.forEach((supplier) => {
+      clearRevisionDraftForSupplier(supplier);
+      clearSupplierWarning(supplier);
+    });
+
+    refreshExecutionData();
     alert(`${createdJobs.length} supplier order job(s) created.`);
     setCurrentPage(PAGE_IDS.AUTOMATION);
   }
@@ -247,16 +568,77 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
 
         <button
           onClick={handleSendAllSuppliersToQueue}
-          disabled={activeSuppliers.length === 0}
+          disabled={sendableSuppliers.length === 0}
           style={{
             ...styles.primaryButton,
-            backgroundColor: activeSuppliers.length === 0 ? "#888" : "#ff9800",
-            cursor: activeSuppliers.length === 0 ? "not-allowed" : "pointer",
+            backgroundColor: sendableSuppliers.length === 0 ? "#888" : "#ff9800",
+            cursor: sendableSuppliers.length === 0 ? "not-allowed" : "pointer",
           }}
         >
           Send ALL Suppliers To Queue
         </button>
+
+        <button
+          onClick={() => setShowHistory((prev) => !prev)}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#607d8b",
+          }}
+        >
+          {showHistory ? "Hide Supplier Order History" : "View Supplier Order History"}
+        </button>
       </PageActionBar>
+
+      {showHistory && (
+        <div style={{ ...styles.darkPanel, marginBottom: "16px" }}>
+          <h3 style={{ marginTop: 0 }}>Supplier Order History</h3>
+
+          {supplierOrderHistory.length === 0 ? (
+            <div style={styles.emptyState}>No supplier order history yet.</div>
+          ) : (
+            <div
+              style={{
+                border: "1px solid #444",
+                borderRadius: "8px",
+                overflow: "hidden",
+              }}
+            >
+              <SectionTableHeader
+                columns={[
+                  "Supplier",
+                  "Revision",
+                  "Snapshot At",
+                  "Items",
+                  "Total Qty",
+                  "Status",
+                ]}
+                gridTemplateColumns="1fr 0.5fr 1.2fr 0.5fr 0.7fr 0.8fr"
+              />
+
+              {supplierOrderHistory.map((entry) => (
+                <div
+                  key={`history-${entry.jobId}`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 0.5fr 1.2fr 0.5fr 0.7fr 0.8fr",
+                    gap: "8px",
+                    alignItems: "center",
+                    padding: "10px",
+                    borderBottom: "1px solid #333",
+                  }}
+                >
+                  <div>{entry.supplier || UNKNOWN_SUPPLIER_LABEL}</div>
+                  <div>Rev {entry.revisionNumber || 1}</div>
+                  <div>{formatDateTime(entry.snapshotTimestamp || entry.timestamp)}</div>
+                  <div>{(entry.items || []).length}</div>
+                  <div>{entry.totalQuantity || 0}</div>
+                  <div>{entry.status}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {suppliers.length === 0 ? (
         <div style={styles.emptyState}>
@@ -274,11 +656,38 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
             const supplierItems = sortedSupplierGroups[supplier] || [];
             const summary = getSupplierSummary(supplier);
             const hasActiveItems = summary.totalItems > 0;
+            const latestRevision = Number(latestRevisionBySupplier[supplier] || 0);
+            const hasSentSnapshot = latestRevision > 0;
+            const draftRevision = Number(revisionDraftBySupplier[supplier] || 0);
+            const isSnapshotLocked = hasSentSnapshot && draftRevision === 0;
+            const currentRevision = draftRevision || (hasSentSnapshot ? latestRevision : 1);
+            const canSendSupplier = hasActiveItems && (!hasSentSnapshot || draftRevision > 0);
+            const executionInfo = getSupplierExecutionInfo(supplier);
+            const executionColors = getExecutionStatusColors(executionInfo.status);
+            const supplierWarning = snapshotWarnings[supplier];
 
             return (
               <div key={supplier} style={{ marginBottom: "26px" }}>
                 <PageActionBar marginBottom="10px" alignItems="center" gap="10px">
                   <h2 style={{ margin: 0 }}>{supplier}</h2>
+
+                  <StatusBadge
+                    label="Status"
+                    value={executionInfo.status}
+                    backgroundColor={executionColors.backgroundColor}
+                    textColor={executionColors.textColor}
+                    padding="6px 10px"
+                    fontSize="12px"
+                  />
+
+                  <StatusBadge
+                    label="Rev"
+                    value={currentRevision}
+                    backgroundColor="#1f1f1f"
+                    textColor="white"
+                    padding="6px 10px"
+                    fontSize="12px"
+                  />
 
                   <span style={{ color: "#aaa", fontSize: "13px" }}>
                     {summary.totalItems} item(s)
@@ -294,6 +703,36 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
                     </span>
                   )}
                 </PageActionBar>
+
+                <div style={{ color: "#aaa", fontSize: "12px", marginBottom: "8px" }}>
+                  Last sent: {formatDateTime(executionInfo.lastSentAt)} | Attempts:{" "}
+                  {executionInfo.attempts}
+                </div>
+
+                {isSnapshotLocked && (
+                  <NoticePanel
+                    backgroundColor="#1f1f1f"
+                    border="1px solid #555"
+                    color="#f5d98b"
+                    padding="10px"
+                    marginBottom="10px"
+                  >
+                    LOCKED SNAPSHOT (Rev {latestRevision}). Create a new revision to
+                    send updated quantities.
+                  </NoticePanel>
+                )}
+
+                {supplierWarning && (
+                  <NoticePanel
+                    backgroundColor="#3a1f1f"
+                    border="1px solid #7a2d2d"
+                    color="#ffb3b3"
+                    padding="10px"
+                    marginBottom="10px"
+                  >
+                    {supplierWarning}
+                  </NoticePanel>
+                )}
 
                 <SectionTableHeader
                   columns={["Item", "Current", "Ideal", "Order"]}
@@ -383,14 +822,30 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
 
                   <button
                     onClick={() => handleSendSupplierToQueue(supplier)}
-                    disabled={!hasActiveItems}
+                    disabled={!canSendSupplier}
                     style={{
                       ...styles.primaryButton,
-                      backgroundColor: !hasActiveItems ? "#888" : "#ff9800",
-                      cursor: !hasActiveItems ? "not-allowed" : "pointer",
+                      backgroundColor: !canSendSupplier ? "#888" : "#ff9800",
+                      cursor: !canSendSupplier ? "not-allowed" : "pointer",
                     }}
                   >
                     Send {supplier} To Queue
+                  </button>
+
+                  <button
+                    onClick={() => createNewRevisionForSupplier(supplier)}
+                    disabled={!hasSentSnapshot || draftRevision > 0}
+                    style={{
+                      ...styles.primaryButton,
+                      backgroundColor:
+                        !hasSentSnapshot || draftRevision > 0 ? "#888" : "#607d8b",
+                      cursor:
+                        !hasSentSnapshot || draftRevision > 0
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    Create New Revision
                   </button>
                 </PageActionBar>
               </div>

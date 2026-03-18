@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mock Supplier Portal</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Mock Supplier Portal</h1>
+
+      <section id="login-page" class="panel">
+        <h2>Login</h2>
+        <label class="field">
+          Username
+          <input id="username-input" type="text" placeholder="chef" />
+        </label>
+        <label class="field">
+          Password
+          <input id="password-input" type="password" placeholder="smartops" />
+        </label>
+        <button id="login-button" class="primary">Login</button>
+        <p id="login-error" class="error hidden">Invalid credentials.</p>
+      </section>
+
+      <section id="order-page" class="panel hidden">
+        <h2>Ordering</h2>
+        <p class="hint">Search item, set quantity, then add.</p>
+
+        <label class="field">
+          Item Search
+          <input
+            id="item-search-input"
+            type="text"
+            placeholder="Search items..."
+            autocomplete="off"
+          />
+        </label>
+
+        <ul id="item-search-results" class="results"></ul>
+
+        <div class="row">
+          <div class="pill" id="selected-item-pill">Selected: None</div>
+          <label class="field qty-field">
+            Quantity
+            <input id="quantity-input" type="number" min="0" step="any" value="1" />
+          </label>
+          <button id="add-item-button" class="primary">Add Item</button>
+        </div>
+
+        <div class="table">
+          <div class="table-header">
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Unit</span>
+          </div>
+          <div id="order-items-body"></div>
+        </div>
+
+        <div class="actions">
+          <button id="go-review-button" class="primary">Go To Review</button>
+        </div>
+      </section>
+
+      <section id="review-page" class="panel hidden">
+        <h2>Review Order</h2>
+        <p class="hint">Final submit is intentionally manual in this mock.</p>
+
+        <div class="table">
+          <div class="table-header">
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Unit</span>
+          </div>
+          <div id="review-items-body"></div>
+        </div>
+
+        <div class="actions">
+          <button id="back-to-order-button">Back To Order</button>
+          <button id="submit-placeholder-button" class="danger">
+            Submit Order (Placeholder)
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

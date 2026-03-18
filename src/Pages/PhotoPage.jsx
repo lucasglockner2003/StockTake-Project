@@ -37,7 +37,14 @@ function PhotoPage({ items, setCurrentPage }) {
     handleCopyFinalText,
     handleCopyAutomationPayload,
     handleSendToAutomationQueue,
-  } = usePhotoOrder(items, setCurrentPage, PAGE_IDS.AUTOMATION);
+    readyDailyOrdersCount,
+    handleSendDailyOrderToBot,
+  } = usePhotoOrder(
+    items,
+    setCurrentPage,
+    PAGE_IDS.AUTOMATION,
+    PAGE_IDS.DAILY_ORDER_EXECUTION
+  );
 
   return (
     <div>
@@ -117,6 +124,16 @@ function PhotoPage({ items, setCurrentPage }) {
           }}
         >
           View Automation Jobs
+        </button>
+
+        <button
+          onClick={() => setCurrentPage(PAGE_IDS.DAILY_ORDER_EXECUTION)}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#607d8b",
+          }}
+        >
+          View Daily Orders
         </button>
       </PageActionBar>
 
@@ -318,6 +335,16 @@ Salsa: 15`}
           }}
         >
           Send To Automation Queue
+        </button>
+
+        <button
+          onClick={handleSendDailyOrderToBot}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: readyDailyOrdersCount > 0 ? "#00b894" : "#607d8b",
+          }}
+        >
+          Send Daily Order To Bot (Ready: {readyDailyOrdersCount})
         </button>
       </PageActionBar>
     </div>

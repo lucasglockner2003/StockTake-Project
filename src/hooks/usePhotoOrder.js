@@ -16,8 +16,17 @@ import {
   clearOpenSearchKeyIfDeleted,
 } from "../utils/entries";
 import { addAutomationJob } from "../utils/automation";
+import {
+  addDailyConfirmedOrdersFromPhoto,
+  getReadyOrdersCount,
+} from "../utils/dailyOrders";
 
-export function usePhotoOrder(items, setCurrentPage, photoPageId) {
+export function usePhotoOrder(
+  items,
+  setCurrentPage,
+  automationPageId,
+  dailyExecutionPageId
+) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [rawExtractedText, setRawExtractedText] = useState("");
@@ -28,6 +37,9 @@ export function usePhotoOrder(items, setCurrentPage, photoPageId) {
   const [ocrError, setOcrError] = useState("");
   const [isOutputLocked, setIsOutputLocked] = useState(false);
   const [photoSessionId, setPhotoSessionId] = useState(null);
+  const [readyDailyOrdersCount, setReadyDailyOrdersCount] = useState(
+    getReadyOrdersCount
+  );
 
   useEffect(() => {
     return () => {
@@ -164,6 +176,8 @@ export function usePhotoOrder(items, setCurrentPage, photoPageId) {
 
     setConfirmedEntries(nextConfirmedEntries);
     setIsOutputLocked(true);
+    addDailyConfirmedOrdersFromPhoto(nextConfirmedEntries, items);
+    setReadyDailyOrdersCount(getReadyOrdersCount());
   }
 
   function handleUnlockOutput() {
@@ -208,7 +222,12 @@ export function usePhotoOrder(items, setCurrentPage, photoPageId) {
 
     const job = addAutomationJob(automationJob);
     alert(`Automation job created: ${job.jobId}`);
-    setCurrentPage(photoPageId);
+    setCurrentPage(automationPageId);
+  }
+
+  function handleSendDailyOrderToBot() {
+    setReadyDailyOrdersCount(getReadyOrdersCount());
+    setCurrentPage(dailyExecutionPageId);
   }
 
   const searchableItems = useMemo(() => items.slice(), [items]);
@@ -233,6 +252,7 @@ export function usePhotoOrder(items, setCurrentPage, photoPageId) {
     liveValidEntriesCount,
     automationPayload,
     automationJob,
+    readyDailyOrdersCount,
     handleImageChange,
     handleProcessText,
     handleProcessImage,
@@ -246,5 +266,6 @@ export function usePhotoOrder(items, setCurrentPage, photoPageId) {
     handleCopyFinalText,
     handleCopyAutomationPayload,
     handleSendToAutomationQueue,
+    handleSendDailyOrderToBot,
   };
 }

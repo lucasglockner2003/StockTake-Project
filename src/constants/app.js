@@ -5,6 +5,7 @@ export const PAGE_IDS = {
   VOICE: "voice",
   PHOTO: "photo",
   AUTOMATION: "automation",
+  DAILY_ORDER_EXECUTION: "daily-order-execution",
 };
 
 export const JOB_STATUSES = {
@@ -35,4 +36,20 @@ export const SOURCES = {
   REVIEW_SUGGESTED_ORDER: "review-suggested-order",
   REVIEW_STOCK_TABLE: "review-stock-table",
   REVIEW_SUPPLIER_ORDER: "review-supplier-order",
+};
+
+export const SUPPLIER_ORDER_EXECUTION_STATUSES = {
+  PENDING: "pending",
+  SENT_TO_QUEUE: "sent-to-queue",
+  EXECUTED: "executed",
+  FAILED: "failed",
+};
+
+export const DAILY_ORDER_STATUSES = {
+  DRAFT: "draft",
+  READY: "ready-to-execute",
+  FILLING_ORDER: "filling-order",
+  READY_FOR_CHEF_REVIEW: "ready-for-chef-review",
+  EXECUTED: "executed",
+  FAILED: "failed",
 };

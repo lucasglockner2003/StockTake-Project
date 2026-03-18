@@ -5,6 +5,7 @@ import SupplierOrderReviewPage from "./Pages/SupplierOrderReviewPage";
 import StockVoicePage from "./Pages/StockVoicePage";
 import PhotoPage from "./Pages/PhotoPage";
 import AutomationJobsPage from "./Pages/AutomationJobsPage";
+import DailyOrderExecutionPage from "./Pages/DailyOrderExecutionPage";
 import { PAGE_IDS } from "./constants/pages";
 import { useStockTake } from "./hooks/useStockTake";
 import {
@@ -175,6 +176,10 @@ function App() {
 
       {currentPage === PAGE_IDS.AUTOMATION && (
         <AutomationJobsPage setCurrentPage={setCurrentPage} />
+      )}
+
+      {currentPage === PAGE_IDS.DAILY_ORDER_EXECUTION && (
+        <DailyOrderExecutionPage setCurrentPage={setCurrentPage} />
       )}
     </div>
   );

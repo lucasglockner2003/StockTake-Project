@@ -1,0 +1,20 @@
+{
+  "supplier": "Fresh Produce Co",
+  "items": [
+    {
+      "itemName": "Tomato",
+      "quantity": 8,
+      "unit": "kg"
+    },
+    {
+      "itemName": "Potato",
+      "quantity": 5,
+      "unit": "kg"
+    },
+    {
+      "itemName": "Red Onion",
+      "quantity": 3,
+      "unit": "kg"
+    }
+  ]
+}
