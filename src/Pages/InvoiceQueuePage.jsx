@@ -93,6 +93,16 @@ function normalizeAmount(value) {
   return numeric;
 }
 
+function formatMoney(value) {
+  return normalizeAmount(value).toFixed(2);
+}
+
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "0.0%";
+  return `${numeric.toFixed(1)}%`;
+}
+
 function getInvoicePayload(invoice) {
   const lastPayload = invoice?.executionMetadata?.lastPayload;
   if (lastPayload && Array.isArray(lastPayload.items) && lastPayload.items.length > 0) {
@@ -226,10 +236,122 @@ function InvoiceQueuePage({ setCurrentPage }) {
     return Object.values(groups).sort((a, b) => b.totalSpend - a.totalSpend);
   }, [filteredInvoices]);
 
+  const supplierPerformanceRows = useMemo(() => {
+    const groups = filteredInvoices.reduce((acc, invoice) => {
+      const supplier = invoice.supplier || "Unknown Supplier";
+      if (!acc[supplier]) {
+        acc[supplier] = {
+          supplier,
+          invoiceCount: 0,
+          executedInvoiceCount: 0,
+          failedInvoiceCount: 0,
+          totalSpend: 0,
+          executedSpend: 0,
+        };
+      }
+
+      const amount = normalizeAmount(invoice.totalAmount);
+      acc[supplier].invoiceCount += 1;
+      acc[supplier].totalSpend += amount;
+      if (invoice.status === INVOICE_INTAKE_STATUSES.EXECUTED) {
+        acc[supplier].executedInvoiceCount += 1;
+        acc[supplier].executedSpend += amount;
+      }
+      if (invoice.status === INVOICE_INTAKE_STATUSES.FAILED) {
+        acc[supplier].failedInvoiceCount += 1;
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(groups)
+      .map((supplierRow) => ({
+        ...supplierRow,
+        failedRate:
+          supplierRow.invoiceCount > 0
+            ? (supplierRow.failedInvoiceCount / supplierRow.invoiceCount) * 100
+            : 0,
+      }))
+      .sort((a, b) => b.executedSpend - a.executedSpend);
+  }, [filteredInvoices]);
+
+  const topItemsBySpendRows = useMemo(() => {
+    const itemGroups = filteredInvoices.reduce((acc, invoice) => {
+      const payload = getInvoicePayload(invoice);
+      const supplier = invoice.supplier || "Unknown Supplier";
+
+      (payload.items || []).forEach((item) => {
+        const itemName = String(item.itemName || item.name || "").trim();
+        if (!itemName) return;
+
+        const quantity = normalizeAmount(item.quantity);
+        const unitPrice = normalizeAmount(item.unitPrice);
+        const lineTotal =
+          normalizeAmount(item.lineTotal) > 0
+            ? normalizeAmount(item.lineTotal)
+            : quantity * unitPrice;
+
+        if (!acc[itemName]) {
+          acc[itemName] = {
+            itemName,
+            totalQuantity: 0,
+            totalSpend: 0,
+            suppliers: {},
+          };
+        }
+
+        acc[itemName].totalQuantity += quantity;
+        acc[itemName].totalSpend += lineTotal;
+        acc[itemName].suppliers[supplier] = true;
+      });
+
+      return acc;
+    }, {});
+
+    return Object.values(itemGroups)
+      .map((row) => ({
+        itemName: row.itemName,
+        totalQuantity: row.totalQuantity,
+        totalSpend: row.totalSpend,
+        supplierCount: Object.keys(row.suppliers).length,
+      }))
+      .sort((a, b) => b.totalSpend - a.totalSpend);
+  }, [filteredInvoices]);
+
   const topSupplierLabel =
     supplierSpendRows.length === 0
       ? "-"
       : `${supplierSpendRows[0].supplier} (${supplierSpendRows[0].totalSpend.toFixed(2)})`;
+
+  const topSupplierByInvoiceCount = useMemo(
+    () =>
+      supplierPerformanceRows
+        .slice()
+        .sort((a, b) => b.invoiceCount - a.invoiceCount)[0] || null,
+    [supplierPerformanceRows]
+  );
+
+  const topSupplierByInvoiceCountLabel =
+    !topSupplierByInvoiceCount
+      ? "-"
+      : `${topSupplierByInvoiceCount.supplier} (${topSupplierByInvoiceCount.invoiceCount})`;
+
+  const topSupplierByExecutedSpendLabel =
+    supplierPerformanceRows.length === 0
+      ? "-"
+      : `${supplierPerformanceRows[0].supplier} (${formatMoney(
+          supplierPerformanceRows[0].executedSpend
+        )})`;
+
+  const totalSuppliers = supplierPerformanceRows.length;
+  const failedInvoiceRate =
+    filteredInvoices.length > 0
+      ? (summaryMetrics.failedCount / filteredInvoices.length) * 100
+      : 0;
+  const averageInvoiceValue =
+    filteredInvoices.length > 0
+      ? summaryMetrics.totalSpend / filteredInvoices.length
+      : 0;
 
   function refreshInvoiceQueue() {
     setInvoiceQueue(getInvoiceQueue());
@@ -462,13 +584,13 @@ function InvoiceQueuePage({ setCurrentPage }) {
       <PageActionBar marginBottom="14px">
         <StatusBadge
           label="Total Spend"
-          value={summaryMetrics.totalSpend.toFixed(2)}
+          value={formatMoney(summaryMetrics.totalSpend)}
           backgroundColor="#1f1f1f"
           textColor="#9be79b"
         />
         <StatusBadge
           label="Executed Spend"
-          value={summaryMetrics.executedSpend.toFixed(2)}
+          value={formatMoney(summaryMetrics.executedSpend)}
           backgroundColor="#1f1f1f"
           textColor="#4CAF50"
         />
@@ -489,6 +611,39 @@ function InvoiceQueuePage({ setCurrentPage }) {
           value={topSupplierLabel}
           backgroundColor="#1f1f1f"
           textColor="#8de0ea"
+        />
+      </PageActionBar>
+
+      <PageActionBar marginBottom="14px">
+        <StatusBadge
+          label="Total Suppliers"
+          value={totalSuppliers}
+          backgroundColor="#1f1f1f"
+          textColor="white"
+        />
+        <StatusBadge
+          label="Top By Invoices"
+          value={topSupplierByInvoiceCountLabel}
+          backgroundColor="#1f1f1f"
+          textColor="#8de0ea"
+        />
+        <StatusBadge
+          label="Top By Executed Spend"
+          value={topSupplierByExecutedSpendLabel}
+          backgroundColor="#1f1f1f"
+          textColor="#4CAF50"
+        />
+        <StatusBadge
+          label="Failed Rate"
+          value={formatPercent(failedInvoiceRate)}
+          backgroundColor="#1f1f1f"
+          textColor="#d9534f"
+        />
+        <StatusBadge
+          label="Avg Invoice Value"
+          value={formatMoney(averageInvoiceValue)}
+          backgroundColor="#1f1f1f"
+          textColor="#9be79b"
         />
       </PageActionBar>
 
@@ -593,9 +748,90 @@ function InvoiceQueuePage({ setCurrentPage }) {
                 <strong>{supplierRow.supplier}</strong>
               </div>
               <div>{supplierRow.invoiceCount}</div>
-              <div>{supplierRow.totalSpend.toFixed(2)}</div>
-              <div>{supplierRow.executedSpend.toFixed(2)}</div>
+              <div>{formatMoney(supplierRow.totalSpend)}</div>
+              <div>{formatMoney(supplierRow.executedSpend)}</div>
               <div>{supplierRow.failedCount}</div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ ...styles.darkPanel, marginBottom: "12px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "10px" }}>Top Items By Spend</h2>
+
+        <SectionTableHeader
+          columns={["Item", "Total Qty", "Total Spend", "Supplier Count"]}
+          gridTemplateColumns="1.4fr 0.9fr 0.9fr 0.8fr"
+          marginBottom="6px"
+        />
+
+        {topItemsBySpendRows.length === 0 ? (
+          <div style={styles.emptyState}>No item analytics for current filters.</div>
+        ) : (
+          topItemsBySpendRows.map((itemRow) => (
+            <div
+              key={itemRow.itemName}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 0.9fr 0.9fr 0.8fr",
+                gap: "8px",
+                alignItems: "center",
+                padding: "10px",
+                borderBottom: "1px solid #333",
+              }}
+            >
+              <div>
+                <strong>{itemRow.itemName}</strong>
+              </div>
+              <div>{itemRow.totalQuantity}</div>
+              <div>{formatMoney(itemRow.totalSpend)}</div>
+              <div>{itemRow.supplierCount}</div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ ...styles.darkPanel, marginBottom: "12px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "10px" }}>Supplier Performance</h2>
+
+        <SectionTableHeader
+          columns={[
+            "Supplier",
+            "Invoices",
+            "Executed",
+            "Failed",
+            "Failed Rate",
+            "Total Spend",
+            "Executed Spend",
+          ]}
+          gridTemplateColumns="1.3fr 0.6fr 0.6fr 0.6fr 0.8fr 0.9fr 0.9fr"
+          marginBottom="6px"
+        />
+
+        {supplierPerformanceRows.length === 0 ? (
+          <div style={styles.emptyState}>No supplier performance data for current filters.</div>
+        ) : (
+          supplierPerformanceRows.map((supplierRow) => (
+            <div
+              key={supplierRow.supplier}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.3fr 0.6fr 0.6fr 0.6fr 0.8fr 0.9fr 0.9fr",
+                gap: "8px",
+                alignItems: "center",
+                padding: "10px",
+                borderBottom: "1px solid #333",
+              }}
+            >
+              <div>
+                <strong>{supplierRow.supplier}</strong>
+              </div>
+              <div>{supplierRow.invoiceCount}</div>
+              <div>{supplierRow.executedInvoiceCount}</div>
+              <div>{supplierRow.failedInvoiceCount}</div>
+              <div>{formatPercent(supplierRow.failedRate)}</div>
+              <div>{formatMoney(supplierRow.totalSpend)}</div>
+              <div>{formatMoney(supplierRow.executedSpend)}</div>
             </div>
           ))
         )}
@@ -645,7 +881,7 @@ function InvoiceQueuePage({ setCurrentPage }) {
                     {invoice.invoiceDate || "-"}
                   </div>
                 </div>
-                <div>{normalizeAmount(invoice.totalAmount).toFixed(2)}</div>
+                <div>{formatMoney(invoice.totalAmount)}</div>
                 <StatusBadge
                   label="Status"
                   value={invoice.status || INVOICE_INTAKE_STATUSES.DRAFT}
