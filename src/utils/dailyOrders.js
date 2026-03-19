@@ -1,10 +1,8 @@
 import { DAILY_ORDER_STATUSES } from "../constants/app";
 import { UNKNOWN_SUPPLIER_LABEL } from "./stock";
+import { executeDailyOrderFill, submitDailyOrder } from "./botServiceClient";
 
 const DAILY_ORDER_QUEUE_KEY = "smartops-daily-order-queue";
-const DAILY_ORDER_BOT_SERVICE_URL = String(
-  import.meta.env.VITE_DAILY_ORDER_BOT_SERVICE_URL || "http://localhost:4190"
-).replace(/\/+$/, "");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,6 +80,10 @@ function normalizeExecutionFields(order) {
   const finalScreenshot = order.finalScreenshot || "";
   const submitDuration = order.submitDuration || null;
   const finalExecutionNotes = order.finalExecutionNotes || "";
+  const lastExecutionId = order.lastExecutionId || "";
+  const lastErrorCode = order.lastErrorCode || "";
+  const lastErrorMessage = order.lastErrorMessage || "";
+  const lastExecutionPhase = order.lastExecutionPhase || "";
 
   return {
     executionStartedAt,
@@ -97,6 +99,10 @@ function normalizeExecutionFields(order) {
     finalScreenshot,
     submitDuration,
     finalExecutionNotes,
+    lastExecutionId,
+    lastErrorCode,
+    lastErrorMessage,
+    lastExecutionPhase,
   };
 }
 
@@ -161,7 +167,7 @@ function buildDailyOrderBotPayload(order) {
   };
 }
 
-function resolveBotServiceScreenshotUrl(value) {
+function normalizeScreenshotUrl(value) {
   const screenshot = String(value || "").trim();
   if (!screenshot) return "";
 
@@ -173,11 +179,7 @@ function resolveBotServiceScreenshotUrl(value) {
     return screenshot;
   }
 
-  if (screenshot.startsWith("/")) {
-    return `${DAILY_ORDER_BOT_SERVICE_URL}${screenshot}`;
-  }
-
-  return `${DAILY_ORDER_BOT_SERVICE_URL}/${screenshot}`;
+  return screenshot;
 }
 
 function hasAnyExecutableStatus(queue = []) {
@@ -263,6 +265,10 @@ export function buildDailyConfirmedOrdersFromConfirmedEntries(
       finalScreenshot: "",
       submitDuration: null,
       finalExecutionNotes: "",
+      lastExecutionId: "",
+      lastErrorCode: "",
+      lastErrorMessage: "",
+      lastExecutionPhase: "",
     })
   );
 }
@@ -538,40 +544,27 @@ export async function runDailyOrderBotFill(orderId) {
     finalScreenshot: "",
     submitDuration: null,
     finalExecutionNotes: "",
+    lastExecutionId: "",
+    lastErrorCode: "",
+    lastErrorMessage: "",
+    lastExecutionPhase: "fill-started",
   }));
 
   try {
-    const response = await fetch(
-      `${DAILY_ORDER_BOT_SERVICE_URL}/execute-daily-order`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(botPayload),
-      }
-    );
-
-    let data = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
+    const response = await executeDailyOrderFill(botPayload);
 
     const executionFinishedAt = new Date().toISOString();
     const executionDuration = Date.now() - startedAtMs;
     const success =
-      response.ok &&
-      data?.ok &&
-      data?.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
+      response.ok && response.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
 
     const executionNotes = success
-      ? data?.executionNotes ||
+      ? response.executionNotes ||
+        response.message ||
         "Bot filled items and stopped before submit. Ready for chef review."
-      : data?.executionNotes ||
-        data?.message ||
-        `Bot service request failed (${response.status}).`;
+      : response.executionNotes ||
+        response.message ||
+        "Bot service request failed.";
 
     const queue = updateDailyOrder(orderId, (order) => ({
       ...order,
@@ -583,25 +576,31 @@ export async function runDailyOrderBotFill(orderId) {
       executionFinishedAt,
       executionDuration,
       reviewScreenshot: success
-        ? resolveBotServiceScreenshotUrl(
-            data?.reviewScreenshot || data?.screenshotPath
+        ? normalizeScreenshotUrl(
+            response.reviewScreenshot || response.screenshotPath
           )
         : "",
-      filledAt: success ? data?.filledAt || executionFinishedAt : null,
+      filledAt: success ? response.filledAt || executionFinishedAt : null,
       readyForReviewAt: success
-        ? data?.readyForReviewAt || executionFinishedAt
+        ? response.readyForReviewAt || executionFinishedAt
         : null,
       executionNotes,
+      lastExecutionId: response.executionId || order.lastExecutionId || "",
+      lastExecutionPhase: response.phase || order.lastExecutionPhase || "",
+      lastErrorCode: success ? "" : response.errorCode || "BOT_FILL_FAILED",
+      lastErrorMessage: success
+        ? ""
+        : response.message || executionNotes,
       executionResult: {
         duration: executionDuration,
         timestamp: executionFinishedAt,
-        filledAt: success ? data?.filledAt || executionFinishedAt : null,
+        filledAt: success ? response.filledAt || executionFinishedAt : null,
         readyForReviewAt: success
-          ? data?.readyForReviewAt || executionFinishedAt
+          ? response.readyForReviewAt || executionFinishedAt
           : null,
         reviewScreenshot: success
-          ? resolveBotServiceScreenshotUrl(
-              data?.reviewScreenshot || data?.screenshotPath
+          ? normalizeScreenshotUrl(
+              response.reviewScreenshot || response.screenshotPath
             )
           : "",
         success,
@@ -614,6 +613,10 @@ export async function runDailyOrderBotFill(orderId) {
       queue,
       order: queue.find((order) => order.id === orderId) || null,
       reason: success ? "success" : "failed",
+      errorCode: success ? "" : response.errorCode || "BOT_FILL_FAILED",
+      errorMessage: success ? "" : response.message || executionNotes,
+      executionId: response.executionId || "",
+      phase: response.phase || "",
     };
   } catch (error) {
     const executionFinishedAt = new Date().toISOString();
@@ -630,6 +633,10 @@ export async function runDailyOrderBotFill(orderId) {
       readyForReviewAt: null,
       executionNotes:
         error?.message || "Bot service request failed unexpectedly.",
+      lastExecutionId: order.lastExecutionId || "",
+      lastExecutionPhase: "fill-transport-error",
+      lastErrorCode: "BOT_SERVICE_UNREACHABLE",
+      lastErrorMessage: error?.message || "Bot service request failed unexpectedly.",
       executionResult: {
         duration: executionDuration,
         timestamp: executionFinishedAt,
@@ -646,6 +653,10 @@ export async function runDailyOrderBotFill(orderId) {
       queue,
       order: queue.find((order) => order.id === orderId) || null,
       reason: "bot-service-error",
+      errorCode: "BOT_SERVICE_UNREACHABLE",
+      errorMessage: error?.message || "Bot service request failed unexpectedly.",
+      executionId: "",
+      phase: "fill-transport-error",
     };
   }
 }
@@ -708,50 +719,51 @@ export async function submitDailyOrderAfterChefApproval(orderId) {
     isLocked: true,
     chefApprovedAt,
     finalExecutionNotes: "Chef approved. Submitting final order on mock portal.",
+    lastExecutionPhase: "final-submit-started",
+    lastErrorCode: "",
+    lastErrorMessage: "",
   }));
 
   try {
-    const response = await fetch(
-      `${DAILY_ORDER_BOT_SERVICE_URL}/submit-daily-order`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(botPayload),
-      }
-    );
-
-    let data = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
+    const response = await submitDailyOrder(botPayload);
 
     const success =
-      response.ok && data?.ok && data?.status === DAILY_ORDER_STATUSES.EXECUTED;
+      response.ok && response.status === DAILY_ORDER_STATUSES.EXECUTED;
     const queue = updateDailyOrder(orderId, (order) => ({
       ...order,
       status: success ? DAILY_ORDER_STATUSES.EXECUTED : DAILY_ORDER_STATUSES.FAILED,
       isLocked: true,
       chefApprovedAt,
-      submittedAt: success ? data?.submittedAt || new Date().toISOString() : order.submittedAt || null,
-      orderNumber: success ? data?.orderNumber || "" : order.orderNumber || "",
+      submittedAt: success
+        ? response.submittedAt || new Date().toISOString()
+        : order.submittedAt || null,
+      orderNumber: success
+        ? response.orderNumber || ""
+        : order.orderNumber || "",
       finalScreenshot: success
-        ? resolveBotServiceScreenshotUrl(data?.finalScreenshot)
+        ? normalizeScreenshotUrl(response.finalScreenshot)
         : order.finalScreenshot || "",
       submitDuration: success
-        ? data?.submitDuration || 0
+        ? response.submitDuration || 0
         : order.submitDuration || null,
       finalExecutionNotes: success
-        ? data?.finalExecutionNotes || "Final submit executed."
-        : data?.finalExecutionNotes ||
-          data?.message ||
-          `Final submit failed (${response.status}).`,
+        ? response.finalExecutionNotes ||
+          response.message ||
+          "Final submit executed."
+        : response.finalExecutionNotes ||
+          response.message ||
+          "Final submit failed.",
       executionNotes: success
         ? "Final submit completed on mock portal."
         : order.executionNotes || "Bot fill completed and ready for review.",
+      lastExecutionId: response.executionId || order.lastExecutionId || "",
+      lastExecutionPhase: response.phase || order.lastExecutionPhase || "",
+      lastErrorCode: success
+        ? ""
+        : response.errorCode || "FINAL_SUBMIT_FAILED",
+      lastErrorMessage: success
+        ? ""
+        : response.message || "Final submit failed.",
     }));
 
     return {
@@ -759,6 +771,10 @@ export async function submitDailyOrderAfterChefApproval(orderId) {
       queue,
       order: queue.find((order) => order.id === orderId) || null,
       reason: success ? "success" : "failed",
+      errorCode: success ? "" : response.errorCode || "FINAL_SUBMIT_FAILED",
+      errorMessage: success ? "" : response.message || "Final submit failed.",
+      executionId: response.executionId || "",
+      phase: response.phase || "",
     };
   } catch (error) {
     const queue = updateDailyOrder(orderId, (order) => ({
@@ -769,6 +785,10 @@ export async function submitDailyOrderAfterChefApproval(orderId) {
       finalExecutionNotes:
         error?.message || "Final submit request failed unexpectedly.",
       executionNotes: order.executionNotes || "Bot fill completed and ready for review.",
+      lastExecutionPhase: "final-submit-transport-error",
+      lastErrorCode: "BOT_SERVICE_UNREACHABLE",
+      lastErrorMessage:
+        error?.message || "Final submit request failed unexpectedly.",
     }));
 
     return {
@@ -776,6 +796,10 @@ export async function submitDailyOrderAfterChefApproval(orderId) {
       queue,
       order: queue.find((order) => order.id === orderId) || null,
       reason: "final-submit-error",
+      errorCode: "BOT_SERVICE_UNREACHABLE",
+      errorMessage: error?.message || "Final submit request failed unexpectedly.",
+      executionId: "",
+      phase: "final-submit-transport-error",
     };
   }
 }

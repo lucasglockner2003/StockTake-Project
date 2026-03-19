@@ -1,176 +1,113 @@
-# 🍽️ SmartOps — Voice-Driven Restaurant Stock Management System
+# SmartOps - Restaurant Workflow Automation
 
-SmartOps is a workflow-focused inventory system designed to solve real operational bottlenecks in large restaurant kitchens.
+SmartOps is a production-oriented restaurant operations system focused on inventory capture, order review, and controlled supplier order execution.
 
-Traditional stocktaking can take **6–7 hours**, requires manual transcription, and is highly error-prone in fast-paced environments.
+This project is intentionally built around operational safety:
+- human correction before execution
+- screenshot evidence at key stages
+- explicit chef approval gate before final submit
+- manual trigger flow only (no scheduler, no auto-run)
 
-SmartOps reduces counting time dramatically by introducing **voice input, smart matching, visual alerts, and automated order suggestions.**
+## What SmartOps Does Today
 
----
+### 1) Stocktake Capture
+- Manual stocktake entry for kitchen teams
+- Voice capture flow for fast quantity input
+- Photo OCR capture flow for handwritten/printed order notes
 
-## 🚀 Live Product Vision
+### 2) Review and Correction
+- Parsed entries are matched against catalog items
+- Team can correct item mapping and quantities
+- Suggested order output is reviewed before automation
 
-The long-term goal is to evolve SmartOps into a **multi-restaurant SaaS inventory platform** that combines:
+### 3) Daily Order Execution
+- Daily confirmed orders are stored locally
+- Orders move through the existing state machine with manual transitions
+- Bot fill and final submit are manually triggered by chef/operator actions
 
-* Voice automation
-* Operational intelligence
-* Predictive ordering
-* Kitchen-optimized UX
+### 4) Bot Service Layer
+- Dedicated `bot-service` (Node + Express) executes browser automation via Playwright
+- Endpoints handle fill and final submit separately:
+  - `POST /execute-daily-order`
+  - `POST /submit-daily-order`
+- Includes structured execution responses for safer retry/error UX
 
----
+### 5) Mock Supplier Portal (Safety Environment)
+- Automation targets the mock supplier portal only
+- Used for safe testing of:
+  - login
+  - item fill
+  - review screenshot capture
+  - final submit simulation
+  - mock order number generation
 
-## ⚡ Core Features
+## Safety-Critical Gate: Chef Review Before Final Submit
 
-### 📊 Stock Take Interface
+SmartOps enforces a manual approval gate:
+1. Bot fills order and stops at review stage
+2. Chef reviews evidence (screenshot + order details)
+3. Chef explicitly triggers final submit
 
-* Ultra-fast quantity input for high-pressure environments
-* Real-time stock health indicators:
+No automatic submit is performed.
 
-  * Critical
-  * Low
-  * Check
-  * Good
-* Dynamic border color alerts for quick scanning
-* Ideal stock comparison logic
-* Smart grouping by kitchen area
+## Architecture Snapshot
 
----
+- Frontend: React + Vite
+- Local persistence: `localStorage` (current phase)
+- Automation service: Node.js + Express
+- Browser automation: Playwright
+- Test target portal: `mock-portal`
 
-### 🎤 Voice Stock Take Engine
+## Run Locally
 
-* Speech recognition powered stock counting
-* Automatic parsing of spoken inventory lines
-* Fuzzy product matching system
-* Manual correction workflow for unmatched items
-* **Auto Apply Mode** → instantly updates inventory values
-
-Designed for:
-
-* Loud kitchens
-* Gloves usage
-* Minimal typing
-* Fast movement workflows
-
----
-
-### ✅ Review & Validation Page
-
-* Full session review before applying changes
-* Matched vs unmatched entry validation
-* Prevents accidental stock corruption
-* Supports manual quantity adjustments
-
----
-
-### 🧾 Suggested Order Generator
-
-* Automatically calculates suggested purchase quantities
-* Prevents:
-
-  * Over-ordering
-  * Stockouts
-  * Waste
-* Based on ideal stock thresholds
-
----
-
-### 💾 Smart Persistence Layer
-
-* LocalStorage session auto-save
-* Crash / refresh recovery support
-* Maintains area order workflow
-
----
-
-## 🧠 System Architecture (Current)
-
-Frontend-only operational engine with local state persistence.
-
-```
-Voice Input → Parsing Engine → Fuzzy Match Layer → Review Queue → Auto Apply → Stock State Update → Suggested Order Logic
-```
-
----
-
-## 🛠️ Tech Stack
-
-* React (Functional Components + Hooks)
-* Vite (Fast build tooling)
-* JavaScript
-* Web Speech API
-* LocalStorage persistence
-* Custom fuzzy matching logic
-
----
-
-## 🧪 Product Design Constraints
-
-SmartOps UX decisions were based on real kitchen realities:
-
-* Workers under time pressure
-* Wet / gloved hands
-* Loud background noise
-* Need for instant visual feedback
-* Large tap targets
-* Minimal navigation depth
-
----
-
-## 📈 Performance Goal
-
-Reduce full-restaurant stocktaking time from:
-
-**6–7 hours → under 2 hours**
-
-while improving data accuracy.
-
----
-
-## 🔮 Roadmap
-
-### Phase 1 (In Progress)
-
-* Voice preview editing improvements
-* Manual matched-item correction
-* Export to CSV / XLSX
-
-### Phase 2
-
-* Multi-restaurant support
-* SaaS architecture
-* Authentication & roles
-* Cloud database integration
-
-### Phase 3
-
-* Tablet optimized PWA
-* Predictive ordering
-* Analytics dashboard
-* Inventory history tracking
-* AI consumption forecasting
-
----
-
-## 💡 Why This Project Exists
-
-This system was built to:
-
-* Reduce operational cost
-* Reduce human error
-* Improve ordering decisions
-* Digitize legacy kitchen workflows
-
----
-
-## ▶️ How to Run Locally
-
+Install:
 ```bash
 npm install
+```
+
+Frontend:
+```bash
 npm run dev
 ```
 
----
+Mock supplier portal:
+```bash
+npm run mock:portal
+```
 
-## 📌 Status
+Bot service:
+```bash
+npm run bot:service
+```
 
-Active development — new features and architecture improvements ongoing.
+## Environment Variables
+
+- `VITE_DAILY_ORDER_BOT_SERVICE_URL` (frontend, optional)  
+  default: `http://localhost:4190`
+- `BOT_SERVICE_PORT` (bot-service, optional)  
+  default: `4190`
+- `MOCK_PORTAL_URL` (bot-service/bot runners, optional)  
+  default: `http://localhost:4177`
+
+## Current Product Focus
+
+SmartOps is currently focused on execution reliability and operational safety:
+- retry UX improvements
+- structured error handling
+- bot execution stability
+- failure visibility without silent data loss
+
+## Roadmap
+
+### Current
+- Reliability hardening
+- Retry UX and operator feedback
+- Structured bot/service errors
+- Bot execution stability and recovery behavior
+
+### Later
+- Multi-supplier execution support
+- Remote headless execution infrastructure
+- Persistent execution storage
+- SaaS multi-restaurant architecture
+- PWA tablet support for kitchen operations

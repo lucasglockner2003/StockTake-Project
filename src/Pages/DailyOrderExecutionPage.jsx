@@ -75,6 +75,34 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+function getExecutionErrorMessage(errorCode, fallbackMessage) {
+  if (errorCode === "EXECUTION_IN_PROGRESS") {
+    return "Another bot execution is already running. Retry in a moment.";
+  }
+
+  if (errorCode === "BOT_SERVICE_UNREACHABLE") {
+    return "Bot service is unreachable. Check if bot-service is running.";
+  }
+
+  if (errorCode === "BOT_SERVICE_TIMEOUT") {
+    return "Bot service timeout. Retry after checking service health.";
+  }
+
+  if (errorCode === "INVALID_SUPPLIER" || errorCode === "INVALID_ITEMS") {
+    return "Order payload is invalid. Review supplier and item quantities.";
+  }
+
+  if (errorCode === "BOT_FILL_FAILED") {
+    return "Bot could not complete fill stage. Fix issue and retry fill.";
+  }
+
+  if (errorCode === "FINAL_SUBMIT_FAILED") {
+    return "Final submit failed. Review screenshot and retry final submit.";
+  }
+
+  return fallbackMessage || "Execution failed.";
+}
+
 function DailyOrderExecutionPage({ setCurrentPage }) {
   const [dailyOrders, setDailyOrders] = useState([]);
   const [runningBotFillOrderId, setRunningBotFillOrderId] = useState(null);
@@ -166,7 +194,10 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
       } else if (result.ok) {
         alert("Final submit completed successfully.");
       } else {
-        alert("Final submit failed. Check final execution notes.");
+        setWarning(
+          orderId,
+          getExecutionErrorMessage(result.errorCode, result.errorMessage)
+        );
       }
     } catch {
       alert("Failed to submit final order.");
@@ -220,7 +251,10 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
       } else if (result.ok) {
         alert("Bot filled order and stopped at review page.");
       } else {
-        alert("Bot fill failed. Check execution notes.");
+        setWarning(
+          orderId,
+          getExecutionErrorMessage(result.errorCode, result.errorMessage)
+        );
       }
     } catch {
       alert("Failed to run bot fill.");
@@ -551,6 +585,14 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 Submit Duration: {order.submitDuration || 0} ms
                 <br />
                 Final Notes: {order.finalExecutionNotes || "No final submit notes."}
+                <br />
+                Last Execution ID: {order.lastExecutionId || "-"}
+                <br />
+                Last Phase: {order.lastExecutionPhase || "-"}
+                <br />
+                Last Error Code: {order.lastErrorCode || "-"}
+                <br />
+                Last Error Message: {order.lastErrorMessage || "-"}
               </NoticePanel>
 
               <PageActionBar marginBottom="0">
