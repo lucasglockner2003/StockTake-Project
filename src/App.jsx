@@ -6,6 +6,8 @@ import StockVoicePage from "./Pages/StockVoicePage";
 import PhotoPage from "./Pages/PhotoPage";
 import AutomationJobsPage from "./Pages/AutomationJobsPage";
 import DailyOrderExecutionPage from "./Pages/DailyOrderExecutionPage";
+import InvoiceIntakePage from "./Pages/InvoiceIntakePage";
+import InvoiceQueuePage from "./Pages/InvoiceQueuePage";
 import { PAGE_IDS } from "./constants/pages";
 import { useStockTake } from "./hooks/useStockTake";
 import {
@@ -172,6 +174,14 @@ function App() {
 
       {currentPage === PAGE_IDS.PHOTO && (
         <PhotoPage items={items} setCurrentPage={setCurrentPage} />
+      )}
+
+      {currentPage === PAGE_IDS.INVOICE_INTAKE && (
+        <InvoiceIntakePage setCurrentPage={setCurrentPage} />
+      )}
+
+      {currentPage === PAGE_IDS.INVOICE_QUEUE && (
+        <InvoiceQueuePage setCurrentPage={setCurrentPage} />
       )}
 
       {currentPage === PAGE_IDS.AUTOMATION && (

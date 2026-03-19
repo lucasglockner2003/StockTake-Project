@@ -52,6 +52,7 @@ function normalizeStructuredResponse(data, fallback = {}) {
     message: payload.message || fallback.message || "",
     ...payload,
     screenshotPath: toAbsoluteAssetPath(payload.screenshotPath),
+    screenshot: toAbsoluteAssetPath(payload.screenshot),
     reviewScreenshot: toAbsoluteAssetPath(payload.reviewScreenshot),
     finalScreenshot: toAbsoluteAssetPath(payload.finalScreenshot),
   };
@@ -137,6 +138,13 @@ export function executeDailyOrderFill(payload) {
 
 export function submitDailyOrder(payload) {
   return requestBotService("/submit-daily-order", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function executeInvoiceIntake(payload) {
+  return requestBotService("/execute-invoice-intake", {
     method: "POST",
     body: payload,
   });

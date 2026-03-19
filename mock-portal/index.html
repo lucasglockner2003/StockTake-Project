@@ -60,6 +60,7 @@
 
         <div class="actions">
           <button id="go-review-button" class="primary">Go To Review</button>
+          <button id="open-goods-received-button">Goods Received</button>
         </div>
       </section>
 
@@ -78,8 +79,123 @@
 
         <div class="actions">
           <button id="back-to-order-button">Back To Order</button>
+          <button id="review-open-goods-received-button">Goods Received</button>
           <button id="submit-placeholder-button" class="danger">
             Submit Order (Placeholder)
+          </button>
+        </div>
+      </section>
+
+      <section id="goods-received-page" class="panel hidden">
+        <h2>Goods Received</h2>
+        <p class="hint">Receive supplier invoice items into stock (mock).</p>
+
+        <div class="row">
+          <label class="field inline-field">
+            Invoice Number
+            <input
+              id="goods-received-invoice-number"
+              type="text"
+              placeholder="INV-1001"
+            />
+          </label>
+          <label class="field inline-field">
+            Invoice Date
+            <input
+              id="goods-received-invoice-date"
+              type="text"
+              placeholder="YYYY-MM-DD"
+            />
+          </label>
+        </div>
+
+        <label class="field">
+          Product Search
+          <input
+            id="goods-received-search-input"
+            type="text"
+            placeholder="Search products..."
+            autocomplete="off"
+          />
+        </label>
+
+        <ul id="goods-received-results" class="results"></ul>
+
+        <div class="row">
+          <div class="pill" id="goods-received-selected-item-pill">
+            Selected: None
+          </div>
+          <label class="field qty-field">
+            Quantity Received
+            <input
+              id="goods-received-quantity-input"
+              type="number"
+              min="0"
+              step="any"
+              value="1"
+            />
+          </label>
+          <label class="field qty-field">
+            Unit Price
+            <input
+              id="goods-received-unit-price-input"
+              type="number"
+              min="0"
+              step="any"
+              value="0"
+            />
+          </label>
+          <button id="goods-received-add-item-button" class="primary">
+            Add Received Item
+          </button>
+        </div>
+
+        <div class="table table-wide">
+          <div class="table-header table-wide-row">
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Unit</span>
+            <span>Unit Price</span>
+            <span>Line Total</span>
+          </div>
+          <div id="goods-received-items-body"></div>
+        </div>
+
+        <div class="actions">
+          <button id="goods-received-back-to-order-button">Back To Order</button>
+          <button id="goods-received-review-button" class="primary">
+            Review Goods Received
+          </button>
+        </div>
+      </section>
+
+      <section id="goods-received-review-page" class="panel hidden">
+        <h2>Goods Received Review</h2>
+        <p class="hint">Confirm invoice lines before saving goods receipt.</p>
+
+        <div id="goods-received-review-meta" class="meta-row">
+          Invoice Number: - | Invoice Date: -
+        </div>
+
+        <div class="table table-wide">
+          <div class="table-header table-wide-row">
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Unit</span>
+            <span>Unit Price</span>
+            <span>Line Total</span>
+          </div>
+          <div id="goods-received-review-items-body"></div>
+        </div>
+
+        <p id="goods-received-save-state" class="success hidden">
+          Goods received saved successfully (mock).
+        </p>
+
+        <div class="actions">
+          <button id="goods-received-review-back-button">Back To Goods Received</button>
+          <button id="goods-received-save-button" class="primary">
+            Save Goods Received
           </button>
         </div>
       </section>

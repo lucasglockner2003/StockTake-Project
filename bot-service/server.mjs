@@ -5,6 +5,7 @@ import cors from "cors";
 import { fileURLToPath } from "url";
 import { runDailyOrderBot } from "../bot-poc/dailyOrderBotRunner.mjs";
 import { runDailyOrderFinalSubmit } from "./finalSubmitRunner.mjs";
+import { runInvoiceIntakeExecution } from "./invoiceExecutionRunner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,6 +85,48 @@ function normalizeOrderInput(body) {
     ok: true,
     order: {
       supplier,
+      items,
+    },
+  };
+}
+
+function normalizeInvoiceInput(body) {
+  const supplier = String(body?.supplier || "").trim();
+  const invoiceNumber = String(body?.invoiceNumber || "").trim();
+  const invoiceDate = String(body?.invoiceDate || "").trim();
+  const items = Array.isArray(body?.items)
+    ? body.items
+        .map((item) => ({
+          itemName: String(item?.itemName || item?.name || "").trim(),
+          quantity: normalizeQuantity(item?.quantity),
+          unitPrice: normalizeQuantity(item?.unitPrice),
+          lineTotal: normalizeQuantity(item?.lineTotal),
+        }))
+        .filter((item) => item.itemName && item.quantity > 0)
+    : [];
+
+  if (!supplier) {
+    return {
+      ok: false,
+      errorCode: "INVALID_SUPPLIER",
+      message: "Supplier is required.",
+    };
+  }
+
+  if (items.length === 0) {
+    return {
+      ok: false,
+      errorCode: "INVALID_ITEMS",
+      message: "At least one valid invoice item with quantity > 0 is required.",
+    };
+  }
+
+  return {
+    ok: true,
+    invoice: {
+      supplier,
+      invoiceNumber,
+      invoiceDate,
       items,
     },
   };
@@ -254,6 +297,97 @@ app.post("/execute-daily-order", async (req, res) => {
         screenshotPath: "",
         reviewScreenshot: "",
         executionNotes: error?.message || "Unexpected bot service error.",
+      })
+    );
+  } finally {
+    clearExecution();
+  }
+});
+
+app.post("/execute-invoice-intake", async (req, res) => {
+  if (currentExecution) {
+    return res.status(409).json(buildExecutionLockResponse());
+  }
+
+  const normalized = normalizeInvoiceInput(req.body);
+  if (!normalized.ok) {
+    return res.status(400).json(
+      structuredResponse({
+        ok: false,
+        status: "failed",
+        phase: "invoice-validation",
+        errorCode: normalized.errorCode,
+        message: normalized.message,
+      })
+    );
+  }
+
+  const execution = beginExecution("invoice-intake", normalized.invoice.supplier);
+  const screenshotFileName = `invoice-intake-${Date.now()}-${Math.floor(
+    Math.random() * 10000
+  )}.png`;
+  const screenshotPath = path.join(artifactsDir, screenshotFileName);
+
+  try {
+    setExecutionPhase("invoice-running");
+    const result = await runInvoiceIntakeExecution({
+      invoice: normalized.invoice,
+      baseUrl: BOT_BASE_URL,
+      screenshotPath,
+      headless: true,
+    });
+
+    if (!result.success) {
+      setExecutionPhase("invoice-failed");
+      return res.status(500).json(
+        structuredResponse({
+          ok: false,
+          status: "failed",
+          executionId: execution.executionId,
+          phase: "invoice-failed",
+          errorCode: "INVOICE_EXECUTION_FAILED",
+          message: result.notes || "Goods received execution failed.",
+          duration: Number(result.duration || 0),
+          screenshot: "",
+          filledItems: result.filledItems || [],
+          notes: result.notes || "Goods received execution failed.",
+        })
+      );
+    }
+
+    setExecutionPhase("invoice-completed");
+    return res.json(
+      structuredResponse({
+        ok: true,
+        status: "executed",
+        executionId: execution.executionId,
+        phase: "invoice-completed",
+        errorCode: "",
+        message:
+          result.notes ||
+          "Goods received completed and invoice review saved.",
+        duration: Number(result.duration || 0),
+        screenshot: `/artifacts/${screenshotFileName}`,
+        filledItems: result.filledItems || [],
+        notes:
+          result.notes ||
+          "Goods received completed and invoice review saved.",
+      })
+    );
+  } catch (error) {
+    setExecutionPhase("invoice-error");
+    return res.status(500).json(
+      structuredResponse({
+        ok: false,
+        status: "failed",
+        executionId: execution.executionId,
+        phase: "invoice-error",
+        errorCode: "BOT_SERVICE_INTERNAL_ERROR",
+        message: error?.message || "Unexpected goods received execution error.",
+        duration: 0,
+        screenshot: "",
+        filledItems: [],
+        notes: error?.message || "Unexpected goods received execution error.",
       })
     );
   } finally {

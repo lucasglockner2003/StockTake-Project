@@ -135,6 +135,16 @@ function PhotoPage({ items, setCurrentPage }) {
         >
           View Daily Orders
         </button>
+
+        <button
+          onClick={() => setCurrentPage(PAGE_IDS.INVOICE_INTAKE)}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#00b894",
+          }}
+        >
+          Invoice Intake
+        </button>
       </PageActionBar>
 
       {isProcessingImage && (

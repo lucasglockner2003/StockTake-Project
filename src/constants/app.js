@@ -4,6 +4,8 @@ export const PAGE_IDS = {
   SUPPLIER_REVIEW: "supplier-review",
   VOICE: "voice",
   PHOTO: "photo",
+  INVOICE_INTAKE: "invoice-intake",
+  INVOICE_QUEUE: "invoice-queue",
   AUTOMATION: "automation",
   DAILY_ORDER_EXECUTION: "daily-order-execution",
 };
@@ -33,6 +35,7 @@ export const SOURCES = {
   VOICE: "voice",
   PHOTO: "photo",
   PHOTO_ORDER: "photo-order",
+  INVOICE_INTAKE: "invoice-intake",
   REVIEW_SUGGESTED_ORDER: "review-suggested-order",
   REVIEW_STOCK_TABLE: "review-stock-table",
   REVIEW_SUPPLIER_ORDER: "review-supplier-order",
@@ -50,6 +53,13 @@ export const DAILY_ORDER_STATUSES = {
   READY: "ready-to-execute",
   FILLING_ORDER: "filling-order",
   READY_FOR_CHEF_REVIEW: "ready-for-chef-review",
+  EXECUTED: "executed",
+  FAILED: "failed",
+};
+
+export const INVOICE_INTAKE_STATUSES = {
+  DRAFT: "draft",
+  QUEUED: "queued-to-bot",
   EXECUTED: "executed",
   FAILED: "failed",
 };
