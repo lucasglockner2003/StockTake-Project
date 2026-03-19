@@ -919,3 +919,7 @@ export function getReadyOrdersCount() {
 export function hasExecutableOrders() {
   return hasAnyExecutableStatus(getDailyOrderQueue());
 }
+
+export function resetDailyOrderExecutionState() {
+  return replaceDailyOrderQueue([]);
+}

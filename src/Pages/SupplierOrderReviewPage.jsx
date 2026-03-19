@@ -550,10 +550,6 @@ function SupplierOrderReviewPage({ suggestedOrder, setCurrentPage }) {
       <h1>Supplier Order Review</h1>
 
       <PageActionBar marginBottom="15px">
-        <button onClick={() => setCurrentPage(PAGE_IDS.REVIEW)} style={styles.backButton}>
-          Back to Review
-        </button>
-
         <button
           onClick={handleCopyAllOrdersText}
           disabled={activeSuppliers.length === 0}

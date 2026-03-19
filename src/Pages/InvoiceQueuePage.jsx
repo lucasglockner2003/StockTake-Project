@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { INVOICE_INTAKE_STATUSES, PAGE_IDS } from "../constants/app";
+import { INVOICE_INTAKE_STATUSES } from "../constants/app";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
@@ -138,7 +138,7 @@ function getInvoiceReferenceDate(invoice) {
   return invoice.invoiceDate || invoice.updatedAt || invoice.createdAt || "";
 }
 
-function InvoiceQueuePage({ setCurrentPage }) {
+function InvoiceQueuePage() {
   const [invoiceQueue, setInvoiceQueue] = useState(() => getInvoiceQueue());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -541,13 +541,6 @@ function InvoiceQueuePage({ setCurrentPage }) {
       <h1>Invoice Queue</h1>
 
       <PageActionBar>
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.INVOICE_INTAKE)}
-          style={styles.backButton}
-        >
-          Back To Invoice Intake
-        </button>
-
         <button
           onClick={refreshInvoiceQueue}
           style={{

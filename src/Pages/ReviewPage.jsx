@@ -12,8 +12,29 @@ import {
 import { styles } from "../utils/uiStyles";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
-import StatusBadge from "../components/StatusBadge";
 import VoiceTag from "../components/VoiceTag";
+
+function InlineReviewPill({ label, value, borderColor, backgroundColor, textColor }) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        borderRadius: "999px",
+        border: `1px solid ${borderColor}`,
+        backgroundColor,
+        color: textColor,
+        padding: "5px 11px",
+        fontSize: "12px",
+        fontWeight: 700,
+      }}
+    >
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
 
 function ReviewPage({
   items,
@@ -56,79 +77,46 @@ function ReviewPage({
 
   return (
     <div>
-      <h1>Stock Take Review</h1>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          flexWrap: "wrap",
+          marginBottom: "12px",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Stock Take Review</h1>
 
-      <PageActionBar gap="12px">
-        <StatusBadge
+        <InlineReviewPill
           label="OK"
           value={okCount}
-          backgroundColor="#e8f5e9"
-          textColor="#4CAF50"
-          padding="12px 18px"
-          borderRadius="12px"
+          borderColor="#14532d"
+          backgroundColor="#0f2c1d"
+          textColor="#86efac"
         />
-        <StatusBadge
+        <InlineReviewPill
           label="Low"
           value={lowCount}
-          backgroundColor="#fff3e0"
-          textColor="#ff9800"
-          padding="12px 18px"
-          borderRadius="12px"
+          borderColor="#92400e"
+          backgroundColor="#2f1b0b"
+          textColor="#fdba74"
         />
-        <StatusBadge
+        <InlineReviewPill
           label="Critical"
           value={criticalCount}
-          backgroundColor="#ffebee"
-          textColor="#ff4d4d"
-          padding="12px 18px"
-          borderRadius="12px"
+          borderColor="#7f1d1d"
+          backgroundColor="#2b1212"
+          textColor="#fca5a5"
         />
-        <StatusBadge
+        <InlineReviewPill
           label="Check"
           value={checkCount}
-          backgroundColor="#fff8e1"
-          textColor="#ff9800"
-          padding="12px 18px"
-          borderRadius="12px"
+          borderColor="#92400e"
+          backgroundColor="#2f1b0b"
+          textColor="#fdba74"
         />
-      </PageActionBar>
-
-      <PageActionBar marginBottom="15px">
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.STOCK)}
-          style={{
-            padding: "10px 16px",
-            backgroundColor: "#ccc",
-            color: "#111",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Back to Stock Take
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.AUTOMATION)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#ff9800",
-          }}
-        >
-          View Automation Jobs
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.SUPPLIER_REVIEW)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#607d8b",
-          }}
-        >
-          Supplier Order Review
-        </button>
-      </PageActionBar>
+      </div>
 
       <hr style={{ margin: "15px 0" }} />
 

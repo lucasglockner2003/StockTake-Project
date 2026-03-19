@@ -37,7 +37,6 @@ function StockVoicePage({
     handleSelectMatchedItem,
     handleConfirmAndApply,
     handleVoiceToggle,
-    handleBackClick,
     handleDeleteEntry,
   } = useVoiceSession({
     selectedArea,
@@ -70,10 +69,6 @@ function StockVoicePage({
           {voiceToast}
         </NoticePanel>
       )}
-
-      <button onClick={handleBackClick} style={styles.backButton}>
-        Back to Stock Take
-      </button>
 
       <div style={{ marginBottom: "24px" }}>
         <label

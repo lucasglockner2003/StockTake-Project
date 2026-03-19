@@ -40,3 +40,40 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
+.dashboard-sidebar-nav {
+  padding: 0 2px;
+}
+
+.dashboard-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #d5e8e5;
+  font-size: 14px;
+  line-height: 1.1;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.dashboard-sidebar-nav-item:hover {
+  background-color: rgba(122, 220, 201, 0.18);
+  border-color: rgba(156, 226, 215, 0.32);
+  color: #ffffff;
+}
+
+.dashboard-sidebar-nav-item.is-active {
+  background-color: rgba(122, 220, 201, 0.26);
+  border-color: rgba(156, 226, 215, 0.5);
+  color: #ffffff;
+}
+
+.dashboard-sidebar-nav-item:focus-visible {
+  outline: 2px solid rgba(156, 226, 215, 0.68);
+  outline-offset: 1px;
+}

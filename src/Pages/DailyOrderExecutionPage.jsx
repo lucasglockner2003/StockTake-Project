@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { DAILY_ORDER_STATUSES, PAGE_IDS } from "../constants/app";
+import { DAILY_ORDER_STATUSES } from "../constants/app";
 import { styles } from "../utils/uiStyles";
 import {
   getDailyOrderQueue,
   getDailyOrderQueueCounts,
   markDailyOrderReady,
+  resetDailyOrderExecutionState,
   runDailyOrderBotFill,
   submitDailyOrderAfterChefApproval,
   unlockDailyOrder,
@@ -147,7 +148,7 @@ function getNoticeToneStyle(tone) {
   };
 }
 
-function DailyOrderExecutionPage({ setCurrentPage }) {
+function DailyOrderExecutionPage() {
   const [dailyOrders, setDailyOrders] = useState([]);
   const [runningBotFillSupplier, setRunningBotFillSupplier] = useState(null);
   const [runningFinalSubmitOrderId, setRunningFinalSubmitOrderId] = useState(null);
@@ -605,18 +606,44 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     }
   }
 
+  function handleResetExecution() {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete all daily execution orders? This will remove every order in this list."
+    );
+
+    if (!confirmed) return;
+
+    if (botServiceState.running) {
+      setPageNotice({
+        tone: "warning",
+        message: "Cannot delete orders while bot execution is running.",
+      });
+      return;
+    }
+
+    resetDailyOrderExecutionState();
+    refreshDailyOrders();
+    setRunningBotFillSupplier(null);
+    setRunningFinalSubmitOrderId(null);
+    setIsExecutingAllReady(false);
+    setIsRetryingAllFailed(false);
+    setRetryProgress({
+      current: 0,
+      total: 0,
+      supplier: "",
+    });
+    setExecutionWarningByOrderId({});
+    setPageNotice({
+      tone: "success",
+      message: "All daily execution orders were deleted.",
+    });
+  }
+
   return (
     <div>
       <h1>Daily Order Execution</h1>
 
       <PageActionBar marginBottom="14px">
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.PHOTO)}
-          style={styles.backButton}
-        >
-          Back To Photo Order
-        </button>
-
         <button
           onClick={refreshDailyOrders}
           style={{
@@ -699,6 +726,16 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
           {isRetryingAllFailed
             ? "Retrying All Failed..."
             : `Retry All Failed (${counts.failed})`}
+        </button>
+
+        <button
+          onClick={handleResetExecution}
+          style={{
+            ...styles.primaryButton,
+            backgroundColor: "#dc2626",
+          }}
+        >
+          Delete All Orders
         </button>
       </PageActionBar>
 

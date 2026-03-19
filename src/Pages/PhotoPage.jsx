@@ -50,15 +50,6 @@ function PhotoPage({ items, setCurrentPage }) {
     <div>
       <h1>Photo Order</h1>
 
-      <PageActionBar>
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.STOCK)}
-          style={styles.backButton}
-        >
-          Back to Stock Take
-        </button>
-      </PageActionBar>
-
       <div style={{ marginBottom: "20px" }}>
         <input type="file" accept="image/*" onChange={handleImageChange} />
       </div>
@@ -116,35 +107,6 @@ function PhotoPage({ items, setCurrentPage }) {
           Process Text
         </button>
 
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.AUTOMATION)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#ff9800",
-          }}
-        >
-          View Automation Jobs
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.DAILY_ORDER_EXECUTION)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#607d8b",
-          }}
-        >
-          View Daily Orders
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.INVOICE_INTAKE)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#00b894",
-          }}
-        >
-          Invoice Intake
-        </button>
       </PageActionBar>
 
       {isProcessingImage && (

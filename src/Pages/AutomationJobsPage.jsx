@@ -1,11 +1,11 @@
-import { JOB_STATUSES, PAGE_IDS } from "../constants/app";
+import { JOB_STATUSES } from "../constants/app";
 import { styles } from "../utils/uiStyles";
 import AutomationJobCard from "../components/AutomationJobCard";
 import PageActionBar from "../components/PageActionBar";
 import StatusBadge from "../components/StatusBadge";
 import { useAutomationJobs } from "../hooks/useAutomationJobs";
 
-function AutomationJobsPage({ setCurrentPage }) {
+function AutomationJobsPage() {
   const {
     runningJobId,
     statusFilter,
@@ -31,13 +31,6 @@ function AutomationJobsPage({ setCurrentPage }) {
       <h1>Automation Jobs</h1>
 
       <PageActionBar>
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.PHOTO)}
-          style={styles.backButton}
-        >
-          Back to Photo Order
-        </button>
-
         <button
           onClick={refreshJobs}
           style={{

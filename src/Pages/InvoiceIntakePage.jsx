@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { INVOICE_INTAKE_STATUSES, PAGE_IDS } from "../constants/app";
+import { INVOICE_INTAKE_STATUSES } from "../constants/app";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
@@ -20,7 +20,7 @@ import {
 } from "../utils/invoiceQueue";
 import { executeInvoiceIntake } from "../utils/botServiceClient";
 
-function InvoiceIntakePage({ setCurrentPage }) {
+function InvoiceIntakePage() {
   const [selectedImage, setSelectedImage] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [rawExtractedText, setRawExtractedText] = useState("");
@@ -237,13 +237,6 @@ function InvoiceIntakePage({ setCurrentPage }) {
 
       <PageActionBar>
         <button
-          onClick={() => setCurrentPage(PAGE_IDS.PHOTO)}
-          style={styles.backButton}
-        >
-          Back To Photo Order
-        </button>
-
-        <button
           onClick={handleStartNewInvoice}
           style={{
             ...styles.primaryButton,
@@ -251,16 +244,6 @@ function InvoiceIntakePage({ setCurrentPage }) {
           }}
         >
           New Invoice Draft
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.INVOICE_QUEUE)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#2196F3",
-          }}
-        >
-          View Invoice Queue
         </button>
       </PageActionBar>
 

@@ -11,6 +11,7 @@ function StockTakeTable({
   voiceFilledItems,
 }) {
   const filteredSearch = String(search || "").toLowerCase();
+  const tableColumns = "1.2fr 0.45fr 0.45fr 0.7fr auto 0.6fr";
 
   const visibleItems = Object.entries(groupedItems).flatMap(([, areaItems]) =>
     areaItems.filter((item) => item.name.toLowerCase().includes(filteredSearch))
@@ -18,6 +19,21 @@ function StockTakeTable({
 
   return (
     <>
+      {visibleItems.length === 0 && (
+        <div
+          style={{
+            borderRadius: "12px",
+            border: "1px solid #243043",
+            backgroundColor: "#0f172a",
+            padding: "18px",
+            color: "#94a3b8",
+            marginBottom: "14px",
+          }}
+        >
+          No items match your current search.
+        </div>
+      )}
+
       {Object.entries(groupedItems).map(([area, areaItems]) => {
         const filteredItems = areaItems.filter((item) =>
           item.name.toLowerCase().includes(filteredSearch)
@@ -26,15 +42,46 @@ function StockTakeTable({
         if (filteredItems.length === 0) return null;
 
         return (
-          <div key={area} style={{ marginBottom: "30px" }}>
-            <h2 style={{ marginBottom: "10px", fontSize: "24px" }}>{area}</h2>
+          <div
+            key={area}
+            style={{
+              marginBottom: "14px",
+              borderRadius: "12px",
+              border: "1px solid #273447",
+              backgroundColor: "#0f172a",
+              padding: "12px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "10px",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: "22px", color: "#f8fafc" }}>{area}</h2>
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "#93c5fd",
+                  border: "1px solid #334155",
+                  borderRadius: "999px",
+                  padding: "4px 10px",
+                }}
+              >
+                {filteredItems.length} items
+              </span>
+            </div>
 
             <SectionTableHeader
               columns={["Item", "Ideal", "Unit", "Count", "Action", "Status"]}
-              gridTemplateColumns="1.1fr 0.4fr 0.4fr 0.7fr auto 0.6fr"
+              gridTemplateColumns={tableColumns}
               gap="7px"
-              padding="6px 10px"
+              padding="8px 10px"
               marginBottom="6px"
+              color="#94a3b8"
+              borderBottom="1px solid #243041"
             />
 
             {filteredItems.map((item) => {
@@ -50,15 +97,16 @@ function StockTakeTable({
                   key={item.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns:
-                      "1.1fr 0.4fr 0.4fr 0.7fr auto 0.6fr",
+                    gridTemplateColumns: tableColumns,
                     gap: "7px",
                     alignItems: "center",
-                    border: `2px solid ${statusColor}`,
-                    borderRadius: "6px",
-                    padding: "6px 10px",
+                    border: `1px solid ${statusColor}88`,
+                    borderLeft: `4px solid ${statusColor}`,
+                    borderRadius: "8px",
+                    backgroundColor: "#0b1220",
+                    padding: "8px 10px",
                     marginBottom: "6px",
-                    minHeight: "40px",
+                    minHeight: "46px",
                   }}
                 >
                   {/* ITEM + VOICE TAG */}
@@ -111,11 +159,13 @@ function StockTakeTable({
                     style={{
                       padding: "5px 6px",
                       width: "100%",
-                      height: "28px",
+                      height: "30px",
                       borderRadius: "5px",
-                      border: "1px solid #ccc",
+                      border: "1px solid #334155",
+                      backgroundColor: "#020617",
+                      color: "#f8fafc",
                       boxSizing: "border-box",
-                      fontSize: "11px",
+                      fontSize: "12px",
                     }}
                   />
 
@@ -123,11 +173,14 @@ function StockTakeTable({
                   <button
                     onClick={() => handleQuantityChange(item.id, 0)}
                     style={{
-                      padding: "4px 10px",
-                      minHeight: "28px",
+                      padding: "5px 10px",
+                      minHeight: "30px",
                       borderRadius: "6px",
-                      border: "1px solid #ccc",
+                      border: "1px solid #475569",
+                      backgroundColor: "#0b1220",
+                      color: "#e2e8f0",
                       cursor: "pointer",
+                      fontWeight: 600,
                     }}
                   >
                     Zero
@@ -137,7 +190,7 @@ function StockTakeTable({
                   <div
                     style={{
                       color: statusColor,
-                      fontSize: "13px",
+                      fontSize: "12px",
                       fontWeight: "bold",
                     }}
                   >

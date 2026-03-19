@@ -21,7 +21,7 @@ function StockTakePage({
   voiceFilledItems,
 }) {
   return (
-    <>
+    <div>
       <TopSummary
         filledItems={filledItems}
         totalItems={items.length}
@@ -45,7 +45,7 @@ function StockTakePage({
         handleQuantityChange={handleQuantityChange}
         voiceFilledItems={voiceFilledItems}
       />
-    </>
+    </div>
   );
 }
 

@@ -1,30 +1,68 @@
 import { PAGE_IDS } from "../constants/pages";
 import { styles } from "../utils/uiStyles";
 import PageActionBar from "./PageActionBar";
-import StatusBadge from "./StatusBadge";
 
 function ProgressBar({ progress }) {
   return (
-    <div>
+    <div style={{ width: "100%" }}>
       <div
         style={{
-          width: "400px",
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "8px",
+          fontSize: "13px",
+          color: "#bfdbfe",
+        }}
+      >
+        <span>Stock Take Completion</span>
+        <span style={{ fontWeight: 700 }}>{progress}%</span>
+      </div>
+      <div
+        style={{
+          width: "100%",
           height: "12px",
-          backgroundColor: "#ddd",
-          borderRadius: "10px",
+          backgroundColor: "#111c30",
+          borderRadius: "999px",
           overflow: "hidden",
-          marginBottom: "6px",
+          border: "1px solid #2f4265",
         }}
       >
         <div
           style={{
             width: `${progress}%`,
             height: "100%",
-            backgroundColor: "#4CAF50",
+            background: "linear-gradient(90deg, #22c55e 0%, #14b8a6 100%)",
           }}
         />
       </div>
-      <p>{progress}% completed</p>
+    </div>
+  );
+}
+
+function InlineMetricPill({
+  label,
+  value,
+  borderColor,
+  backgroundColor,
+  textColor,
+}) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        borderRadius: "999px",
+        border: `1px solid ${borderColor}`,
+        backgroundColor,
+        color: textColor,
+        padding: "4px 10px",
+        fontSize: "12px",
+        fontWeight: 700,
+      }}
+    >
+      <span style={{ opacity: 0.9 }}>{label}</span>
+      <span>{value}</span>
     </div>
   );
 }
@@ -43,140 +81,198 @@ function TopSummary({
   handleReset,
   setCurrentPage,
 }) {
+  const dashboardDate = new Date().toLocaleDateString("en-NZ", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const isBlocked = missingItems > 0;
+
   return (
-    <div>
-      <h1>SmartOps Stock Take</h1>
-
-      <PageActionBar marginBottom="12px">
-        <StatusBadge
-          label="Filled"
-          value={`${filledItems}/${totalItems}`}
-          backgroundColor="#1f1f1f"
-          textColor="white"
-          padding="8px 14px"
-        />
-
-        <StatusBadge
-          label="Critical"
-          value={criticalCount}
-          backgroundColor="#fff7ca"
-          textColor="#ff4d4d"
-          padding="8px 14px"
-        />
-
-        <StatusBadge
-          label="Low"
-          value={lowCount}
-          backgroundColor="#fff7ca"
-          textColor="#ff9900"
-          padding="8px 14px"
-        />
-
-        <StatusBadge
-          label="Check"
-          value={checkCount}
-          backgroundColor="#fff7ca"
-          textColor="#ff7b00"
-          padding="8px 14px"
-        />
-      </PageActionBar>
-
-      <ProgressBar progress={progress} />
-
-      {lastSaved && (
-        <p style={{ fontSize: "12px", color: "#aaa" }}>
-          Last saved: {lastSaved.toLocaleTimeString()}
-        </p>
-      )}
-
-      <PageActionBar marginBottom="15px">
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.VOICE)}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#002fff",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Stock Voice
-        </button>
-
-        <button
-          onClick={handleReset}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#d9534f",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Reset Stock Take
-        </button>
-
-        <button
-          disabled={missingItems > 0}
-          onClick={() => setCurrentPage(PAGE_IDS.REVIEW)}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: missingItems > 0 ? "#ccc" : "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: missingItems > 0 ? "not-allowed" : "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          {missingItems > 0
-            ? `Finish Stock Take (${missingItems} missing)`
-            : "Finish Stock Take"}
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.PHOTO)}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#6f42c1",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Photo Order
-        </button>
-
-        <button
-          onClick={() => setCurrentPage(PAGE_IDS.AUTOMATION)}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: "#ff9800",
-          }}
-        >
-          View Automation Jobs
-        </button>
-      </PageActionBar>
-
-      <input
-        type="text"
-        placeholder="Search item..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+    <div style={{ marginBottom: "18px" }}>
+      <div
         style={{
-          padding: "8px 10px",
-          width: "250px",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-          marginBottom: "20px",
+          borderRadius: "12px",
+          border: "1px solid #23314f",
+          background:
+            "linear-gradient(90deg, rgba(13,26,46,0.96) 0%, rgba(15,37,52,0.96) 100%)",
+          padding: "16px",
+          marginBottom: "12px",
         }}
-      />
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginBottom: "12px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "11px",
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                color: "#a7f3d0",
+                marginBottom: "8px",
+              }}
+            >
+              Operations Dashboard
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <h1 style={{ margin: 0, color: "#f8fafc", fontSize: "30px", lineHeight: 1.1 }}>
+                Stock Take
+              </h1>
+
+              <InlineMetricPill
+                label="Filled"
+                value={`${filledItems}/${totalItems}`}
+                borderColor="#334155"
+                backgroundColor="#0f172a"
+                textColor="#f8fafc"
+              />
+              <InlineMetricPill
+                label="Critical"
+                value={criticalCount}
+                borderColor="#7f1d1d"
+                backgroundColor="#2b1212"
+                textColor="#fca5a5"
+              />
+              <InlineMetricPill
+                label="Low"
+                value={lowCount}
+                borderColor="#92400e"
+                backgroundColor="#2f1b0b"
+                textColor="#fdba74"
+              />
+              <InlineMetricPill
+                label="Check"
+                value={checkCount}
+                borderColor="#1e3a8a"
+                backgroundColor="#0f203f"
+                textColor="#93c5fd"
+              />
+            </div>
+            <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
+              {dashboardDate}
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderRadius: "10px",
+          border: "1px solid #273447",
+          backgroundColor: "#0f172a",
+          padding: "12px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "12px",
+            color: "#94a3b8",
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            marginBottom: "10px",
+          }}
+        >
+          Actions & Search
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <PageActionBar marginBottom="0" gap="8px">
+            <button
+              onClick={handleReset}
+              style={{
+                ...styles.primaryButton,
+                padding: "10px 16px",
+                backgroundColor: "#dc2626",
+              }}
+            >
+              Reset Stock Take
+            </button>
+
+            <button
+              disabled={isBlocked}
+              onClick={() => setCurrentPage(PAGE_IDS.REVIEW)}
+              style={{
+                ...styles.primaryButton,
+                padding: "10px 16px",
+                backgroundColor: isBlocked ? "#475569" : "#16a34a",
+                cursor: isBlocked ? "not-allowed" : "pointer",
+              }}
+            >
+              {isBlocked ? `Finish Stock Take (${missingItems} missing)` : "Finish Stock Take"}
+            </button>
+          </PageActionBar>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Search item..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                padding: "10px 12px",
+                width: "260px",
+                maxWidth: "100%",
+                borderRadius: "8px",
+                border: "1px solid #334155",
+                backgroundColor: "#020617",
+                color: "#f8fafc",
+                outline: "none",
+              }}
+            />
+
+            <div
+              style={{
+                width: "260px",
+                maxWidth: "100%",
+                minWidth: "220px",
+                borderRadius: "8px",
+                border: "1px solid #334155",
+                backgroundColor: "#0b1220",
+                padding: "8px 10px",
+              }}
+            >
+              <ProgressBar progress={progress} />
+              {lastSaved && (
+                <p style={{ margin: "8px 0 0", fontSize: "11px", color: "#94a3b8" }}>
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
