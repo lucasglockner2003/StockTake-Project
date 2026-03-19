@@ -534,20 +534,16 @@ export async function runDailyOrderBotFill(orderId) {
     executionStartedAt,
     executionFinishedAt: null,
     executionDuration: null,
-    reviewScreenshot: "",
-    filledAt: null,
-    readyForReviewAt: null,
+    reviewScreenshot: order.reviewScreenshot || "",
+    filledAt: order.filledAt || null,
+    readyForReviewAt: order.readyForReviewAt || null,
     executionNotes: "Bot service started fill on mock supplier portal.",
-    chefApprovedAt: null,
-    submittedAt: null,
-    orderNumber: "",
-    finalScreenshot: "",
-    submitDuration: null,
-    finalExecutionNotes: "",
-    lastExecutionId: "",
-    lastErrorCode: "",
-    lastErrorMessage: "",
-    lastExecutionPhase: "fill-started",
+    chefApprovedAt: order.chefApprovedAt || null,
+    submittedAt: order.submittedAt || null,
+    orderNumber: order.orderNumber || "",
+    finalScreenshot: order.finalScreenshot || "",
+    submitDuration: order.submitDuration || null,
+    finalExecutionNotes: order.finalExecutionNotes || "",
   }));
 
   try {
@@ -579,11 +575,13 @@ export async function runDailyOrderBotFill(orderId) {
         ? normalizeScreenshotUrl(
             response.reviewScreenshot || response.screenshotPath
           )
-        : "",
-      filledAt: success ? response.filledAt || executionFinishedAt : null,
+        : order.reviewScreenshot || "",
+      filledAt: success
+        ? response.filledAt || executionFinishedAt
+        : order.filledAt || null,
       readyForReviewAt: success
         ? response.readyForReviewAt || executionFinishedAt
-        : null,
+        : order.readyForReviewAt || null,
       executionNotes,
       lastExecutionId: response.executionId || order.lastExecutionId || "",
       lastExecutionPhase: response.phase || order.lastExecutionPhase || "",
@@ -602,7 +600,7 @@ export async function runDailyOrderBotFill(orderId) {
           ? normalizeScreenshotUrl(
               response.reviewScreenshot || response.screenshotPath
             )
-          : "",
+          : order.reviewScreenshot || "",
         success,
         message: executionNotes,
       },
@@ -628,9 +626,9 @@ export async function runDailyOrderBotFill(orderId) {
       executionStartedAt,
       executionFinishedAt,
       executionDuration,
-      reviewScreenshot: "",
-      filledAt: null,
-      readyForReviewAt: null,
+      reviewScreenshot: order.reviewScreenshot || "",
+      filledAt: order.filledAt || null,
+      readyForReviewAt: order.readyForReviewAt || null,
       executionNotes:
         error?.message || "Bot service request failed unexpectedly.",
       lastExecutionId: order.lastExecutionId || "",
@@ -642,7 +640,7 @@ export async function runDailyOrderBotFill(orderId) {
         timestamp: executionFinishedAt,
         filledAt: null,
         readyForReviewAt: null,
-        reviewScreenshot: "",
+        reviewScreenshot: order.reviewScreenshot || "",
         success: false,
         message: error?.message || "Bot service request failed unexpectedly.",
       },

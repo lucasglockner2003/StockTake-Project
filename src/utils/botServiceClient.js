@@ -124,6 +124,10 @@ export function getBotServiceHealth() {
   return requestBotService("/health");
 }
 
+export function getBotServiceExecutionStatus() {
+  return requestBotService("/execution-status");
+}
+
 export function executeDailyOrderFill(payload) {
   return requestBotService("/execute-daily-order", {
     method: "POST",

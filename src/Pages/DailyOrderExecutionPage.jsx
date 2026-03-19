@@ -14,6 +14,14 @@ import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
 import StatusBadge from "../components/StatusBadge";
+import {
+  getBotServiceExecutionStatus,
+  getBotServiceHealth,
+} from "../utils/botServiceClient";
+
+const MOCK_PORTAL_URL = String(
+  import.meta.env.VITE_MOCK_PORTAL_URL || "http://localhost:4177"
+).replace(/\/+$/, "");
 
 function getStatusLabel(status) {
   if (status === DAILY_ORDER_STATUSES.READY) return "READY";
@@ -76,16 +84,20 @@ function formatDateTime(value) {
 }
 
 function getExecutionErrorMessage(errorCode, fallbackMessage) {
-  if (errorCode === "EXECUTION_IN_PROGRESS") {
-    return "Another bot execution is already running. Retry in a moment.";
+  if (errorCode === "EXECUTION_IN_PROGRESS" || errorCode === "EXECUTION_LOCKED") {
+    return "Wait current execution to finish";
   }
 
   if (errorCode === "BOT_SERVICE_UNREACHABLE") {
-    return "Bot service is unreachable. Check if bot-service is running.";
+    return "Check bot-service is running";
   }
 
   if (errorCode === "BOT_SERVICE_TIMEOUT") {
     return "Bot service timeout. Retry after checking service health.";
+  }
+
+  if (errorCode === "PORTAL_LOGIN_FAILED") {
+    return "Check supplier credentials";
   }
 
   if (errorCode === "INVALID_SUPPLIER" || errorCode === "INVALID_ITEMS") {
@@ -103,12 +115,64 @@ function getExecutionErrorMessage(errorCode, fallbackMessage) {
   return fallbackMessage || "Execution failed.";
 }
 
+function getNoticeToneStyle(tone) {
+  if (tone === "success") {
+    return {
+      backgroundColor: "#102410",
+      border: "1px solid #2f6f2f",
+      color: "#9be79b",
+    };
+  }
+
+  if (tone === "warning") {
+    return {
+      backgroundColor: "#2b2410",
+      border: "1px solid #6d5b2f",
+      color: "#ffe39a",
+    };
+  }
+
+  if (tone === "error") {
+    return {
+      backgroundColor: "#3a1f1f",
+      border: "1px solid #7a2d2d",
+      color: "#ffb3b3",
+    };
+  }
+
+  return {
+    backgroundColor: "#1f1f1f",
+    border: "1px solid #555",
+    color: "#8de0ea",
+  };
+}
+
 function DailyOrderExecutionPage({ setCurrentPage }) {
   const [dailyOrders, setDailyOrders] = useState([]);
-  const [runningBotFillOrderId, setRunningBotFillOrderId] = useState(null);
+  const [runningBotFillSupplier, setRunningBotFillSupplier] = useState(null);
   const [runningFinalSubmitOrderId, setRunningFinalSubmitOrderId] = useState(null);
   const [isExecutingAllReady, setIsExecutingAllReady] = useState(false);
+  const [isRetryingAllFailed, setIsRetryingAllFailed] = useState(false);
+  const [retryProgress, setRetryProgress] = useState({
+    current: 0,
+    total: 0,
+    supplier: "",
+  });
   const [executionWarningByOrderId, setExecutionWarningByOrderId] = useState({});
+  const [pageNotice, setPageNotice] = useState({
+    tone: "",
+    message: "",
+  });
+  const [botServiceState, setBotServiceState] = useState({
+    online: false,
+    running: false,
+    type: "",
+    phase: "",
+    supplier: "",
+    status: "unknown",
+    message: "",
+    lastCheckedAt: "",
+  });
 
   function refreshDailyOrders() {
     setDailyOrders(getDailyOrderQueue());
@@ -116,6 +180,63 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
 
   useEffect(() => {
     refreshDailyOrders();
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function pollBotServiceStatus() {
+      const health = await getBotServiceHealth();
+      if (!isActive) return;
+
+      if (!health.ok) {
+        setBotServiceState({
+          online: false,
+          running: false,
+          type: "",
+          phase: health.phase || "offline",
+          supplier: "",
+          status: "offline",
+          message: health.message || "Bot service is offline.",
+          lastCheckedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const executionStatus = await getBotServiceExecutionStatus();
+      if (!isActive) return;
+
+      const currentExecution =
+        executionStatus.currentExecution || health.currentExecution || null;
+      const running =
+        executionStatus.ok && executionStatus.status === "running";
+
+      setBotServiceState({
+        online: true,
+        running,
+        type: currentExecution?.type || "",
+        phase:
+          executionStatus.phase ||
+          currentExecution?.phase ||
+          health.phase ||
+          "idle",
+        supplier: currentExecution?.supplier || "",
+        status: executionStatus.status || health.status || "ok",
+        message:
+          executionStatus.message ||
+          health.message ||
+          "Bot service online.",
+        lastCheckedAt: new Date().toISOString(),
+      });
+    }
+
+    pollBotServiceStatus();
+    const intervalId = setInterval(pollBotServiceStatus, 7000);
+
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   const sortedDailyOrders = useMemo(
@@ -134,6 +255,8 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     [sortedDailyOrders]
   );
   const hasOrderFilling = counts.fillingOrder > 0;
+  const runningExecutionSupplier = botServiceState.supplier || null;
+  const isExecutionRunning = botServiceState.status === "running";
 
   function setWarning(orderId, message) {
     setExecutionWarningByOrderId((previous) => ({
@@ -168,7 +291,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
   }
 
   async function handleChefApprovedFinalSubmit(orderId) {
-    if (runningBotFillOrderId || isExecutingAllReady) {
+    if (runningBotFillSupplier || isExecutingAllReady || isRetryingAllFailed) {
       setWarning(orderId, "A bot fill is in progress. Wait before final submit.");
       return;
     }
@@ -192,7 +315,10 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
       } else if (result.reason === "another-order-filling") {
         setWarning(orderId, "Another order is currently being processed.");
       } else if (result.ok) {
-        alert("Final submit completed successfully.");
+        setPageNotice({
+          tone: "success",
+          message: "Final submit completed successfully.",
+        });
       } else {
         setWarning(
           orderId,
@@ -200,67 +326,152 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         );
       }
     } catch {
-      alert("Failed to submit final order.");
+      setPageNotice({
+        tone: "error",
+        message: "Failed to submit final order.",
+      });
     } finally {
       setRunningFinalSubmitOrderId(null);
     }
   }
 
-  function handleOpenSupplierReviewPlaceholder(orderId) {
-    clearWarning(orderId);
-    alert("Placeholder: open supplier review flow in a future phase.");
+  function handleOpenSupplierReview(order) {
+    if (!order) return;
+
+    clearWarning(order.id);
+
+    if (!order.reviewScreenshot) {
+      setPageNotice({
+        tone: "warning",
+        message: "Bot may not have reached review page yet.",
+      });
+    }
+
+    window.open(MOCK_PORTAL_URL, "_blank");
+  }
+
+  async function executeBotFillForOrder(order, options = {}) {
+    const { mode = "run", fromBatch = false } = options;
+    if (!order) {
+      return {
+        ok: false,
+        reason: "not-found",
+      };
+    }
+
+    if (runningFinalSubmitOrderId) {
+      if (!fromBatch) {
+        setWarning(order.id, "A final submit is in progress. Wait until it finishes.");
+      }
+      return {
+        ok: false,
+        reason: "final-submit-running",
+      };
+    }
+
+    if (
+      (isExecutionRunning && runningExecutionSupplier === order.supplier) ||
+      runningBotFillSupplier === order.supplier
+    ) {
+      if (!fromBatch) {
+        setWarning(
+          order.id,
+          "Bot is already running for this supplier. Wait for completion before retry."
+        );
+        setPageNotice({
+          tone: "warning",
+          message: "Bot run already in progress for this supplier.",
+        });
+      }
+      return {
+        ok: false,
+        reason: "execution-locked",
+        errorCode: "EXECUTION_LOCKED",
+        errorMessage: "Bot run already in progress for this supplier.",
+      };
+    }
+
+    if (mode === "run" && order.status !== DAILY_ORDER_STATUSES.READY) {
+      if (!fromBatch) {
+        setWarning(order.id, "Order must be READY before bot fill.");
+      }
+      return {
+        ok: false,
+        reason: "not-ready",
+      };
+    }
+
+    if (mode === "retry" && order.status !== DAILY_ORDER_STATUSES.FAILED) {
+      if (!fromBatch) {
+        setWarning(order.id, "Retry is available only for FAILED orders.");
+      }
+      return {
+        ok: false,
+        reason: "not-failed",
+      };
+    }
+
+    clearWarning(order.id);
+
+    try {
+      setRunningBotFillSupplier(order.supplier);
+      const result = await runDailyOrderBotFill(order.id);
+      refreshDailyOrders();
+
+      if (result.reason === "already-executed") {
+        setWarning(order.id, "This order is already executed and cannot run again.");
+      } else if (result.reason === "not-ready") {
+        setWarning(order.id, "Order must be READY (or FAILED for retry) before bot fill.");
+      } else if (result.reason === "another-order-filling") {
+        setWarning(order.id, "Another order is already filling. Wait before running again.");
+      } else if (result.reason === "invalid-order-items") {
+        setWarning(order.id, "Order has no valid items with quantity > 0.");
+      } else if (result.ok) {
+        if (!fromBatch) {
+          setPageNotice({
+            tone: "success",
+            message:
+              mode === "retry"
+                ? "Retry succeeded. Bot reached review stage."
+                : "Bot filled order and stopped at review page.",
+          });
+        }
+      } else {
+        const message = getExecutionErrorMessage(
+          result.errorCode,
+          result.errorMessage
+        );
+        setWarning(order.id, message);
+      }
+
+      return result;
+    } catch {
+      if (!fromBatch) {
+        setPageNotice({
+          tone: "error",
+          message:
+            mode === "retry" ? "Failed to retry bot fill." : "Failed to run bot fill.",
+        });
+      }
+      return {
+        ok: false,
+        reason: "unexpected-error",
+      };
+    } finally {
+      setRunningBotFillSupplier(null);
+    }
   }
 
   async function handleRunBotFill(orderId) {
     const order = sortedDailyOrders.find((entry) => entry.id === orderId);
     if (!order) return;
+    await executeBotFillForOrder(order, { mode: "run" });
+  }
 
-    if (runningFinalSubmitOrderId) {
-      setWarning(orderId, "A final submit is in progress. Wait until it finishes.");
-      return;
-    }
-
-    if (runningBotFillOrderId) {
-      setWarning(orderId, "Another order is already filling via bot.");
-      return;
-    }
-
-    if (
-      order.status !== DAILY_ORDER_STATUSES.READY &&
-      order.status !== DAILY_ORDER_STATUSES.FAILED
-    ) {
-      setWarning(orderId, "Order must be READY (or FAILED for retry) before bot fill.");
-      return;
-    }
-
-    clearWarning(orderId);
-
-    try {
-      setRunningBotFillOrderId(orderId);
-      const result = await runDailyOrderBotFill(orderId);
-      refreshDailyOrders();
-
-      if (result.reason === "already-executed") {
-        setWarning(orderId, "This order is already executed and cannot run again.");
-      } else if (result.reason === "not-ready") {
-        setWarning(orderId, "Order must be READY (or FAILED for retry) before bot fill.");
-      } else if (result.reason === "another-order-filling") {
-        setWarning(orderId, "Another order is already filling. Wait before running again.");
-      } else if (result.reason === "invalid-order-items") {
-        setWarning(orderId, "Order has no valid items with quantity > 0.");
-      } else if (result.ok) {
-        alert("Bot filled order and stopped at review page.");
-      } else {
-        setWarning(
-          orderId,
-          getExecutionErrorMessage(result.errorCode, result.errorMessage)
-        );
-      }
-    } catch {
-      alert("Failed to run bot fill.");
-    } finally {
-      setRunningBotFillOrderId(null);
-    }
+  async function handleRetryBotFill(orderId) {
+    const order = sortedDailyOrders.find((entry) => entry.id === orderId);
+    if (!order) return;
+    await executeBotFillForOrder(order, { mode: "retry" });
   }
 
   async function handleRunBotFillForAllReady() {
@@ -269,12 +480,23 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
     );
 
     if (readyOrders.length === 0) {
-      alert("There are no READY orders to execute.");
+      setPageNotice({
+        tone: "warning",
+        message: "There are no READY orders to execute.",
+      });
       return;
     }
 
-    if (runningBotFillOrderId || runningFinalSubmitOrderId || hasOrderFilling) {
-      alert("Another order is currently filling. Wait until it finishes.");
+    if (
+      runningBotFillSupplier ||
+      runningFinalSubmitOrderId ||
+      hasOrderFilling ||
+      isRetryingAllFailed
+    ) {
+      setPageNotice({
+        tone: "warning",
+        message: "Another order is currently filling. Wait until it finishes.",
+      });
       return;
     }
 
@@ -285,20 +507,101 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
 
       for (let index = 0; index < readyOrders.length; index += 1) {
         const order = readyOrders[index];
-        const result = await runDailyOrderBotFill(order.id);
+        const result = await executeBotFillForOrder(order, {
+          mode: "run",
+          fromBatch: true,
+        });
         if (result.ok) successCount += 1;
         if (!result.ok) failedCount += 1;
       }
 
       refreshDailyOrders();
-      alert(
-        `Batch fill finished. Ready for chef review: ${successCount} | Failed: ${failedCount}`
-      );
+      setPageNotice({
+        tone: failedCount > 0 ? "warning" : "success",
+        message: `Batch fill finished. Ready for chef review: ${successCount} | Failed: ${failedCount}`,
+      });
     } catch {
-      alert("Failed to execute ready orders.");
+      setPageNotice({
+        tone: "error",
+        message: "Failed to execute ready orders.",
+      });
     } finally {
       setIsExecutingAllReady(false);
-      setRunningBotFillOrderId(null);
+      setRunningBotFillSupplier(null);
+    }
+  }
+
+  async function handleRetryAllFailed() {
+    const failedOrders = sortedDailyOrders.filter(
+      (order) => order.status === DAILY_ORDER_STATUSES.FAILED
+    );
+
+    if (failedOrders.length === 0) {
+      setPageNotice({
+        tone: "warning",
+        message: "There are no FAILED orders to retry.",
+      });
+      return;
+    }
+
+    if (
+      runningBotFillSupplier ||
+      runningFinalSubmitOrderId ||
+      hasOrderFilling ||
+      isExecutingAllReady
+    ) {
+      setPageNotice({
+        tone: "warning",
+        message: "Another execution is in progress. Wait until it finishes.",
+      });
+      return;
+    }
+
+    try {
+      setIsRetryingAllFailed(true);
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (let index = 0; index < failedOrders.length; index += 1) {
+        const order = failedOrders[index];
+        setRetryProgress({
+          current: index + 1,
+          total: failedOrders.length,
+          supplier: order.supplier || "-",
+        });
+        setPageNotice({
+          tone: "info",
+          message: `Retrying supplier ${index + 1} of ${failedOrders.length}: ${
+            order.supplier || "-"
+          }...`,
+        });
+
+        const result = await executeBotFillForOrder(order, {
+          mode: "retry",
+          fromBatch: true,
+        });
+        if (result.ok) successCount += 1;
+        if (!result.ok) failedCount += 1;
+      }
+
+      refreshDailyOrders();
+      setPageNotice({
+        tone: failedCount > 0 ? "warning" : "success",
+        message: `Retry batch finished. Success: ${successCount} | Failed: ${failedCount}`,
+      });
+    } catch {
+      setPageNotice({
+        tone: "error",
+        message: "Failed to retry failed suppliers.",
+      });
+    } finally {
+      setIsRetryingAllFailed(false);
+      setRetryProgress({
+        current: 0,
+        total: 0,
+        supplier: "",
+      });
+      setRunningBotFillSupplier(null);
     }
   }
 
@@ -329,7 +632,8 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
           disabled={
             counts.ready === 0 ||
             isExecutingAllReady ||
-            runningBotFillOrderId !== null ||
+            isRetryingAllFailed ||
+            runningBotFillSupplier !== null ||
             runningFinalSubmitOrderId !== null ||
             hasOrderFilling
           }
@@ -338,7 +642,8 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             backgroundColor:
               counts.ready === 0 ||
               isExecutingAllReady ||
-              runningBotFillOrderId !== null ||
+              isRetryingAllFailed ||
+              runningBotFillSupplier !== null ||
               runningFinalSubmitOrderId !== null ||
               hasOrderFilling
                 ? "#888"
@@ -346,7 +651,8 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             cursor:
               counts.ready === 0 ||
               isExecutingAllReady ||
-              runningBotFillOrderId !== null ||
+              isRetryingAllFailed ||
+              runningBotFillSupplier !== null ||
               runningFinalSubmitOrderId !== null ||
               hasOrderFilling
                 ? "not-allowed"
@@ -356,6 +662,43 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
           {isExecutingAllReady
             ? "Running Bot Fill For All Ready..."
             : `Run Bot Fill For All Ready (${counts.ready})`}
+        </button>
+
+        <button
+          onClick={handleRetryAllFailed}
+          disabled={
+            counts.failed === 0 ||
+            isRetryingAllFailed ||
+            isExecutingAllReady ||
+            runningBotFillSupplier !== null ||
+            runningFinalSubmitOrderId !== null ||
+            hasOrderFilling
+          }
+          style={{
+            ...styles.primaryButton,
+            backgroundColor:
+              counts.failed === 0 ||
+              isRetryingAllFailed ||
+              isExecutingAllReady ||
+              runningBotFillSupplier !== null ||
+              runningFinalSubmitOrderId !== null ||
+              hasOrderFilling
+                ? "#888"
+                : "#d9534f",
+            cursor:
+              counts.failed === 0 ||
+              isRetryingAllFailed ||
+              isExecutingAllReady ||
+              runningBotFillSupplier !== null ||
+              runningFinalSubmitOrderId !== null ||
+              hasOrderFilling
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {isRetryingAllFailed
+            ? "Retrying All Failed..."
+            : `Retry All Failed (${counts.failed})`}
         </button>
       </PageActionBar>
 
@@ -369,16 +712,74 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         <StatusBadge label="Failed" value={counts.failed} backgroundColor="#ffebee" textColor="#d9534f" />
       </PageActionBar>
 
-      {(runningBotFillOrderId !== null ||
+      <NoticePanel
+        backgroundColor={botServiceState.online ? "#1f1f1f" : "#3a1f1f"}
+        border={botServiceState.online ? "1px solid #555" : "1px solid #7a2d2d"}
+        color={botServiceState.online ? "#8de0ea" : "#ffb3b3"}
+        marginBottom="10px"
+        padding="10px"
+      >
+        Bot Service: {botServiceState.online ? "ONLINE" : "OFFLINE"}
+        <br />
+        Execution: {botServiceState.running ? "RUNNING" : "IDLE"}
+        <br />
+        Type: {botServiceState.type || "-"} | Phase: {botServiceState.phase || "-"}
+        <br />
+        Supplier: {botServiceState.supplier || "-"}
+        <br />
+        Last Check: {formatDateTime(botServiceState.lastCheckedAt)}
+      </NoticePanel>
+
+      {!botServiceState.online && (
+        <NoticePanel
+          backgroundColor="#3a1f1f"
+          border="1px solid #7a2d2d"
+          color="#ffb3b3"
+          marginBottom="12px"
+          padding="10px"
+        >
+          Bot service appears offline. Fill/submit attempts may fail until service is reachable.
+        </NoticePanel>
+      )}
+
+      {botServiceState.online && botServiceState.running && (
+        <NoticePanel
+          backgroundColor="#1f1f1f"
+          border="1px solid #555"
+          color="#8de0ea"
+          marginBottom="12px"
+          padding="10px"
+        >
+          Bot execution in progress: {botServiceState.type || "-"} for{" "}
+          {botServiceState.supplier || "unknown supplier"} ({botServiceState.phase || "-"}).
+        </NoticePanel>
+      )}
+
+      {pageNotice.message && (
+        <NoticePanel
+          {...getNoticeToneStyle(pageNotice.tone)}
+          marginBottom="12px"
+          padding="10px"
+        >
+          {pageNotice.message}
+        </NoticePanel>
+      )}
+
+      {(runningBotFillSupplier !== null ||
         runningFinalSubmitOrderId !== null ||
-        isExecutingAllReady) && (
+        isExecutingAllReady ||
+        isRetryingAllFailed) && (
         <NoticePanel
           backgroundColor="#1f1f1f"
           border="1px solid #555"
           color="#8de0ea"
           marginBottom="12px"
         >
-          {runningFinalSubmitOrderId !== null
+          {isRetryingAllFailed && retryProgress.total > 0
+            ? `Retrying supplier ${retryProgress.current} of ${retryProgress.total}: ${
+                retryProgress.supplier || "-"
+              }...`
+            : runningFinalSubmitOrderId !== null
             ? "Bot service is performing final submit on mock portal."
             : "Bot service is filling order items on mock portal. Final submit remains manual."}
         </NoticePanel>
@@ -390,12 +791,17 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
         sortedDailyOrders.map((order) => {
           const statusColors = getStatusBadgeColors(order.status);
           const warning = executionWarningByOrderId[order.id];
-          const isRunningBotFillThis = runningBotFillOrderId === order.id;
+          const isRunningBotFillThis =
+            runningBotFillSupplier !== null &&
+            order.supplier === runningBotFillSupplier;
+          const isRunningForSupplier =
+            isExecutionRunning &&
+            runningExecutionSupplier &&
+            order.supplier === runningExecutionSupplier;
           const isRunningFinalSubmitThis = runningFinalSubmitOrderId === order.id;
           const canEditItems = !order.isLocked && order.status === DAILY_ORDER_STATUSES.DRAFT;
-          const canRunBotFill =
-            order.status === DAILY_ORDER_STATUSES.READY ||
-            order.status === DAILY_ORDER_STATUSES.FAILED;
+          const canRunBotFill = order.status === DAILY_ORDER_STATUSES.READY;
+          const canRetryBotFill = order.status === DAILY_ORDER_STATUSES.FAILED;
           const canMarkReady = order.status === DAILY_ORDER_STATUSES.DRAFT;
           const canUnlock =
             order.isLocked &&
@@ -403,6 +809,9 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
             order.status !== DAILY_ORDER_STATUSES.FILLING_ORDER;
           const canFinalSubmit =
             order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
+          const canOpenSupplierReview =
+            order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW ||
+            order.status === DAILY_ORDER_STATUSES.EXECUTED;
 
           return (
             <div
@@ -416,7 +825,25 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
               }}
             >
               <PageActionBar marginBottom="10px" alignItems="center">
-                <h3 style={{ margin: 0 }}>{order.supplier}</h3>
+                <h3 style={{ margin: 0 }}>
+                  {order.supplier}
+                  {isRunningForSupplier ? (
+                    <span
+                      style={{
+                        marginLeft: "10px",
+                        fontSize: "11px",
+                        padding: "2px 8px",
+                        borderRadius: "999px",
+                        backgroundColor: "#e3f2fd",
+                        color: "#2196F3",
+                        border: "1px solid #2196F3",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      BOT RUNNING...
+                    </span>
+                  ) : null}
+                </h3>
                 <StatusBadge
                   label="Status"
                   value={getStatusLabel(order.status)}
@@ -448,6 +875,22 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                   marginBottom="10px"
                 >
                   Ready for Chef Review: bot filled items and stopped before submit.
+                </NoticePanel>
+              )}
+
+              {order.status === DAILY_ORDER_STATUSES.FAILED && (
+                <NoticePanel
+                  backgroundColor="#2b2410"
+                  border="1px solid #6d5b2f"
+                  color="#ffe39a"
+                  padding="10px"
+                  marginBottom="10px"
+                >
+                  Suggested Action:{" "}
+                  {getExecutionErrorMessage(
+                    order.lastErrorCode,
+                    order.lastErrorMessage
+                  )}
                 </NoticePanel>
               )}
 
@@ -593,6 +1036,14 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 Last Error Code: {order.lastErrorCode || "-"}
                 <br />
                 Last Error Message: {order.lastErrorMessage || "-"}
+                <br />
+                Suggested Action:{" "}
+                {order.lastErrorCode
+                  ? getExecutionErrorMessage(
+                      order.lastErrorCode,
+                      order.lastErrorMessage
+                    )
+                  : "-"}
               </NoticePanel>
 
               <PageActionBar marginBottom="0">
@@ -603,7 +1054,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
                     isRunningFinalSubmitThis ||
-                    runningBotFillOrderId !== null ||
+                    runningBotFillSupplier !== null ||
                     runningFinalSubmitOrderId !== null
                   }
                   style={{
@@ -613,7 +1064,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillOrderId !== null ||
+                      runningBotFillSupplier !== null ||
                       runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#ff9800",
@@ -629,7 +1080,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
                     isRunningFinalSubmitThis ||
-                    runningBotFillOrderId !== null ||
+                    runningBotFillSupplier !== null ||
                     runningFinalSubmitOrderId !== null
                   }
                   style={{
@@ -639,7 +1090,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillOrderId !== null ||
+                      runningBotFillSupplier !== null ||
                       runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#607d8b",
@@ -653,27 +1104,57 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                   disabled={
                     !canRunBotFill ||
                     isExecutingAllReady ||
+                    isRetryingAllFailed ||
                     isRunningBotFillThis ||
                     isRunningFinalSubmitThis ||
-                    runningBotFillOrderId !== null ||
                     runningFinalSubmitOrderId !== null ||
-                    hasOrderFilling
+                    (isExecutionRunning && isRunningForSupplier)
                   }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
                       !canRunBotFill ||
                       isExecutingAllReady ||
+                      isRetryingAllFailed ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillOrderId !== null ||
                       runningFinalSubmitOrderId !== null ||
-                      hasOrderFilling
+                      (isExecutionRunning && isRunningForSupplier)
                         ? "#888"
                         : "#0288d1",
                   }}
                 >
                   {isRunningBotFillThis ? "Running Bot Fill..." : "Run Bot Fill"}
+                </button>
+
+                <button
+                  onClick={() => handleRetryBotFill(order.id)}
+                  disabled={
+                    !canRetryBotFill ||
+                    isExecutingAllReady ||
+                    isRetryingAllFailed ||
+                    isRunningBotFillThis ||
+                    isRunningFinalSubmitThis ||
+                    runningFinalSubmitOrderId !== null ||
+                    (isExecutionRunning && isRunningForSupplier)
+                  }
+                  style={{
+                    ...styles.primaryButton,
+                    backgroundColor:
+                      !canRetryBotFill ||
+                      isExecutingAllReady ||
+                      isRetryingAllFailed ||
+                      isRunningBotFillThis ||
+                      isRunningFinalSubmitThis ||
+                      runningFinalSubmitOrderId !== null ||
+                      (isExecutionRunning && isRunningForSupplier)
+                        ? "#888"
+                        : "#d9534f",
+                  }}
+                >
+                  {isRunningBotFillThis && canRetryBotFill
+                    ? "Retrying Bot Fill..."
+                    : "Retry Bot Fill"}
                 </button>
 
                 <button
@@ -683,7 +1164,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                     isExecutingAllReady ||
                     isRunningBotFillThis ||
                     isRunningFinalSubmitThis ||
-                    runningBotFillOrderId !== null ||
+                    runningBotFillSupplier !== null ||
                     runningFinalSubmitOrderId !== null
                   }
                   style={{
@@ -693,7 +1174,7 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillOrderId !== null ||
+                      runningBotFillSupplier !== null ||
                       runningFinalSubmitOrderId !== null
                         ? "#888"
                         : "#4CAF50",
@@ -705,14 +1186,19 @@ function DailyOrderExecutionPage({ setCurrentPage }) {
                 </button>
 
                 <button
-                  onClick={() => handleOpenSupplierReviewPlaceholder(order.id)}
+                  onClick={() => handleOpenSupplierReview(order)}
+                  disabled={!canOpenSupplierReview}
                   style={{
                     ...styles.primaryButton,
-                    backgroundColor: "#795548",
+                    backgroundColor: canOpenSupplierReview ? "#795548" : "#888",
                   }}
                 >
                   Open Supplier Review
                 </button>
+
+                <span style={{ color: "#999", fontSize: "12px", alignSelf: "center" }}>
+                  Opens supplier portal for manual verification.
+                </span>
               </PageActionBar>
             </div>
           );
