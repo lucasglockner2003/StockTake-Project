@@ -26,6 +26,12 @@ const STATUS_FILTERS = [
   { value: INVOICE_INTAKE_STATUSES.EXECUTED, label: "Executed" },
 ];
 
+const MONTH_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "current-month", label: "Current Month" },
+  { value: "last-30-days", label: "Last 30 Days" },
+];
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -108,10 +114,25 @@ function isCurrentMonth(dateValue) {
   );
 }
 
+function isWithinLastDays(dateValue, days) {
+  if (!dateValue) return false;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = Date.now();
+  const diff = now - date.getTime();
+  return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
+}
+
+function getInvoiceReferenceDate(invoice) {
+  return invoice.invoiceDate || invoice.updatedAt || invoice.createdAt || "";
+}
+
 function InvoiceQueuePage({ setCurrentPage }) {
   const [invoiceQueue, setInvoiceQueue] = useState(() => getInvoiceQueue());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
   const [openPayloadInvoiceId, setOpenPayloadInvoiceId] = useState("");
   const [activeRetryInvoiceId, setActiveRetryInvoiceId] = useState("");
   const [isRetryingAllFailed, setIsRetryingAllFailed] = useState(false);
@@ -125,31 +146,19 @@ function InvoiceQueuePage({ setCurrentPage }) {
     message: "",
   });
 
-  const counts = useMemo(() => getInvoiceQueueCounts(invoiceQueue), [invoiceQueue]);
-
-  const totalSpend = useMemo(
-    () =>
-      invoiceQueue.reduce(
-        (sum, invoice) => sum + normalizeAmount(invoice.totalAmount),
-        0
-      ),
-    [invoiceQueue]
-  );
-
-  const currentMonthSpend = useMemo(
-    () =>
-      invoiceQueue
-        .filter((invoice) =>
-          isCurrentMonth(invoice.invoiceDate || invoice.updatedAt || invoice.createdAt)
-        )
-        .reduce((sum, invoice) => sum + normalizeAmount(invoice.totalAmount), 0),
-    [invoiceQueue]
-  );
+  const allCounts = useMemo(() => getInvoiceQueueCounts(invoiceQueue), [invoiceQueue]);
 
   const filteredInvoices = useMemo(() => {
     const normalizedSearch = String(search || "").trim().toLowerCase();
 
     return invoiceQueue.filter((invoice) => {
+      const monthMatch =
+        monthFilter === "all"
+          ? true
+          : monthFilter === "current-month"
+            ? isCurrentMonth(getInvoiceReferenceDate(invoice))
+            : isWithinLastDays(getInvoiceReferenceDate(invoice), 30);
+
       const statusMatch =
         statusFilter === "all" ? true : invoice.status === statusFilter;
 
@@ -161,9 +170,66 @@ function InvoiceQueuePage({ setCurrentPage }) {
               .toLowerCase()
               .includes(normalizedSearch);
 
-      return statusMatch && searchMatch;
+      return monthMatch && statusMatch && searchMatch;
     });
-  }, [invoiceQueue, search, statusFilter]);
+  }, [invoiceQueue, search, statusFilter, monthFilter]);
+
+  const summaryMetrics = useMemo(() => {
+    const totalSpend = filteredInvoices.reduce(
+      (sum, invoice) => sum + normalizeAmount(invoice.totalAmount),
+      0
+    );
+    const executedSpend = filteredInvoices
+      .filter((invoice) => invoice.status === INVOICE_INTAKE_STATUSES.EXECUTED)
+      .reduce((sum, invoice) => sum + normalizeAmount(invoice.totalAmount), 0);
+    const failedCount = filteredInvoices.filter(
+      (invoice) => invoice.status === INVOICE_INTAKE_STATUSES.FAILED
+    ).length;
+    const executedCount = filteredInvoices.filter(
+      (invoice) => invoice.status === INVOICE_INTAKE_STATUSES.EXECUTED
+    ).length;
+
+    return {
+      totalSpend,
+      executedSpend,
+      failedCount,
+      executedCount,
+    };
+  }, [filteredInvoices]);
+
+  const supplierSpendRows = useMemo(() => {
+    const groups = filteredInvoices.reduce((acc, invoice) => {
+      const supplier = invoice.supplier || "Unknown Supplier";
+      if (!acc[supplier]) {
+        acc[supplier] = {
+          supplier,
+          invoiceCount: 0,
+          totalSpend: 0,
+          executedSpend: 0,
+          failedCount: 0,
+        };
+      }
+
+      const amount = normalizeAmount(invoice.totalAmount);
+      acc[supplier].invoiceCount += 1;
+      acc[supplier].totalSpend += amount;
+      if (invoice.status === INVOICE_INTAKE_STATUSES.EXECUTED) {
+        acc[supplier].executedSpend += amount;
+      }
+      if (invoice.status === INVOICE_INTAKE_STATUSES.FAILED) {
+        acc[supplier].failedCount += 1;
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(groups).sort((a, b) => b.totalSpend - a.totalSpend);
+  }, [filteredInvoices]);
+
+  const topSupplierLabel =
+    supplierSpendRows.length === 0
+      ? "-"
+      : `${supplierSpendRows[0].supplier} (${supplierSpendRows[0].totalSpend.toFixed(2)})`;
 
   function refreshInvoiceQueue() {
     setInvoiceQueue(getInvoiceQueue());
@@ -372,65 +438,78 @@ function InvoiceQueuePage({ setCurrentPage }) {
 
         <button
           onClick={handleRetryAllFailed}
-          disabled={counts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId}
+          disabled={
+            allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+          }
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              counts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+              allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
                 ? "#888"
                 : "#d9534f",
             cursor:
-              counts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+              allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
                 ? "not-allowed"
                 : "pointer",
           }}
         >
           {isRetryingAllFailed
             ? "Retrying All Failed..."
-            : `Retry All Failed (${counts.failed})`}
+            : `Retry All Failed (${allCounts.failed})`}
         </button>
       </PageActionBar>
 
       <PageActionBar marginBottom="14px">
         <StatusBadge
-          label="Total"
-          value={counts.total}
-          backgroundColor="#1f1f1f"
-          textColor="white"
-        />
-        <StatusBadge
-          label="Queued"
-          value={counts.queued}
-          backgroundColor="#fff3e0"
-          textColor="#ff9800"
-        />
-        <StatusBadge
-          label="Failed"
-          value={counts.failed}
-          backgroundColor="#ffebee"
-          textColor="#d9534f"
-        />
-        <StatusBadge
-          label="Executed"
-          value={counts.executed}
-          backgroundColor="#e8f5e9"
-          textColor="#4CAF50"
-        />
-        <StatusBadge
           label="Total Spend"
-          value={totalSpend.toFixed(2)}
+          value={summaryMetrics.totalSpend.toFixed(2)}
           backgroundColor="#1f1f1f"
           textColor="#9be79b"
         />
         <StatusBadge
-          label="Month Spend"
-          value={currentMonthSpend.toFixed(2)}
+          label="Executed Spend"
+          value={summaryMetrics.executedSpend.toFixed(2)}
+          backgroundColor="#1f1f1f"
+          textColor="#4CAF50"
+        />
+        <StatusBadge
+          label="Failed Invoices"
+          value={summaryMetrics.failedCount}
+          backgroundColor="#ffebee"
+          textColor="#d9534f"
+        />
+        <StatusBadge
+          label="Executed Invoices"
+          value={summaryMetrics.executedCount}
+          backgroundColor="#e8f5e9"
+          textColor="#4CAF50"
+        />
+        <StatusBadge
+          label="Top Supplier"
+          value={topSupplierLabel}
           backgroundColor="#1f1f1f"
           textColor="#8de0ea"
         />
       </PageActionBar>
 
       <PageActionBar alignItems="center">
+        <select
+          value={monthFilter}
+          onChange={(event) => setMonthFilter(event.target.value)}
+          style={{
+            padding: "10px 12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+            minWidth: "180px",
+          }}
+        >
+          {MONTH_FILTERS.map((filterOption) => (
+            <option key={filterOption.value} value={filterOption.value}>
+              {filterOption.label}
+            </option>
+          ))}
+        </select>
+
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
@@ -479,6 +558,48 @@ function InvoiceQueuePage({ setCurrentPage }) {
           {retryProgress.label}
         </NoticePanel>
       )}
+
+      <div style={{ ...styles.darkPanel, marginBottom: "12px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "10px" }}>Spend By Supplier</h2>
+
+        <SectionTableHeader
+          columns={[
+            "Supplier",
+            "Invoices",
+            "Total Spend",
+            "Executed Spend",
+            "Failed",
+          ]}
+          gridTemplateColumns="1.4fr 0.7fr 0.9fr 0.9fr 0.7fr"
+          marginBottom="6px"
+        />
+
+        {supplierSpendRows.length === 0 ? (
+          <div style={styles.emptyState}>No supplier spend data for current filters.</div>
+        ) : (
+          supplierSpendRows.map((supplierRow) => (
+            <div
+              key={supplierRow.supplier}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 0.7fr 0.9fr 0.9fr 0.7fr",
+                gap: "8px",
+                alignItems: "center",
+                padding: "10px",
+                borderBottom: "1px solid #333",
+              }}
+            >
+              <div>
+                <strong>{supplierRow.supplier}</strong>
+              </div>
+              <div>{supplierRow.invoiceCount}</div>
+              <div>{supplierRow.totalSpend.toFixed(2)}</div>
+              <div>{supplierRow.executedSpend.toFixed(2)}</div>
+              <div>{supplierRow.failedCount}</div>
+            </div>
+          ))
+        )}
+      </div>
 
       <SectionTableHeader
         columns={["Supplier", "Invoice", "Amount", "Status", "Attempts"]}
