@@ -273,6 +273,60 @@ export function buildDailyConfirmedOrdersFromConfirmedEntries(
   );
 }
 
+export function buildDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder = []) {
+  const groups = {};
+
+  (suggestedOrder || []).forEach((item) => {
+    const quantity = normalizeQuantity(item.orderAmount);
+    if (!(quantity > 0)) return;
+
+    const supplier = item.supplier || UNKNOWN_SUPPLIER_LABEL;
+
+    if (!groups[supplier]) {
+      groups[supplier] = [];
+    }
+
+    groups[supplier].push({
+      itemId: item.id,
+      itemName: item.name || item.itemName || "",
+      quantity,
+      unit: item.unit || "",
+    });
+  });
+
+  const now = new Date().toISOString();
+  return Object.entries(groups).map(([supplier, items], index) =>
+    normalizeOrder({
+      id: `${Date.now()}-${index}-${Math.floor(Math.random() * 10000)}`,
+      supplier,
+      items,
+      totalQuantity: getTotalQuantity(items),
+      createdAt: now,
+      status: DAILY_ORDER_STATUSES.DRAFT,
+      isLocked: false,
+      attempts: 0,
+      executionResult: null,
+      executionStartedAt: null,
+      executionFinishedAt: null,
+      executionDuration: null,
+      reviewScreenshot: "",
+      filledAt: null,
+      readyForReviewAt: null,
+      executionNotes: "",
+      chefApprovedAt: null,
+      submittedAt: null,
+      orderNumber: "",
+      finalScreenshot: "",
+      submitDuration: null,
+      finalExecutionNotes: "",
+      lastExecutionId: "",
+      lastErrorCode: "",
+      lastErrorMessage: "",
+      lastExecutionPhase: "",
+    })
+  );
+}
+
 export function enqueueDailyConfirmedOrders(orders) {
   const validOrders = Array.isArray(orders) ? orders : [];
   if (validOrders.length === 0) return [];
@@ -289,6 +343,12 @@ export function addDailyConfirmedOrdersFromPhoto(confirmedEntries, itemsCatalog 
     itemsCatalog
   );
 
+  enqueueDailyConfirmedOrders(orders);
+  return orders;
+}
+
+export function addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder = []) {
+  const orders = buildDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder);
   enqueueDailyConfirmedOrders(orders);
   return orders;
 }

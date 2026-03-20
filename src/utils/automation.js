@@ -185,6 +185,16 @@ export function getSupplierOrderHistory() {
   return loadSupplierOrderHistoryFromStorage();
 }
 
+export function clearSupplierOrderHistory() {
+  try {
+    localStorage.removeItem(SUPPLIER_ORDER_HISTORY_KEY);
+  } catch {
+    // ignore storage errors
+  }
+
+  return [];
+}
+
 function syncSupplierOrderHistoryWithQueue(queue) {
   const supplierJobs = (queue || []).filter(isSupplierOrderJob);
   if (supplierJobs.length === 0) return;

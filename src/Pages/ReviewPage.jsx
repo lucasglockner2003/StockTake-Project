@@ -2,8 +2,8 @@ import { PAGE_IDS } from "../constants/app";
 import {
   addAutomationJob,
   buildStockTableAutomationJob,
-  buildSuggestedOrderAutomationJob,
 } from "../utils/automation";
+import { addDailyConfirmedOrdersFromSuggestedOrder } from "../utils/dailyOrders";
 import {
   getItemStatus,
   getStatusColor,
@@ -50,16 +50,15 @@ function ReviewPage({
   voiceFilledItems,
 }) {
   function handleSendSuggestedOrderToQueue() {
-    const jobData = buildSuggestedOrderAutomationJob(suggestedOrder);
+    const createdOrders = addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder);
 
-    if (jobData.items.length === 0) {
+    if (createdOrders.length === 0) {
       alert("There are no suggested order items to send.");
       return;
     }
 
-    const job = addAutomationJob(jobData);
-    alert(`Suggested order job created: ${job.jobId}`);
-    setCurrentPage(PAGE_IDS.AUTOMATION);
+    alert(`Daily order(s) created: ${createdOrders.length}`);
+    setCurrentPage(PAGE_IDS.DAILY_ORDER_EXECUTION);
   }
 
   function handleSendStockTableToQueue() {
@@ -202,7 +201,7 @@ function ReviewPage({
             backgroundColor: "#9900ff",
           }}
         >
-          Send Suggested Order To Queue
+          Send Suggested Order
         </button>
       </PageActionBar>
 

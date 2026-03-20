@@ -19,14 +19,14 @@ import {
 
 const SIDEBAR_PAGES = [
   { id: PAGE_IDS.STOCK, label: "Stock Take" },
-  { id: PAGE_IDS.REVIEW, label: "Review" },
-  { id: PAGE_IDS.SUPPLIER_REVIEW, label: "Supplier Review" },
   { id: PAGE_IDS.VOICE, label: "Stock Voice" },
+  { id: PAGE_IDS.REVIEW, label: "Review" },
   { id: PAGE_IDS.PHOTO, label: "Photo Order" },
   { id: PAGE_IDS.INVOICE_INTAKE, label: "Invoice Intake" },
   { id: PAGE_IDS.INVOICE_QUEUE, label: "Invoice Queue" },
   { id: PAGE_IDS.AUTOMATION, label: "Automation Jobs" },
   { id: PAGE_IDS.DAILY_ORDER_EXECUTION, label: "Daily Execution" },
+  { id: PAGE_IDS.SUPPLIER_REVIEW, label: "History Orders" },
 ];
 
 function App() {

@@ -8,19 +8,21 @@ function ProgressBar({ progress }) {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          
+          gap:"320px",
           marginBottom: "8px",
-          fontSize: "13px",
+          fontSize: "12px",
           color: "#bfdbfe",
         }}
       >
         <span>Stock Take Completion</span>
-        <span style={{ fontWeight: 700 }}>{progress}%</span>
+        <span style={{ fontWeight: 1000 }}>{progress}%</span>
       </div>
       <div
         style={{
           width: "100%",
-          height: "12px",
+          maxWidth: "470px",
+          height: "10px",
           backgroundColor: "#111c30",
           borderRadius: "999px",
           overflow: "hidden",
@@ -163,14 +165,28 @@ function TopSummary({
                 backgroundColor="#0f203f"
                 textColor="#93c5fd"
               />
+
+              
+              <ProgressBar progress={progress} />
+              {lastSaved && (
+                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#94a3b8" }}>
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                </p>
+              )}
+            
             </div>
-            <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
+            
+            
+          </div>
+              <p style={{ margin: "0.1px 0 0", color: "#94a3b8", fontSize: "15px" }}>
               {dashboardDate}
             </p>
-          </div>
-
         </div>
+
+        
       </div>
+
+      
 
       <div
         style={{
@@ -195,7 +211,6 @@ function TopSummary({
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
             gap: "10px",
             alignItems: "center",
             flexWrap: "wrap",
@@ -252,28 +267,15 @@ function TopSummary({
               }}
             />
 
-            <div
-              style={{
-                width: "260px",
-                maxWidth: "100%",
-                minWidth: "220px",
-                borderRadius: "8px",
-                border: "1px solid #334155",
-                backgroundColor: "#0b1220",
-                padding: "8px 10px",
-              }}
-            >
-              <ProgressBar progress={progress} />
-              {lastSaved && (
-                <p style={{ margin: "8px 0 0", fontSize: "11px", color: "#94a3b8" }}>
-                  Last saved: {lastSaved.toLocaleTimeString()}
-                </p>
-              )}
-            </div>
+            
           </div>
+          
         </div>
+        
       </div>
+      
     </div>
+    
   );
 }
 

@@ -297,17 +297,7 @@ Salsa: 15`}
           Copy Automation Payload
         </button>
 
-        <button
-          onClick={handleSendToAutomationQueue}
-          disabled={confirmedEntries.length === 0}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: confirmedEntries.length === 0 ? "#888" : "#ff9800",
-            cursor: confirmedEntries.length === 0 ? "not-allowed" : "pointer",
-          }}
-        >
-          Send To Automation Queue
-        </button>
+        
 
         <button
           onClick={handleSendDailyOrderToBot}
