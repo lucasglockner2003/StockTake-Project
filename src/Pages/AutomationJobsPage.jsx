@@ -1,12 +1,16 @@
 import { JOB_STATUSES } from "../constants/app";
 import { styles } from "../utils/uiStyles";
 import AutomationJobCard from "../components/AutomationJobCard";
+import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import StatusBadge from "../components/StatusBadge";
 import { useAutomationJobs } from "../hooks/useAutomationJobs";
 
 function AutomationJobsPage() {
   const {
+    loading,
+    errorMessage,
+    canManageJobs,
     runningJobId,
     statusFilter,
     setStatusFilter,
@@ -30,28 +34,50 @@ function AutomationJobsPage() {
     <div>
       <h1>Automation Jobs</h1>
 
+      {!canManageJobs ? (
+        <NoticePanel
+          backgroundColor="#1f1f1f"
+          border="1px solid #555"
+          color="#8de0ea"
+        >
+          Read-only access. Managers can monitor jobs but only admins can change the queue.
+        </NoticePanel>
+      ) : null}
+
+      {errorMessage ? (
+        <NoticePanel
+          backgroundColor="#3a1f1f"
+          border="1px solid #7a2d2d"
+          color="#ffb3b3"
+        >
+          {errorMessage}
+        </NoticePanel>
+      ) : null}
+
       <PageActionBar>
         <button
           onClick={refreshJobs}
+          disabled={loading}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#2196F3",
+            backgroundColor: loading ? "#888" : "#2196F3",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          Refresh Jobs
+          {loading ? "Refreshing..." : "Refresh Jobs"}
         </button>
 
         <button
           onClick={handleClearQueue}
-          disabled={counts.total === 0 || runningJobId !== null}
+          disabled={!canManageJobs || counts.total === 0 || runningJobId !== null}
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              counts.total === 0 || runningJobId !== null
+              !canManageJobs || counts.total === 0 || runningJobId !== null
                 ? "#888"
                 : "#d9534f",
             cursor:
-              counts.total === 0 || runningJobId !== null
+              !canManageJobs || counts.total === 0 || runningJobId !== null
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -114,6 +140,7 @@ function AutomationJobsPage() {
               job={job}
               isRunning={runningJobId === job.jobId}
               hasRunningJob={runningJobId !== null}
+              canManage={canManageJobs}
               onRun={handleRunJob}
               onRunFailure={handleRunJobWithFailure}
               onSetStatus={handleSetStatus}

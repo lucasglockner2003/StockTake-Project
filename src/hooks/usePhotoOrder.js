@@ -19,6 +19,7 @@ import { addAutomationJob } from "../utils/automation";
 import {
   addDailyConfirmedOrdersFromPhoto,
   getReadyOrdersCount,
+  refreshDailyOrderSummary,
 } from "../utils/dailyOrders";
 
 export function usePhotoOrder(
@@ -40,6 +41,7 @@ export function usePhotoOrder(
   const [readyDailyOrdersCount, setReadyDailyOrdersCount] = useState(
     getReadyOrdersCount
   );
+  const [isCreatingDailyOrders, setIsCreatingDailyOrders] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -48,6 +50,34 @@ export function usePhotoOrder(
       }
     };
   }, [selectedImage]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDailyOrderSummary() {
+      try {
+        const summary = await refreshDailyOrderSummary();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setReadyDailyOrdersCount(summary.ready);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setReadyDailyOrdersCount(getReadyOrdersCount());
+      }
+    }
+
+    loadDailyOrderSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function resetPhotoFlowState() {
     setPhotoEntries([]);
@@ -166,7 +196,7 @@ export function usePhotoOrder(
     setConfirmedEntries([]);
   }
 
-  function handleConfirmOutput() {
+  async function handleConfirmOutput() {
     const nextConfirmedEntries = getConfirmedPhotoEntries(photoEntries);
 
     if (nextConfirmedEntries.length === 0) {
@@ -174,10 +204,18 @@ export function usePhotoOrder(
       return;
     }
 
-    setConfirmedEntries(nextConfirmedEntries);
-    setIsOutputLocked(true);
-    addDailyConfirmedOrdersFromPhoto(nextConfirmedEntries, items);
-    setReadyDailyOrdersCount(getReadyOrdersCount());
+    try {
+      setIsCreatingDailyOrders(true);
+      const result = await addDailyConfirmedOrdersFromPhoto(nextConfirmedEntries, items);
+
+      setConfirmedEntries(nextConfirmedEntries);
+      setIsOutputLocked(true);
+      setReadyDailyOrdersCount(result.summary.ready);
+    } catch (error) {
+      alert(error?.message || "Failed to create daily orders.");
+    } finally {
+      setIsCreatingDailyOrders(false);
+    }
   }
 
   function handleUnlockOutput() {
@@ -214,15 +252,19 @@ export function usePhotoOrder(
     }
   }
 
-  function handleSendToAutomationQueue() {
+  async function handleSendToAutomationQueue() {
     if (confirmedEntries.length === 0) {
       alert("There is no confirmed output to send.");
       return;
     }
 
-    const job = addAutomationJob(automationJob);
-    alert(`Automation job created: ${job.jobId}`);
-    setCurrentPage(automationPageId);
+    try {
+      const job = await addAutomationJob(automationJob);
+      alert(`Automation job created: ${job.jobId}`);
+      setCurrentPage(automationPageId);
+    } catch (error) {
+      alert(error?.message || "Failed to create automation job.");
+    }
   }
 
   function handleSendDailyOrderToBot() {
@@ -253,6 +295,7 @@ export function usePhotoOrder(
     automationPayload,
     automationJob,
     readyDailyOrdersCount,
+    isCreatingDailyOrders,
     handleImageChange,
     handleProcessText,
     handleProcessImage,

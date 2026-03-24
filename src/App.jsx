@@ -77,7 +77,12 @@ function App() {
     applyVoiceEntries,
     applySingleVoiceEntry,
     voiceFilledItems,
-  } = useStockTake();
+    isLoading: isStockTakeLoading,
+    isSaving: isStockTakeSaving,
+    errorMessage: stockTakeErrorMessage,
+  } = useStockTake({
+    enabled: isAuthenticated && isReady,
+  });
 
   useEffect(() => {
     saveVoiceData({
@@ -122,6 +127,7 @@ function App() {
   const workspaceOverview = useWorkspaceOverview({
     currentPage,
     role: user?.role,
+    enabled: isAuthenticated && isReady,
     stockState: {
       items,
       quantities,
@@ -320,6 +326,9 @@ function App() {
           inputRefs={inputRefs}
           handleQuantityChange={handleQuantityChange}
           voiceFilledItems={voiceFilledItems}
+          isLoading={isStockTakeLoading}
+          isSaving={isStockTakeSaving}
+          errorMessage={stockTakeErrorMessage}
         />
       );
     }

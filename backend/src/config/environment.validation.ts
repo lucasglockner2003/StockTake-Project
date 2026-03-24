@@ -17,10 +17,20 @@ class EnvironmentVariables {
   JWT_SECRET!: string;
 
   @IsOptional()
+  @IsString()
+  BOT_SERVICE_BASE_URL?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   JWT_EXPIRES_IN?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  BOT_SERVICE_TIMEOUT_MS?: number;
 
   @IsOptional()
   @Type(() => Number)

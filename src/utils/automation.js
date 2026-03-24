@@ -4,19 +4,27 @@ import {
   SUPPLIER_ORDER_EXECUTION_STATUSES,
 } from "../constants/app";
 import {
-  clearStoredAutomationQueue,
-  clearStoredSupplierOrderHistory,
-  getStoredAutomationQueue,
-  getStoredSupplierOrderHistory,
-  saveStoredAutomationQueue,
-  saveStoredSupplierOrderHistory,
+  clearAutomationQueue as clearAutomationQueueRequest,
+  createAutomationJob as createAutomationJobRequest,
+  ensureAutomationQueueLoaded as ensureAutomationQueueLoadedRequest,
+  ensureSupplierOrderHistoryLoaded as ensureSupplierOrderHistoryLoadedRequest,
+  executeAutomationQueueJob,
+  fetchAutomationQueue,
+  fetchAutomationQueueSummary,
+  fetchSupplierOrderHistory,
+  getCachedAutomationQueue,
+  getCachedAutomationSummary,
+  getCachedSupplierOrderHistory,
+  patchAutomationJobError,
+  patchAutomationJobNotes,
+  patchAutomationJobStatus,
+  removeAutomationQueueJob,
+  removeSupplierOrderHistory,
+  resetAutomationQueueJob,
+  subscribeAutomationQueue as subscribeAutomationQueueRequest,
+  subscribeSupplierOrderHistory as subscribeSupplierOrderHistoryRequest,
 } from "../repositories/automation-queue-repository";
 import { getItemStatus, getNumericValue } from "./stock";
-const SUPPLIER_HISTORY_LIMIT = 60;
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function isSupplierOrderJob(job) {
   return job?.source === SOURCES.REVIEW_SUPPLIER_ORDER;
@@ -31,34 +39,22 @@ function mapJobStatusToSupplierExecutionStatus(jobStatus) {
     return SUPPLIER_ORDER_EXECUTION_STATUSES.FAILED;
   }
 
+  if (jobStatus === JOB_STATUSES.PENDING) {
+    return SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE;
+  }
+
   return SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE;
 }
 
-function getSupplierFromJob(job) {
-  if (job?.metadata?.supplierOrder?.supplier) {
-    return job.metadata.supplierOrder.supplier;
-  }
-
-  if (Array.isArray(job?.items) && job.items[0]?.supplier) {
-    return job.items[0].supplier;
-  }
-
-  return "";
-}
-
-function getSupplierTotalQuantity(items = []) {
-  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-}
-
 function normalizeSnapshotItems(items = []) {
-  return items
+  return (items || [])
     .map((item) => ({
-      name: item.name || item.itemName || "",
-      quantity: Number(item.quantity || item.orderAmount || 0),
-      unit: item.unit || "",
+      name: item?.name || item?.itemName || "",
+      quantity: Number(item?.quantity || item?.orderAmount || 0),
+      unit: item?.unit || "",
     }))
-    .filter((item) => item.quantity > 0)
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    .filter((item) => item.name && item.quantity > 0)
+    .sort((left, right) => String(left.name).localeCompare(String(right.name)));
 }
 
 export function buildSupplierOrderSnapshot(
@@ -83,21 +79,37 @@ export function buildSupplierOrderSnapshot(
 }
 
 export function getSupplierOrderSnapshotSignature(snapshot) {
-  if (!snapshot) return "";
+  if (!snapshot) {
+    return "";
+  }
 
   const supplier = String(snapshot.supplier || "").trim().toLowerCase();
-  const normalizedItems = normalizeSnapshotItems(snapshot.items || []);
-  const itemSignature = normalizedItems
+  const itemSignature = normalizeSnapshotItems(snapshot.items || [])
     .map((item) => `${item.name.toLowerCase()}|${item.quantity}|${item.unit}`)
     .join(";");
 
   return `${supplier}::${itemSignature}`;
 }
 
+function getSupplierFromJob(job) {
+  if (job?.metadata?.supplierOrder?.supplier) {
+    return job.metadata.supplierOrder.supplier;
+  }
+
+  if (Array.isArray(job?.items) && job.items[0]?.supplier) {
+    return job.items[0].supplier;
+  }
+
+  return "";
+}
+
+function getSupplierTotalQuantity(items = []) {
+  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
 function buildSnapshotFromJobItems(job) {
-  const supplier = getSupplierFromJob(job);
   return buildSupplierOrderSnapshot(
-    supplier,
+    getSupplierFromJob(job),
     (job.items || []).map((item) => ({
       itemName: item.itemName,
       quantity: item.quantity,
@@ -109,132 +121,144 @@ function buildSnapshotFromJobItems(job) {
 }
 
 function syncSupplierOrderMetadata(job) {
-  if (!isSupplierOrderJob(job)) return job;
+  if (!isSupplierOrderJob(job)) {
+    return job;
+  }
 
-  const supplier = getSupplierFromJob(job);
-  const attempts = Number(job.attemptCount || 0);
-  const totalQuantity = getSupplierTotalQuantity(job.items || []);
   const currentMetadata = job.metadata?.supplierOrder || {};
+  const supplier = getSupplierFromJob(job);
   const snapshot = currentMetadata.snapshot || buildSnapshotFromJobItems(job);
-  const revisionNumber =
-    Number(currentMetadata.revisionNumber || snapshot?.revisionNumber || 1) || 1;
-  const sentAt =
-    currentMetadata.lastSentAt ||
-    currentMetadata.sentAt ||
-    snapshot?.timestamp ||
-    job.createdAt;
+  const attempts = Number(job.attemptCount || currentMetadata.attempts || 0);
 
   return {
     ...job,
     metadata: {
       ...(job.metadata || {}),
       supplierOrder: {
-        ...currentMetadata,
         supplier,
         itemCount: Array.isArray(job.items) ? job.items.length : 0,
-        totalQuantity: snapshot?.totalQuantity || totalQuantity,
-        status: mapJobStatusToSupplierExecutionStatus(job.status),
+        totalQuantity:
+          currentMetadata.totalQuantity || snapshot.totalQuantity || getSupplierTotalQuantity(job.items),
+        status:
+          currentMetadata.status || mapJobStatusToSupplierExecutionStatus(job.status),
         attempts,
-        revisionNumber,
+        revisionNumber:
+          Number(currentMetadata.revisionNumber || snapshot.revisionNumber || 1) || 1,
         snapshot,
-        sentAt,
-        lastSentAt: sentAt,
+        sentAt: currentMetadata.sentAt || snapshot.timestamp || job.createdAt,
+        lastSentAt:
+          currentMetadata.lastSentAt ||
+          currentMetadata.sentAt ||
+          snapshot.timestamp ||
+          job.updatedAt ||
+          job.createdAt,
       },
     },
   };
 }
 
-function toSupplierOrderHistoryRecord(job) {
-  if (!isSupplierOrderJob(job)) return null;
-
-  const syncedJob = syncSupplierOrderMetadata(job);
-  const supplierOrderMeta = syncedJob.metadata?.supplierOrder || {};
-  const snapshot = supplierOrderMeta.snapshot || buildSnapshotFromJobItems(syncedJob);
-
+function buildAutomationCreatePayload(jobData = {}) {
   return {
-    jobId: syncedJob.jobId,
-    supplier: supplierOrderMeta.supplier || "",
-    items: Array.isArray(snapshot?.items) ? snapshot.items : [],
-    totalQuantity: snapshot?.totalQuantity || supplierOrderMeta.totalQuantity || 0,
-    timestamp: syncedJob.updatedAt || syncedJob.createdAt,
-    snapshotTimestamp:
-      snapshot?.timestamp || supplierOrderMeta.lastSentAt || syncedJob.createdAt,
-    revisionNumber:
-      supplierOrderMeta.revisionNumber || snapshot?.revisionNumber || 1,
-    snapshot,
-    status:
-      supplierOrderMeta.status || SUPPLIER_ORDER_EXECUTION_STATUSES.SENT_TO_QUEUE,
-    attempts: supplierOrderMeta.attempts || 0,
+    sessionId: String(jobData.sessionId || Date.now()),
+    source: jobData.source || SOURCES.UNKNOWN,
+    notes: jobData.notes || "",
+    attemptCount: Number(jobData.attemptCount || 0),
+    lastError: jobData.lastError || "",
+    items: Array.isArray(jobData.items)
+      ? jobData.items.map((item, index) => ({
+          sequence: Number(item.sequence || index + 1),
+          itemId:
+            item.itemId === null || item.itemId === undefined
+              ? undefined
+              : Number(item.itemId),
+          itemName: item.itemName || "",
+          quantity: Number(item.quantity || 0),
+          source: item.source || jobData.source || SOURCES.UNKNOWN,
+          supplier: item.supplier || "",
+          currentStock:
+            item.currentStock === null || item.currentStock === undefined
+              ? undefined
+              : Number(item.currentStock),
+          idealStock:
+            item.idealStock === null || item.idealStock === undefined
+              ? undefined
+              : Number(item.idealStock),
+          orderAmount:
+            item.orderAmount === null || item.orderAmount === undefined
+              ? undefined
+              : Number(item.orderAmount),
+          status: item.status || "",
+          area: item.area || "",
+          unit: item.unit || "",
+          rawLine: item.rawLine || "",
+        }))
+      : [],
+    metadata:
+      jobData.metadata && typeof jobData.metadata === "object"
+        ? jobData.metadata
+        : undefined,
   };
 }
 
-export function loadSupplierOrderHistoryFromStorage() {
-  return getStoredSupplierOrderHistory();
+export function subscribeAutomationQueue(listener) {
+  return subscribeAutomationQueueRequest(listener);
 }
 
-export function saveSupplierOrderHistoryToStorage(history) {
-  saveStoredSupplierOrderHistory(history);
+export function subscribeSupplierOrderHistory(listener) {
+  return subscribeSupplierOrderHistoryRequest(listener);
+}
+
+export function ensureAutomationQueueLoaded() {
+  return ensureAutomationQueueLoadedRequest();
+}
+
+export function refreshAutomationQueue() {
+  return fetchAutomationQueue();
+}
+
+export function refreshAutomationSummary() {
+  return fetchAutomationQueueSummary();
+}
+
+export function ensureSupplierOrderHistoryLoaded() {
+  return ensureSupplierOrderHistoryLoadedRequest();
+}
+
+export function refreshSupplierOrderHistory() {
+  return fetchSupplierOrderHistory();
+}
+
+export function getAutomationQueue() {
+  return getCachedAutomationQueue();
+}
+
+export function getAutomationSummary() {
+  return getCachedAutomationSummary();
 }
 
 export function getSupplierOrderHistory() {
-  return loadSupplierOrderHistoryFromStorage();
+  return getCachedSupplierOrderHistory();
 }
 
 export function clearSupplierOrderHistory() {
-  clearStoredSupplierOrderHistory();
-  return [];
+  return removeSupplierOrderHistory();
 }
-
-function syncSupplierOrderHistoryWithQueue(queue) {
-  const supplierJobs = (queue || []).filter(isSupplierOrderJob);
-  if (supplierJobs.length === 0) return;
-
-  const history = loadSupplierOrderHistoryFromStorage();
-  const historyMap = history.reduce((acc, entry) => {
-    if (entry?.jobId !== undefined && entry?.jobId !== null) {
-      acc[String(entry.jobId)] = entry;
-    }
-    return acc;
-  }, {});
-
-  supplierJobs.forEach((job) => {
-    const nextRecord = toSupplierOrderHistoryRecord(job);
-    if (!nextRecord) return;
-
-    historyMap[String(nextRecord.jobId)] = nextRecord;
-  });
-
-  const nextHistory = Object.values(historyMap)
-    .sort((a, b) => {
-      const aTime = new Date(a.timestamp || 0).getTime();
-      const bTime = new Date(b.timestamp || 0).getTime();
-      return bTime - aTime;
-    })
-    .slice(0, SUPPLIER_HISTORY_LIMIT);
-
-  saveSupplierOrderHistoryToStorage(nextHistory);
-}
-
-/* =========================
-   JOB MODEL
-========================= */
 
 export function createAutomationJob(jobData = {}) {
   const now = new Date().toISOString();
-
   const nextJob = {
-    jobId: jobData.jobId || Date.now(),
-    sessionId: jobData.sessionId || Date.now(),
+    jobId: jobData.jobId || String(Date.now()),
+    sessionId: jobData.sessionId || String(Date.now()),
     createdAt: jobData.createdAt || now,
     updatedAt: jobData.updatedAt || now,
     status: jobData.status || JOB_STATUSES.PENDING,
     source: jobData.source || SOURCES.UNKNOWN,
     notes: jobData.notes || "",
-    attemptCount: jobData.attemptCount || 0,
+    attemptCount: Number(jobData.attemptCount || 0),
     lastError: jobData.lastError || "",
     totalItems: Array.isArray(jobData.items)
       ? jobData.items.length
-      : jobData.totalItems || 0,
+      : Number(jobData.totalItems || 0),
     items: Array.isArray(jobData.items) ? jobData.items : [],
     metadata: jobData.metadata || {},
   };
@@ -242,75 +266,82 @@ export function createAutomationJob(jobData = {}) {
   return syncSupplierOrderMetadata(nextJob);
 }
 
-/* =========================
-   STORAGE
-========================= */
+export async function addAutomationJob(jobData) {
+  const payload = buildAutomationCreatePayload(jobData);
+  const result = await createAutomationJobRequest(payload);
 
-export function loadAutomationQueueFromStorage() {
-  return getStoredAutomationQueue();
+  if (!result?.job) {
+    throw new Error(result?.errorMessage || "Failed to create automation job.");
+  }
+
+  return result.job;
 }
 
-export function saveAutomationQueueToStorage(queue) {
-  saveStoredAutomationQueue(queue);
-}
-
-export function clearAutomationQueueFromStorage() {
-  clearStoredAutomationQueue();
-}
-
-/* =========================
-   QUEUE SERVICE
-========================= */
-
-export function getAutomationQueue() {
-  return loadAutomationQueueFromStorage();
-}
-
-export function replaceAutomationQueue(queue) {
-  saveAutomationQueueToStorage(queue);
-  return queue;
-}
-
-export function addAutomationJob(jobData) {
-  const queue = getAutomationQueue();
-  const newJob = createAutomationJob(jobData);
-  const nextQueue = [newJob, ...queue];
-  replaceAutomationQueue(nextQueue);
-  syncSupplierOrderHistoryWithQueue(nextQueue);
-  return newJob;
-}
-
-export function updateAutomationJob(jobId, updater) {
-  const queue = getAutomationQueue();
-
-  const nextQueue = queue.map((job) => {
-    if (job.jobId !== jobId) return job;
-
-    const updatedJob =
-      typeof updater === "function" ? updater(job) : { ...job, ...updater };
-
-    const nextJob = {
-      ...updatedJob,
-      updatedAt: new Date().toISOString(),
-    };
-
-    return syncSupplierOrderMetadata(nextJob);
+export async function updateAutomationJobStatus(jobId, status, options = {}) {
+  const result = await patchAutomationJobStatus(jobId, {
+    status,
+    incrementAttempts: Boolean(options.incrementAttempts),
   });
 
-  replaceAutomationQueue(nextQueue);
-  syncSupplierOrderHistoryWithQueue(nextQueue);
-  return nextQueue;
+  if (!result?.job && !result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to update automation job.");
+  }
+
+  return result;
 }
 
-export function removeAutomationJob(jobId) {
-  const queue = getAutomationQueue();
-  const nextQueue = queue.filter((job) => job.jobId !== jobId);
-  replaceAutomationQueue(nextQueue);
-  return nextQueue;
+export async function setAutomationJobError(jobId, message, code = "") {
+  const result = await patchAutomationJobError(jobId, {
+    code,
+    message,
+  });
+
+  if (!result?.job && !result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to update automation error.");
+  }
+
+  return result;
 }
 
-export function clearAutomationQueue() {
-  clearAutomationQueueFromStorage();
+export async function updateAutomationJobNotes(jobId, notes) {
+  const result = await patchAutomationJobNotes(jobId, {
+    notes,
+  });
+
+  if (!result?.job && !result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to update automation notes.");
+  }
+
+  return result;
+}
+
+export async function resetAutomationJob(jobId) {
+  const result = await resetAutomationQueueJob(jobId);
+
+  if (!result?.job && !result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to reset automation job.");
+  }
+
+  return result;
+}
+
+export async function removeAutomationJob(jobId) {
+  const result = await removeAutomationQueueJob(jobId);
+
+  if (!result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to delete automation job.");
+  }
+
+  return getAutomationQueue();
+}
+
+export async function clearAutomationQueue() {
+  const result = await clearAutomationQueueRequest();
+
+  if (!result?.ok) {
+    throw new Error(result?.errorMessage || "Failed to clear automation queue.");
+  }
+
   return [];
 }
 
@@ -318,15 +349,15 @@ export function getAutomationJobById(jobId) {
   return getAutomationQueue().find((job) => job.jobId === jobId) || null;
 }
 
-export function getAutomationJobCounts(jobs) {
+export function getAutomationJobCounts(jobs = []) {
   return (jobs || []).reduce(
-    (acc, job) => {
-      acc.total += 1;
-      if (job.status === JOB_STATUSES.PENDING) acc.pending += 1;
-      if (job.status === JOB_STATUSES.RUNNING) acc.running += 1;
-      if (job.status === JOB_STATUSES.DONE) acc.done += 1;
-      if (job.status === JOB_STATUSES.FAILED) acc.failed += 1;
-      return acc;
+    (summary, job) => {
+      summary.total += 1;
+      if (job.status === JOB_STATUSES.PENDING) summary.pending += 1;
+      if (job.status === JOB_STATUSES.RUNNING) summary.running += 1;
+      if (job.status === JOB_STATUSES.DONE) summary.done += 1;
+      if (job.status === JOB_STATUSES.FAILED) summary.failed += 1;
+      return summary;
     },
     {
       total: 0,
@@ -348,11 +379,10 @@ export function filterAutomationJobs(
   return (jobs || []).filter((job) => {
     const matchesStatus =
       statusFilter === JOB_STATUSES.ALL ? true : job.status === statusFilter;
-
     const matchesSearch =
       normalizedSearch === ""
         ? true
-        : String(job.jobId).toLowerCase().includes(normalizedSearch) ||
+        : String(job.jobId || "").toLowerCase().includes(normalizedSearch) ||
           String(job.sessionId || "").toLowerCase().includes(normalizedSearch) ||
           (job.items || []).some((item) =>
             String(item.itemName || "").toLowerCase().includes(normalizedSearch)
@@ -374,6 +404,7 @@ export function buildSuggestedOrderAutomationItems(suggestedOrder) {
       supplier: item.supplier || "",
       currentStock: item.currentStock,
       idealStock: item.idealStock,
+      orderAmount: item.orderAmount,
       unit: item.unit,
       rawLine: `${item.name}\t${item.orderAmount}`,
     }));
@@ -383,7 +414,7 @@ export function buildSuggestedOrderAutomationJob(suggestedOrder) {
   const items = buildSuggestedOrderAutomationItems(suggestedOrder);
 
   return createAutomationJob({
-    sessionId: Date.now(),
+    sessionId: String(Date.now()),
     source: SOURCES.REVIEW_SUGGESTED_ORDER,
     totalItems: items.length,
     items,
@@ -426,7 +457,7 @@ export function buildStockTableAutomationJob(items, quantities) {
   const stockItems = buildStockTableAutomationItems(items, quantities);
 
   return createAutomationJob({
-    sessionId: Date.now(),
+    sessionId: String(Date.now()),
     source: SOURCES.REVIEW_STOCK_TABLE,
     totalItems: stockItems.length,
     items: stockItems,
@@ -445,6 +476,7 @@ export function buildSupplierOrderAutomationItems(supplier, supplierItems) {
       supplier,
       currentStock: item.currentStock,
       idealStock: item.idealStock,
+      orderAmount: item.orderAmount,
       unit: item.unit,
       rawLine: `${item.name}\t${item.orderAmount}`,
     }));
@@ -464,7 +496,9 @@ export function buildSupplierOrderPayload(supplier, supplierItems) {
 export function buildSupplierOrderText(supplier, supplierItems) {
   const payload = buildSupplierOrderPayload(supplier, supplierItems);
 
-  if (payload.items.length === 0) return "";
+  if (payload.items.length === 0) {
+    return "";
+  }
 
   const header = ["Item", "Current", "Ideal", "Order", "Unit"].join("\t");
   const rows = payload.items.map((item) =>
@@ -500,7 +534,7 @@ export function buildSupplierOrderAutomationJob(
   );
 
   return createAutomationJob({
-    sessionId: Date.now(),
+    sessionId: String(Date.now()),
     source: payload.source,
     totalItems: payload.totalItems,
     items: payload.items,
@@ -520,82 +554,16 @@ export function buildSupplierOrderAutomationJob(
   });
 }
 
-/* =========================
-   EXECUTOR
-========================= */
-
-function markJobRunning(queue, jobId) {
-  return queue.map((job) =>
-    job.jobId === jobId
-      ? syncSupplierOrderMetadata({
-          ...job,
-          status: JOB_STATUSES.RUNNING,
-          attemptCount: (job.attemptCount || 0) + 1,
-          lastError: "",
-          updatedAt: new Date().toISOString(),
-        })
-      : job
-  );
-}
-
-function markJobDone(queue, jobId) {
-  return queue.map((job) =>
-    job.jobId === jobId
-      ? syncSupplierOrderMetadata({
-          ...job,
-          status: JOB_STATUSES.DONE,
-          updatedAt: new Date().toISOString(),
-        })
-      : job
-  );
-}
-
-function markJobFailed(queue, jobId, errorMessage) {
-  return queue.map((job) =>
-    job.jobId === jobId
-      ? syncSupplierOrderMetadata({
-          ...job,
-          status: JOB_STATUSES.FAILED,
-          lastError: errorMessage || "Unknown automation error.",
-          updatedAt: new Date().toISOString(),
-        })
-      : job
-  );
-}
-
 export async function executeAutomationJob(jobId, options = {}) {
-  const {
-    shouldFail = false,
-    delayMs = 1800,
-    failureMessage = "Simulated automation failure.",
-  } = options;
-
-  let queue = getAutomationQueue();
-  queue = markJobRunning(queue, jobId);
-  replaceAutomationQueue(queue);
-  syncSupplierOrderHistoryWithQueue(queue);
-
-  await wait(delayMs);
-
-  queue = getAutomationQueue();
-
-  if (shouldFail) {
-    queue = markJobFailed(queue, jobId, failureMessage);
-    replaceAutomationQueue(queue);
-    syncSupplierOrderHistoryWithQueue(queue);
-
-    return {
-      ok: false,
-      queue,
-    };
-  }
-
-  queue = markJobDone(queue, jobId);
-  replaceAutomationQueue(queue);
-  syncSupplierOrderHistoryWithQueue(queue);
+  const result = await executeAutomationQueueJob(jobId, {
+    shouldFail: Boolean(options.shouldFail),
+    failureMessage:
+      options.failureMessage || "Simulated website or selector failure.",
+  });
 
   return {
-    ok: true,
-    queue,
+    ok: Boolean(result?.ok),
+    queue: getAutomationQueue(),
+    job: result?.job || null,
   };
 }

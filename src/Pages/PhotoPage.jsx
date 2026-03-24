@@ -38,6 +38,7 @@ function PhotoPage({ items, setCurrentPage }) {
     handleCopyAutomationPayload,
     handleSendToAutomationQueue,
     readyDailyOrdersCount,
+    isCreatingDailyOrders,
     handleSendDailyOrderToBot,
   } = usePhotoOrder(
     items,
@@ -175,18 +176,24 @@ Salsa: 15`}
       <PageActionBar marginBottom="28px">
         <button
           onClick={handleConfirmOutput}
-          disabled={liveValidEntriesCount === 0 || isOutputLocked}
+          disabled={
+            liveValidEntriesCount === 0 || isOutputLocked || isCreatingDailyOrders
+          }
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              liveValidEntriesCount === 0 || isOutputLocked ? "#888" : "#4CAF50",
+              liveValidEntriesCount === 0 || isOutputLocked || isCreatingDailyOrders
+                ? "#888"
+                : "#4CAF50",
             cursor:
-              liveValidEntriesCount === 0 || isOutputLocked
+              liveValidEntriesCount === 0 || isOutputLocked || isCreatingDailyOrders
                 ? "not-allowed"
                 : "pointer",
           }}
         >
-          {isOutputLocked
+          {isCreatingDailyOrders
+            ? "Saving Orders..."
+            : isOutputLocked
             ? "Output Locked"
             : `Confirm Output (${liveValidEntriesCount})`}
         </button>

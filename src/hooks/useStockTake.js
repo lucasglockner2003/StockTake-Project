@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ENTRY_STATUSES } from "../constants/app";
 import { items } from "../data/items";
 import {
-  clearQuantities,
-  loadQuantities,
-  saveQuantities,
-} from "../utils/storage";
+  fetchTodayStockTake,
+  resetStockTake,
+  saveStockTakeItemQuantity,
+} from "../repositories/stock-take-repository";
 import {
   getFilledItemsCount,
   getMissingItemsCount,
@@ -29,15 +29,66 @@ function canApplyEntry(entry) {
   );
 }
 
-export function useStockTake() {
-  const [quantities, setQuantities] = useState(() => loadQuantities());
+export function useStockTake({ enabled = true } = {}) {
+  const [quantities, setQuantities] = useState({});
   const [lastSaved, setLastSaved] = useState(null);
   const [voiceFilledItems, setVoiceFilledItems] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const saveTimeoutsRef = useRef({});
+  const latestSaveSequenceRef = useRef({});
+  const sequenceCounterRef = useRef(0);
+  const activeSaveRequestsRef = useRef(0);
 
   useEffect(() => {
-    saveQuantities(quantities);
-    setLastSaved(new Date());
-  }, [quantities]);
+    let isMounted = true;
+
+    if (!enabled) {
+      setIsLoading(false);
+      setIsSaving(false);
+      setErrorMessage("");
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    async function loadRemoteStockTake() {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const stockTake = await fetchTodayStockTake();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setQuantities(stockTake.quantities);
+        setLastSaved(stockTake.lastSavedAt);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(error?.message || "Failed to load today's stock take.");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadRemoteStockTake();
+
+    return () => {
+      isMounted = false;
+
+      Object.values(saveTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+    };
+  }, [enabled]);
 
   const filledItems = useMemo(() => getFilledItemsCount(quantities), [quantities]);
   const missingItems = useMemo(
@@ -61,11 +112,79 @@ export function useStockTake() {
     [quantities]
   );
   const orderText = useMemo(() => getOrderText(suggestedOrder), [suggestedOrder]);
+  const itemsById = useMemo(() => {
+    return items.reduce((accumulator, item) => {
+      accumulator[item.id] = item;
+      return accumulator;
+    }, {});
+  }, []);
 
-  function handleQuantityChange(itemId, value) {
+  function clearPendingSave(itemId) {
+    const timeoutId = saveTimeoutsRef.current[itemId];
+
+    if (!timeoutId) {
+      return;
+    }
+
+    window.clearTimeout(timeoutId);
+    delete saveTimeoutsRef.current[itemId];
+  }
+
+  function clearAllPendingSaves() {
+    Object.keys(saveTimeoutsRef.current).forEach((itemId) => {
+      clearPendingSave(itemId);
+    });
+  }
+
+  function scheduleQuantitySave(itemId, nextQuantity) {
+    const item = itemsById[itemId];
+
+    if (!item) {
+      return;
+    }
+
+    clearPendingSave(itemId);
+
+    const sequence = sequenceCounterRef.current + 1;
+    sequenceCounterRef.current = sequence;
+    latestSaveSequenceRef.current[itemId] = sequence;
+
+    saveTimeoutsRef.current[itemId] = window.setTimeout(async () => {
+      delete saveTimeoutsRef.current[itemId];
+      activeSaveRequestsRef.current += 1;
+      setIsSaving(true);
+
+      try {
+        const mutation = await saveStockTakeItemQuantity(item, nextQuantity);
+
+        if (latestSaveSequenceRef.current[itemId] !== sequence) {
+          return;
+        }
+
+        setLastSaved(mutation.lastSavedAt);
+        setErrorMessage("");
+      } catch (error) {
+        if (latestSaveSequenceRef.current[itemId] !== sequence) {
+          return;
+        }
+
+        setErrorMessage(error?.message || "Failed to save stock take changes.");
+      } finally {
+        activeSaveRequestsRef.current = Math.max(activeSaveRequestsRef.current - 1, 0);
+        setIsSaving(
+          activeSaveRequestsRef.current > 0 ||
+            Object.keys(saveTimeoutsRef.current).length > 0
+        );
+      }
+    }, 420);
+  }
+
+  function commitQuantity(itemId, value) {
+    const normalizedValue = value === "" ? "" : Number(value);
+
     setQuantities((prev) => ({
       ...prev,
-      [itemId]: value === "" ? "" : Number(value),
+      [itemId]: normalizedValue,
     }));
 
     setVoiceFilledItems((prev) => {
@@ -75,17 +194,37 @@ export function useStockTake() {
       delete updated[itemId];
       return updated;
     });
+
+    scheduleQuantitySave(itemId, normalizedValue);
   }
 
-  function handleReset() {
+  function handleQuantityChange(itemId, value) {
+    commitQuantity(itemId, value);
+  }
+
+  async function handleReset() {
     const confirmed = window.confirm(
       "Are you sure you want to reset the stock take?"
     );
     if (!confirmed) return;
 
-    setQuantities({});
-    setVoiceFilledItems({});
-    clearQuantities();
+    clearAllPendingSaves();
+    activeSaveRequestsRef.current = 0;
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const stockTake = await resetStockTake();
+
+      setQuantities(stockTake.quantities);
+      setVoiceFilledItems({});
+      setLastSaved(stockTake.lastSavedAt);
+    } catch (error) {
+      setErrorMessage(error?.message || "Failed to reset today's stock take.");
+    } finally {
+      setIsLoading(false);
+      setIsSaving(false);
+    }
   }
 
   async function handleCopyOrder() {
@@ -107,7 +246,7 @@ export function useStockTake() {
   }
 
   function applyVoiceEntries(voiceEntriesByArea) {
-    const appliedItemIds = [];
+    const appliedEntries = [];
 
     setQuantities((prev) => {
       const updated = { ...prev };
@@ -116,23 +255,31 @@ export function useStockTake() {
         entries.forEach((entry) => {
           if (!canApplyEntry(entry)) return;
 
-          updated[entry.matchedItemId] = Number(entry.quantity);
-          appliedItemIds.push(entry.matchedItemId);
+          const nextQuantity = Number(entry.quantity);
+          updated[entry.matchedItemId] = nextQuantity;
+          appliedEntries.push({
+            itemId: entry.matchedItemId,
+            quantity: nextQuantity,
+          });
         });
       });
 
       return updated;
     });
 
-    if (appliedItemIds.length > 0) {
+    if (appliedEntries.length > 0) {
       setVoiceFilledItems((prev) => {
         const updated = { ...prev };
 
-        appliedItemIds.forEach((itemId) => {
+        appliedEntries.forEach(({ itemId }) => {
           updated[itemId] = true;
         });
 
         return updated;
+      });
+
+      appliedEntries.forEach(({ itemId, quantity }) => {
+        scheduleQuantitySave(itemId, quantity);
       });
     }
   }
@@ -149,6 +296,8 @@ export function useStockTake() {
       ...prev,
       [entry.matchedItemId]: true,
     }));
+
+    scheduleQuantitySave(entry.matchedItemId, Number(entry.quantity));
 
     return true;
   }
@@ -173,5 +322,8 @@ export function useStockTake() {
     applyVoiceEntries,
     applySingleVoiceEntry,
     voiceFilledItems,
+    isLoading,
+    isSaving,
+    errorMessage,
   };
 }

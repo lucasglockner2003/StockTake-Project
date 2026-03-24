@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { INVOICE_INTAKE_STATUSES } from "../constants/app";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
@@ -13,12 +13,12 @@ import {
   parseInvoiceTextToDraft,
 } from "../utils/invoiceParsing";
 import {
-  enqueueInvoiceForBot,
-  completeInvoiceBotExecution,
+  ensureInvoiceQueueLoaded,
   getInvoiceQueue,
   getInvoiceQueueCounts,
+  submitInvoiceIntake,
+  subscribeInvoiceQueue,
 } from "../utils/invoiceQueue";
-import { executeInvoiceIntake } from "../utils/botServiceClient";
 
 function InvoiceIntakePage() {
   const [selectedImage, setSelectedImage] = useState("");
@@ -42,6 +42,32 @@ function InvoiceIntakePage() {
     () => buildInvoiceAutomationPayload(invoiceDraft),
     [invoiceDraft]
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = subscribeInvoiceQueue(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setInvoiceQueue(getInvoiceQueue());
+    });
+
+    ensureInvoiceQueueLoaded()
+      .then(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setInvoiceQueue(getInvoiceQueue());
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   function refreshQueue() {
     setInvoiceQueue(getInvoiceQueue());
@@ -170,50 +196,24 @@ function InvoiceIntakePage() {
 
     try {
       setIsSendingInvoice(true);
-      const { invoice, payload } = enqueueInvoiceForBot(invoiceDraft);
-      setInvoiceDraft(invoice);
-      refreshQueue();
+      const result = await submitInvoiceIntake(invoiceDraft);
+
+      if (result.invoice) {
+        setInvoiceDraft(result.invoice);
+      }
+
       setPageNotice({
-        tone: "info",
-        message: `Sending invoice to bot (${payload.totalItems} items)...`,
+        tone: result.ok ? "success" : "error",
+        message: result.ok
+          ? "Invoice execution completed successfully."
+          : result.errorMessage || "Invoice execution failed.",
       });
-
-      const executionResult = await executeInvoiceIntake(payload);
-      const completion = completeInvoiceBotExecution(invoice.id, executionResult);
       refreshQueue();
-
-      if (completion.invoice) {
-        setInvoiceDraft(completion.invoice);
-      }
-
-      if (executionResult.ok && executionResult.status === INVOICE_INTAKE_STATUSES.EXECUTED) {
-        setPageNotice({
-          tone: "success",
-          message: "Invoice execution completed successfully.",
-        });
-      } else {
-        setPageNotice({
-          tone: "error",
-          message:
-            executionResult.message ||
-            executionResult.notes ||
-            "Invoice execution failed.",
-        });
-      }
     } catch (error) {
-      const completion = completeInvoiceBotExecution(invoiceDraft.id, {
-        ok: false,
-        status: INVOICE_INTAKE_STATUSES.FAILED,
-        errorCode: "BOT_SERVICE_UNREACHABLE",
-        message: error?.message || "Failed to reach invoice bot service.",
-      });
       refreshQueue();
-      if (completion.invoice) {
-        setInvoiceDraft(completion.invoice);
-      }
       setPageNotice({
         tone: "error",
-        message: error?.message || "Failed to reach invoice bot service.",
+        message: error?.message || "Failed to send invoice to backend.",
       });
     } finally {
       setIsSendingInvoice(false);

@@ -82,6 +82,9 @@ function TopSummary({
   setSearch,
   handleReset,
   setCurrentPage,
+  isLoading,
+  isSaving,
+  errorMessage,
 }) {
   const dashboardDate = new Date().toLocaleDateString("en-NZ", {
     weekday: "long",
@@ -168,9 +171,25 @@ function TopSummary({
 
               
               <ProgressBar progress={progress} />
-              {lastSaved && (
+              {errorMessage ? (
+                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#fca5a5" }}>
+                  {errorMessage}
+                </p>
+              ) : isLoading ? (
+                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#93c5fd" }}>
+                  Loading live stock take...
+                </p>
+              ) : isSaving ? (
+                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#a7f3d0" }}>
+                  Saving changes to the backend...
+                </p>
+              ) : lastSaved ? (
                 <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#94a3b8" }}>
                   Last saved: {lastSaved.toLocaleTimeString()}
+                </p>
+              ) : (
+                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#94a3b8" }}>
+                  Connected to today&apos;s live stock take.
                 </p>
               )}
             
@@ -218,24 +237,26 @@ function TopSummary({
         >
           <PageActionBar marginBottom="0" gap="8px">
             <button
+              disabled={isLoading}
               onClick={handleReset}
               style={{
                 ...styles.primaryButton,
                 padding: "10px 16px",
-                backgroundColor: "#dc2626",
+                backgroundColor: isLoading ? "#475569" : "#dc2626",
+                cursor: isLoading ? "not-allowed" : "pointer",
               }}
             >
               Reset Stock Take
             </button>
 
             <button
-              disabled={isBlocked}
+              disabled={isLoading || isBlocked}
               onClick={() => setCurrentPage(PAGE_IDS.REVIEW)}
               style={{
                 ...styles.primaryButton,
                 padding: "10px 16px",
-                backgroundColor: isBlocked ? "#475569" : "#16a34a",
-                cursor: isBlocked ? "not-allowed" : "pointer",
+                backgroundColor: isLoading || isBlocked ? "#475569" : "#16a34a",
+                cursor: isLoading || isBlocked ? "not-allowed" : "pointer",
               }}
             >
               {isBlocked ? `Finish Stock Take (${missingItems} missing)` : "Finish Stock Take"}

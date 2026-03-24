@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { SUPPLIER_ORDER_EXECUTION_STATUSES } from "../constants/app";
+import { USER_ROLES } from "../constants/access-control";
+import { useAuth } from "../hooks/use-auth";
 import {
   clearSupplierOrderHistory,
+  ensureSupplierOrderHistoryLoaded,
   getSupplierOrderHistory,
+  refreshSupplierOrderHistory,
+  subscribeSupplierOrderHistory,
 } from "../utils/automation";
 import { UNKNOWN_SUPPLIER_LABEL } from "../utils/stock";
 import { styles } from "../utils/uiStyles";
@@ -40,40 +45,103 @@ function getExecutionStatusColors(status) {
 }
 
 function formatDateTime(value) {
-  if (!value) return "-";
+  if (!value) {
+    return "-";
+  }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return date.toLocaleString();
 }
 
 function SupplierOrderReviewPage() {
+  const { user } = useAuth();
   const [supplierOrderHistory, setSupplierOrderHistory] = useState(() =>
     getSupplierOrderHistory()
   );
+  const [loading, setLoading] = useState(false);
   const [historyNotice, setHistoryNotice] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  function refreshHistory() {
-    setSupplierOrderHistory(getSupplierOrderHistory());
-    setHistoryNotice("");
+  const canManageHistory = user?.role === USER_ROLES.ADMIN;
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = subscribeSupplierOrderHistory(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setSupplierOrderHistory(getSupplierOrderHistory());
+    });
+
+    async function loadHistory() {
+      try {
+        setLoading(true);
+        setErrorMessage("");
+        await ensureSupplierOrderHistoryLoaded();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSupplierOrderHistory(getSupplierOrderHistory());
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(error?.message || "Failed to load supplier order history.");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadHistory();
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  async function handleRefreshHistory() {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+      setHistoryNotice("");
+      await refreshSupplierOrderHistory();
+      setSupplierOrderHistory(getSupplierOrderHistory());
+    } catch (error) {
+      setErrorMessage(error?.message || "Failed to refresh supplier order history.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleClearHistory() {
+  async function handleClearHistory() {
     const confirmed = window.confirm(
       "Are you sure you want to delete all supplier order history?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
-    clearSupplierOrderHistory();
-    setSupplierOrderHistory([]);
-    setHistoryNotice("Supplier order history deleted.");
+    try {
+      setErrorMessage("");
+      await clearSupplierOrderHistory();
+      setSupplierOrderHistory([]);
+      setHistoryNotice("Supplier order history deleted.");
+    } catch (error) {
+      setErrorMessage(error?.message || "Failed to delete supplier order history.");
+    }
   }
-
-  useEffect(() => {
-    refreshHistory();
-  }, []);
 
   const totalOrders = supplierOrderHistory.length;
   const totalQuantity = useMemo(
@@ -89,24 +157,52 @@ function SupplierOrderReviewPage() {
     <div>
       <h1>History Orders</h1>
 
+      {!canManageHistory ? (
+        <NoticePanel
+          backgroundColor="#1f1f1f"
+          border="1px solid #555"
+          color="#8de0ea"
+        >
+          Read-only access. Managers can audit supplier revisions but only admins can clear history.
+        </NoticePanel>
+      ) : null}
+
+      {errorMessage ? (
+        <NoticePanel
+          backgroundColor="#3a1f1f"
+          border="1px solid #7a2d2d"
+          color="#ffb3b3"
+        >
+          {errorMessage}
+        </NoticePanel>
+      ) : null}
+
       <PageActionBar marginBottom="14px" alignItems="center">
         <button
-          onClick={refreshHistory}
+          onClick={handleRefreshHistory}
+          disabled={loading}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#607d8b",
+            backgroundColor: loading ? "#888" : "#607d8b",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          Refresh History
+          {loading ? "Refreshing..." : "Refresh History"}
         </button>
 
         <button
           onClick={handleClearHistory}
-          disabled={supplierOrderHistory.length === 0}
+          disabled={!canManageHistory || supplierOrderHistory.length === 0}
           style={{
             ...styles.primaryButton,
-            backgroundColor: supplierOrderHistory.length === 0 ? "#888" : "#dc2626",
-            cursor: supplierOrderHistory.length === 0 ? "not-allowed" : "pointer",
+            backgroundColor:
+              !canManageHistory || supplierOrderHistory.length === 0
+                ? "#888"
+                : "#dc2626",
+            cursor:
+              !canManageHistory || supplierOrderHistory.length === 0
+                ? "not-allowed"
+                : "pointer",
           }}
         >
           Delete History

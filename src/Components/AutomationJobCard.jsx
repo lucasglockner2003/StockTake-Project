@@ -8,6 +8,7 @@ function AutomationJobCard({
   job,
   isRunning,
   hasRunningJob,
+  canManage,
   onRun,
   onRunFailure,
   onSetStatus,
@@ -147,15 +148,15 @@ function AutomationJobCard({
       <PageActionBar marginBottom="0">
         <button
           onClick={() => onRun(job.jobId)}
-          disabled={hasRunningJob || job.status === JOB_STATUSES.RUNNING}
+          disabled={!canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING}
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              hasRunningJob || job.status === JOB_STATUSES.RUNNING
+              !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
                 ? "#888"
                 : "#00b894",
             cursor:
-              hasRunningJob || job.status === JOB_STATUSES.RUNNING
+              !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -165,15 +166,15 @@ function AutomationJobCard({
 
         <button
           onClick={() => onRunFailure(job.jobId)}
-          disabled={hasRunningJob || job.status === JOB_STATUSES.RUNNING}
+          disabled={!canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING}
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              hasRunningJob || job.status === JOB_STATUSES.RUNNING
+              !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
                 ? "#888"
                 : "#c0392b",
             cursor:
-              hasRunningJob || job.status === JOB_STATUSES.RUNNING
+              !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -183,10 +184,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onSetStatus(job.jobId, JOB_STATUSES.PENDING)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#ff9800",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#ff9800",
           }}
         >
           Mark Pending
@@ -194,10 +195,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onSetStatus(job.jobId, JOB_STATUSES.RUNNING)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#2196F3",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#2196F3",
           }}
         >
           Mark Running
@@ -205,10 +206,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onSetStatus(job.jobId, JOB_STATUSES.DONE)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#4CAF50",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#4CAF50",
           }}
         >
           Mark Done
@@ -216,21 +217,21 @@ function AutomationJobCard({
 
         <button
           onClick={() => onSetError(job.jobId)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#d9534f",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#d9534f",
           }}
         >
           Set Error
         </button>
 
         <button
-          onClick={() => onIncrementAttempt(job.jobId)}
-          disabled={hasRunningJob}
+          onClick={() => onIncrementAttempt(job.jobId, job.status)}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#6f42c1",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#6f42c1",
           }}
         >
           Add Attempt
@@ -238,10 +239,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onUpdateNotes(job.jobId, job.notes)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#666",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#666",
           }}
         >
           Edit Notes
@@ -249,10 +250,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onReset(job.jobId)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#795548",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#795548",
           }}
         >
           Reset Job
@@ -260,10 +261,10 @@ function AutomationJobCard({
 
         <button
           onClick={() => onDelete(job.jobId)}
-          disabled={hasRunningJob}
+          disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: hasRunningJob ? "#888" : "#444",
+            backgroundColor: !canManage || hasRunningJob ? "#888" : "#444",
           }}
         >
           Delete Job

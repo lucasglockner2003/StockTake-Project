@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { INVOICE_INTAKE_STATUSES } from "../constants/app";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
@@ -6,13 +6,14 @@ import SectionTableHeader from "../components/SectionTableHeader";
 import StatusBadge from "../components/StatusBadge";
 import { styles } from "../utils/uiStyles";
 import {
-  completeInvoiceBotExecution,
-  enqueueInvoiceForBot,
+  deleteInvoice,
+  ensureInvoiceQueueLoaded,
   getInvoiceQueue,
   getInvoiceQueueCounts,
-  replaceInvoiceQueue,
+  refreshInvoiceQueue as refreshInvoiceQueueRequest,
+  retryInvoice,
+  subscribeInvoiceQueue,
 } from "../utils/invoiceQueue";
-import { executeInvoiceIntake } from "../utils/botServiceClient";
 import { buildInvoiceAutomationPayload } from "../utils/invoiceParsing";
 
 const MOCK_PORTAL_URL = String(
@@ -155,6 +156,32 @@ function InvoiceQueuePage() {
     tone: "",
     message: "",
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = subscribeInvoiceQueue(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setInvoiceQueue(getInvoiceQueue());
+    });
+
+    ensureInvoiceQueueLoaded()
+      .then(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setInvoiceQueue(getInvoiceQueue());
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const allCounts = useMemo(() => getInvoiceQueueCounts(invoiceQueue), [invoiceQueue]);
 
@@ -353,24 +380,21 @@ function InvoiceQueuePage() {
       ? summaryMetrics.totalSpend / filteredInvoices.length
       : 0;
 
-  function refreshInvoiceQueue() {
-    setInvoiceQueue(getInvoiceQueue());
+  async function refreshInvoiceQueue() {
+    try {
+      await refreshInvoiceQueueRequest();
+      setInvoiceQueue(getInvoiceQueue());
+    } catch (error) {
+      setNotice("error", error?.message || "Failed to load invoices.");
+    }
   }
 
   function setNotice(tone, message) {
     setPageNotice({ tone, message });
   }
 
-  async function retryInvoice(invoice, options = {}) {
+  async function retryExistingInvoice(invoice, options = {}) {
     const { fromBatch = false } = options;
-    const payload = getInvoicePayload(invoice);
-
-    if (!payload?.items || payload.items.length === 0) {
-      if (!fromBatch) {
-        setNotice("warning", "Invoice payload has no valid items for retry.");
-      }
-      return { ok: false, reason: "invalid-payload" };
-    }
 
     try {
       setActiveRetryInvoiceId(invoice.id);
@@ -382,49 +406,28 @@ function InvoiceQueuePage() {
         );
       }
 
-      const { invoice: queuedInvoice } = enqueueInvoiceForBot({
-        ...invoice,
-        executionMetadata: {
-          ...(invoice.executionMetadata || {}),
-          lastPayload: payload,
-        },
-      });
-
       refreshInvoiceQueue();
+      const result = await retryInvoice(invoice.id);
 
-      const executionResult = await executeInvoiceIntake(payload);
-      completeInvoiceBotExecution(queuedInvoice.id, executionResult);
-      refreshInvoiceQueue();
-
-      const ok =
-        executionResult.ok &&
-        executionResult.status === INVOICE_INTAKE_STATUSES.EXECUTED;
+      const ok = Boolean(result?.ok);
 
       if (!fromBatch) {
         setNotice(
           ok ? "success" : "error",
           ok
             ? "Invoice retry executed successfully."
-            : executionResult.message ||
-                executionResult.notes ||
-                "Invoice retry failed."
+            : result?.errorMessage || "Invoice retry failed."
         );
       }
 
       return { ok };
     } catch (error) {
-      completeInvoiceBotExecution(invoice.id, {
-        ok: false,
-        status: INVOICE_INTAKE_STATUSES.FAILED,
-        errorCode: "BOT_SERVICE_UNREACHABLE",
-        message: error?.message || "Failed to reach invoice bot service.",
-      });
       refreshInvoiceQueue();
 
       if (!fromBatch) {
         setNotice(
           "error",
-          error?.message || "Failed to reach invoice bot service."
+          error?.message || "Failed to retry invoice."
         );
       }
 
@@ -450,7 +453,7 @@ function InvoiceQueuePage() {
       return;
     }
 
-    await retryInvoice(invoice);
+    await retryExistingInvoice(invoice);
   }
 
   async function handleRetryAllFailed() {
@@ -487,7 +490,7 @@ function InvoiceQueuePage() {
           }...`
         );
 
-        const outcome = await retryInvoice(invoice, {
+        const outcome = await retryExistingInvoice(invoice, {
           fromBatch: true,
         });
         if (outcome.ok) {
@@ -512,14 +515,16 @@ function InvoiceQueuePage() {
     }
   }
 
-  function handleDeleteInvoice(invoiceId) {
-    const nextQueue = getInvoiceQueue().filter((invoice) => invoice.id !== invoiceId);
-    const normalizedQueue = replaceInvoiceQueue(nextQueue);
-    setInvoiceQueue(normalizedQueue);
-    if (openPayloadInvoiceId === invoiceId) {
-      setOpenPayloadInvoiceId("");
+  async function handleDeleteInvoice(invoiceId) {
+    try {
+      await deleteInvoice(invoiceId);
+      if (openPayloadInvoiceId === invoiceId) {
+        setOpenPayloadInvoiceId("");
+      }
+      setNotice("success", "Invoice removed from queue.");
+    } catch (error) {
+      setNotice("error", error?.message || "Failed to delete invoice.");
     }
-    setNotice("success", "Invoice removed from queue.");
   }
 
   function handleOpenSupplierPortal() {

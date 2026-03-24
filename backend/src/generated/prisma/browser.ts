@@ -22,3 +22,53 @@ export * from './enums';
  * 
  */
 export type User = Prisma.UserModel
+/**
+ * Model StockItem
+ * 
+ */
+export type StockItem = Prisma.StockItemModel
+/**
+ * Model StockTake
+ * 
+ */
+export type StockTake = Prisma.StockTakeModel
+/**
+ * Model StockTakeEntry
+ * 
+ */
+export type StockTakeEntry = Prisma.StockTakeEntryModel
+/**
+ * Model DailyOrder
+ * 
+ */
+export type DailyOrder = Prisma.DailyOrderModel
+/**
+ * Model DailyOrderItem
+ * 
+ */
+export type DailyOrderItem = Prisma.DailyOrderItemModel
+/**
+ * Model Invoice
+ * 
+ */
+export type Invoice = Prisma.InvoiceModel
+/**
+ * Model InvoiceItem
+ * 
+ */
+export type InvoiceItem = Prisma.InvoiceItemModel
+/**
+ * Model AutomationJob
+ * 
+ */
+export type AutomationJob = Prisma.AutomationJobModel
+/**
+ * Model AutomationJobItem
+ * 
+ */
+export type AutomationJobItem = Prisma.AutomationJobItemModel
+/**
+ * Model SupplierOrderHistoryRevision
+ * 
+ */
+export type SupplierOrderHistoryRevision = Prisma.SupplierOrderHistoryRevisionModel

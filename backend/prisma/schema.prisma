@@ -13,6 +13,49 @@ enum Role {
   CHEF
 }
 
+enum DailyOrderStatus {
+  DRAFT
+  READY_TO_EXECUTE
+  FILLING_ORDER
+  READY_FOR_CHEF_REVIEW
+  EXECUTED
+  FAILED
+}
+
+enum DailyOrderSource {
+  PHOTO
+  SUGGESTED_ORDER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  QUEUED
+  EXECUTED
+  FAILED
+}
+
+enum AutomationJobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum AutomationJobSource {
+  UNKNOWN
+  PHOTO
+  REVIEW_SUGGESTED_ORDER
+  REVIEW_STOCK_TABLE
+  REVIEW_SUPPLIER_ORDER
+}
+
+enum SupplierOrderHistoryStatus {
+  PENDING
+  SENT_TO_QUEUE
+  EXECUTED
+  FAILED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -21,4 +64,219 @@ model User {
   createdAt DateTime @default(now())
 
   @@map("users")
+}
+
+model StockItem {
+  id              Int              @id
+  name            String
+  supplier        String?
+  unit            String
+  area            String
+  idealStock      Float
+  critical        Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  stockTakeEntries StockTakeEntry[]
+
+  @@map("stock_items")
+}
+
+model StockTake {
+  id          String           @id @default(uuid())
+  takeDate    DateTime         @unique @db.Date
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  lastResetAt DateTime?
+  entries     StockTakeEntry[]
+
+  @@index([takeDate])
+  @@map("stock_takes")
+}
+
+model StockTakeEntry {
+  id          String    @id @default(uuid())
+  stockTakeId String
+  stockItemId Int
+  quantity    Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  stockTake   StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Restrict)
+
+  @@unique([stockTakeId, stockItemId])
+  @@index([stockItemId])
+  @@map("stock_take_entries")
+}
+
+model DailyOrder {
+  id                   String           @id @default(uuid())
+  supplier             String
+  source               DailyOrderSource
+  status               DailyOrderStatus @default(DRAFT)
+  isLocked             Boolean          @default(false)
+  totalQuantity        Float            @default(0)
+  attempts             Int              @default(0)
+  readyAt              DateTime?
+  executionStartedAt   DateTime?
+  executionFinishedAt  DateTime?
+  executionDurationMs  Int?
+  filledAt             DateTime?
+  readyForReviewAt     DateTime?
+  executionNotes       String           @default("")
+  reviewScreenshotPath String           @default("")
+  chefApprovedAt       DateTime?
+  submittedAt          DateTime?
+  submitStartedAt      DateTime?
+  submitFinishedAt     DateTime?
+  submitDurationMs     Int?
+  finalExecutionNotes  String           @default("")
+  finalScreenshotPath  String           @default("")
+  orderNumber          String           @default("")
+  lastExecutionId      String           @default("")
+  lastExecutionPhase   String           @default("")
+  lastErrorCode        String           @default("")
+  lastErrorMessage     String           @default("")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  items                DailyOrderItem[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([supplier])
+  @@map("daily_orders")
+}
+
+model DailyOrderItem {
+  id           String     @id @default(uuid())
+  dailyOrderId String
+  itemIndex    Int
+  itemId       Int
+  itemName     String
+  quantity     Float
+  unit         String     @default("")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  dailyOrder   DailyOrder @relation(fields: [dailyOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyOrderId, itemIndex])
+  @@index([itemId])
+  @@map("daily_order_items")
+}
+
+model Invoice {
+  id                 String        @id @default(uuid())
+  supplier           String
+  invoiceNumber      String        @default("")
+  invoiceDate        String        @default("")
+  totalAmount        Float         @default(0)
+  status             InvoiceStatus @default(DRAFT)
+  attempts           Int           @default(0)
+  payloadSnapshot    Json?
+  filledItemsSnapshot Json?
+  screenshotPath     String        @default("")
+  executionId        String        @default("")
+  executionDurationMs Int?
+  queuedAt           DateTime?
+  executedAt         DateTime?
+  lastErrorCode      String        @default("")
+  lastErrorMessage   String        @default("")
+  notes              String        @default("")
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  items              InvoiceItem[]
+
+  @@index([status])
+  @@index([supplier])
+  @@index([invoiceNumber])
+  @@index([createdAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id         String   @id @default(uuid())
+  invoiceId  String
+  itemIndex  Int
+  itemName   String
+  quantity   Float
+  unitPrice  Float    @default(0)
+  lineTotal  Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, itemIndex])
+  @@index([itemName])
+  @@map("invoice_items")
+}
+
+model AutomationJob {
+  id                 String              @id @default(uuid())
+  sessionId          String              @default("")
+  source             AutomationJobSource @default(UNKNOWN)
+  status             AutomationJobStatus @default(PENDING)
+  notes              String              @default("")
+  attempts           Int                 @default(0)
+  totalItems         Int                 @default(0)
+  metadataSnapshot   Json?
+  lastErrorCode      String              @default("")
+  lastErrorMessage   String              @default("")
+  runStartedAt       DateTime?
+  runFinishedAt      DateTime?
+  runDurationMs      Int?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  items              AutomationJobItem[]
+  supplierHistory    SupplierOrderHistoryRevision?
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([source])
+  @@map("automation_jobs")
+}
+
+model AutomationJobItem {
+  id              String              @id @default(uuid())
+  automationJobId String
+  sequence        Int
+  itemId          Int?
+  itemName        String
+  quantity        Float
+  source          AutomationJobSource @default(UNKNOWN)
+  supplier        String              @default("")
+  currentStock    Float?
+  idealStock      Float?
+  orderAmount     Float?
+  status          String              @default("")
+  area            String              @default("")
+  unit            String              @default("")
+  rawLine         String              @default("")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  automationJob   AutomationJob       @relation(fields: [automationJobId], references: [id], onDelete: Cascade)
+
+  @@unique([automationJobId, sequence])
+  @@index([itemName])
+  @@index([supplier])
+  @@map("automation_job_items")
+}
+
+model SupplierOrderHistoryRevision {
+  id                String                      @id @default(uuid())
+  automationJobId   String                      @unique
+  supplier          String
+  totalQuantity     Float                       @default(0)
+  status            SupplierOrderHistoryStatus  @default(SENT_TO_QUEUE)
+  attempts          Int                         @default(0)
+  revisionNumber    Int                         @default(1)
+  snapshotTimestamp DateTime
+  snapshotSignature String                      @default("")
+  snapshot          Json
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  automationJob     AutomationJob               @relation(fields: [automationJobId], references: [id], onDelete: Cascade)
+
+  @@index([supplier, snapshotTimestamp])
+  @@index([status])
+  @@map("supplier_order_history_revisions")
 }

@@ -1,949 +1,115 @@
 import { DAILY_ORDER_STATUSES } from "../constants/app";
 import {
-  getStoredDailyOrderQueue,
-  saveStoredDailyOrderQueue,
+  createDailyOrdersFromPhoto,
+  createDailyOrdersFromSuggestedOrder,
+  ensureDailyOrdersLoaded,
+  fetchDailyOrders,
+  fetchDailyOrdersSummary,
+  getCachedDailyOrderQueue,
+  getCachedDailyOrderSummary,
+  markDailyOrderReady as markDailyOrderReadyRequest,
+  resetDailyOrders,
+  runDailyOrderBotFill as runDailyOrderBotFillRequest,
+  submitDailyOrderAfterChefApproval as submitDailyOrderAfterChefApprovalRequest,
+  subscribeDailyOrderQueue as subscribeDailyOrderQueueRequest,
+  unlockDailyOrder as unlockDailyOrderRequest,
+  updateDailyOrderItemQuantity as updateDailyOrderItemQuantityRequest,
 } from "../repositories/daily-order-repository";
 import { UNKNOWN_SUPPLIER_LABEL } from "./stock";
-import { executeDailyOrderFill, submitDailyOrder } from "./botServiceClient";
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+function normalizeQuantity(value) {
+  if (value === "" || value === null || value === undefined) {
+    return 0;
+  }
 
-function randomDelayMs() {
-  return 700 + Math.floor(Math.random() * 1300);
-}
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
 
-function buildMockReviewScreenshot(order) {
-  const title = `${order.supplier} - Chef Review`;
-  const total = `Total Qty: ${order.totalQuantity}`;
-  const created = `Created: ${new Date().toLocaleString()}`;
-
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='980' height='560'>
-    <rect width='100%' height='100%' fill='#1a1a1a' />
-    <rect x='24' y='24' width='932' height='512' rx='10' fill='#111' stroke='#444' />
-    <text x='50' y='86' font-size='32' fill='#fff' font-family='Arial'>${title}</text>
-    <text x='50' y='130' font-size='22' fill='#ccc' font-family='Arial'>${total}</text>
-    <text x='50' y='168' font-size='18' fill='#999' font-family='Arial'>${created}</text>
-    <text x='50' y='520' font-size='16' fill='#f5d98b' font-family='Arial'>Bot filled items and stopped before submit.</text>
-  </svg>`;
-
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  return Math.max(numericValue, 0);
 }
 
 function getItemsById(itemsCatalog = []) {
-  return (itemsCatalog || []).reduce((acc, item) => {
-    acc[item.id] = item;
-    return acc;
+  return (itemsCatalog || []).reduce((accumulator, item) => {
+    accumulator[item.id] = item;
+    return accumulator;
   }, {});
 }
 
-function normalizeQuantity(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(numeric, 0);
+export function subscribeDailyOrderQueue(listener) {
+  return subscribeDailyOrderQueueRequest(listener);
 }
 
-function getTotalQuantity(items = []) {
-  return (items || []).reduce(
-    (sum, item) => sum + normalizeQuantity(item.quantity),
-    0
-  );
+export function ensureDailyOrderQueueLoaded() {
+  return ensureDailyOrdersLoaded();
 }
 
-function normalizeStatus(status) {
-  if (status === "pending") return DAILY_ORDER_STATUSES.DRAFT;
-  if (status === "running" || status === "executing") {
-    return DAILY_ORDER_STATUSES.FILLING_ORDER;
-  }
-  return status || DAILY_ORDER_STATUSES.DRAFT;
+export function refreshDailyOrderQueue() {
+  return fetchDailyOrders();
 }
 
-function normalizeExecutionFields(order) {
-  const executionResult = order.executionResult || {};
-  const executionStartedAt =
-    order.executionStartedAt ||
-    executionResult.startedAt ||
-    executionResult.timestamp ||
-    null;
-  const executionFinishedAt =
-    order.executionFinishedAt || executionResult.timestamp || null;
-  const executionDuration =
-    order.executionDuration || executionResult.duration || null;
-  const reviewScreenshot = order.reviewScreenshot || executionResult.reviewScreenshot || "";
-  const filledAt = order.filledAt || executionResult.filledAt || null;
-  const readyForReviewAt =
-    order.readyForReviewAt || executionResult.readyForReviewAt || null;
-  const executionNotes =
-    order.executionNotes || executionResult.message || "No execution notes.";
-  const chefApprovedAt = order.chefApprovedAt || null;
-  const submittedAt = order.submittedAt || null;
-  const orderNumber = order.orderNumber || "";
-  const finalScreenshot = order.finalScreenshot || "";
-  const submitDuration = order.submitDuration || null;
-  const finalExecutionNotes = order.finalExecutionNotes || "";
-  const lastExecutionId = order.lastExecutionId || "";
-  const lastErrorCode = order.lastErrorCode || "";
-  const lastErrorMessage = order.lastErrorMessage || "";
-  const lastExecutionPhase = order.lastExecutionPhase || "";
-
-  return {
-    executionStartedAt,
-    executionFinishedAt,
-    executionDuration,
-    reviewScreenshot,
-    filledAt,
-    readyForReviewAt,
-    executionNotes,
-    chefApprovedAt,
-    submittedAt,
-    orderNumber,
-    finalScreenshot,
-    submitDuration,
-    finalExecutionNotes,
-    lastExecutionId,
-    lastErrorCode,
-    lastErrorMessage,
-    lastExecutionPhase,
-  };
-}
-
-function normalizeOrder(order) {
-  const status = normalizeStatus(order.status);
-  const normalizedItems = (order.items || []).map((item, index) => ({
-    itemId: item.itemId ?? `${order.id}-item-${index}`,
-    itemName: item.itemName || item.name || "",
-    quantity: normalizeQuantity(item.quantity),
-    unit: item.unit || "",
-  }));
-
-  const executionFields = normalizeExecutionFields(order);
-
-  return {
-    ...order,
-    supplier: order.supplier || UNKNOWN_SUPPLIER_LABEL,
-    status,
-    isLocked: Boolean(
-      order.isLocked ||
-        status === DAILY_ORDER_STATUSES.READY ||
-        status === DAILY_ORDER_STATUSES.FILLING_ORDER ||
-        status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW ||
-        status === DAILY_ORDER_STATUSES.EXECUTED ||
-        status === DAILY_ORDER_STATUSES.FAILED
-    ),
-    items: normalizedItems,
-    totalQuantity: getTotalQuantity(normalizedItems),
-    attempts: Number(order.attempts || 0),
-    executionResult: order.executionResult || null,
-    ...executionFields,
-  };
-}
-
-function canExecuteStatus(status) {
-  return (
-    status === DAILY_ORDER_STATUSES.READY || status === DAILY_ORDER_STATUSES.FAILED
-  );
-}
-
-function hasAnotherOrderFilling(orderId, queue = []) {
-  return queue.some(
-    (order) =>
-      order.id !== orderId && order.status === DAILY_ORDER_STATUSES.FILLING_ORDER
-  );
-}
-
-function normalizeBotOrderItems(items = []) {
-  return (items || [])
-    .map((item) => ({
-      itemName: item.itemName || "",
-      quantity: normalizeQuantity(item.quantity),
-      unit: item.unit || "",
-    }))
-    .filter((item) => item.itemName && item.quantity > 0);
-}
-
-function buildDailyOrderBotPayload(order) {
-  return {
-    supplier: order?.supplier || UNKNOWN_SUPPLIER_LABEL,
-    items: normalizeBotOrderItems(order?.items || []),
-  };
-}
-
-function normalizeScreenshotUrl(value) {
-  const screenshot = String(value || "").trim();
-  if (!screenshot) return "";
-
-  if (
-    screenshot.startsWith("http://") ||
-    screenshot.startsWith("https://") ||
-    screenshot.startsWith("data:image")
-  ) {
-    return screenshot;
-  }
-
-  return screenshot;
-}
-
-function hasAnyExecutableStatus(queue = []) {
-  return queue.some((order) => canExecuteStatus(order.status));
-}
-
-export function loadDailyOrderQueueFromStorage() {
-  return getStoredDailyOrderQueue().map(normalizeOrder);
-}
-
-export function saveDailyOrderQueueToStorage(queue) {
-  saveStoredDailyOrderQueue(queue);
+export function refreshDailyOrderSummary() {
+  return fetchDailyOrdersSummary();
 }
 
 export function getDailyOrderQueue() {
-  return loadDailyOrderQueueFromStorage();
+  return getCachedDailyOrderQueue();
 }
 
-export function replaceDailyOrderQueue(queue) {
-  const normalizedQueue = (queue || []).map(normalizeOrder);
-  saveDailyOrderQueueToStorage(normalizedQueue);
-  return normalizedQueue;
+export function getDailyOrderSummary() {
+  return getCachedDailyOrderSummary();
 }
 
-export function buildDailyConfirmedOrdersFromConfirmedEntries(
+export async function addDailyConfirmedOrdersFromPhoto(
   confirmedEntries,
   itemsCatalog = []
 ) {
   const itemsById = getItemsById(itemsCatalog);
-  const groups = {};
-
-  (confirmedEntries || []).forEach((entry) => {
-    const quantity = normalizeQuantity(entry.quantity);
-    if (!(quantity > 0)) return;
-
-    const supplier = entry.supplier || UNKNOWN_SUPPLIER_LABEL;
+  const entries = (confirmedEntries || []).map((entry) => {
     const catalogItem = itemsById[entry.itemId] || {};
 
-    if (!groups[supplier]) {
-      groups[supplier] = [];
-    }
-
-    groups[supplier].push({
+    return {
       itemId: entry.itemId,
-      itemName: entry.itemName,
-      quantity,
+      itemName: entry.itemName || entry.displayName || "",
+      quantity: normalizeQuantity(entry.quantity),
+      supplier: entry.supplier || UNKNOWN_SUPPLIER_LABEL,
       unit: catalogItem.unit || "",
-    });
-  });
-
-  const now = new Date().toISOString();
-  return Object.entries(groups).map(([supplier, items], index) =>
-    normalizeOrder({
-      id: `${Date.now()}-${index}-${Math.floor(Math.random() * 10000)}`,
-      supplier,
-      items,
-      totalQuantity: getTotalQuantity(items),
-      createdAt: now,
-      status: DAILY_ORDER_STATUSES.DRAFT,
-      isLocked: false,
-      attempts: 0,
-      executionResult: null,
-      executionStartedAt: null,
-      executionFinishedAt: null,
-      executionDuration: null,
-      reviewScreenshot: "",
-      filledAt: null,
-      readyForReviewAt: null,
-      executionNotes: "",
-      chefApprovedAt: null,
-      submittedAt: null,
-      orderNumber: "",
-      finalScreenshot: "",
-      submitDuration: null,
-      finalExecutionNotes: "",
-      lastExecutionId: "",
-      lastErrorCode: "",
-      lastErrorMessage: "",
-      lastExecutionPhase: "",
-    })
-  );
-}
-
-export function buildDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder = []) {
-  const groups = {};
-
-  (suggestedOrder || []).forEach((item) => {
-    const quantity = normalizeQuantity(item.orderAmount);
-    if (!(quantity > 0)) return;
-
-    const supplier = item.supplier || UNKNOWN_SUPPLIER_LABEL;
-
-    if (!groups[supplier]) {
-      groups[supplier] = [];
-    }
-
-    groups[supplier].push({
-      itemId: item.id,
-      itemName: item.name || item.itemName || "",
-      quantity,
-      unit: item.unit || "",
-    });
-  });
-
-  const now = new Date().toISOString();
-  return Object.entries(groups).map(([supplier, items], index) =>
-    normalizeOrder({
-      id: `${Date.now()}-${index}-${Math.floor(Math.random() * 10000)}`,
-      supplier,
-      items,
-      totalQuantity: getTotalQuantity(items),
-      createdAt: now,
-      status: DAILY_ORDER_STATUSES.DRAFT,
-      isLocked: false,
-      attempts: 0,
-      executionResult: null,
-      executionStartedAt: null,
-      executionFinishedAt: null,
-      executionDuration: null,
-      reviewScreenshot: "",
-      filledAt: null,
-      readyForReviewAt: null,
-      executionNotes: "",
-      chefApprovedAt: null,
-      submittedAt: null,
-      orderNumber: "",
-      finalScreenshot: "",
-      submitDuration: null,
-      finalExecutionNotes: "",
-      lastExecutionId: "",
-      lastErrorCode: "",
-      lastErrorMessage: "",
-      lastExecutionPhase: "",
-    })
-  );
-}
-
-export function enqueueDailyConfirmedOrders(orders) {
-  const validOrders = Array.isArray(orders) ? orders : [];
-  if (validOrders.length === 0) return [];
-
-  const queue = getDailyOrderQueue();
-  const nextQueue = [...validOrders, ...queue];
-  replaceDailyOrderQueue(nextQueue);
-  return validOrders;
-}
-
-export function addDailyConfirmedOrdersFromPhoto(confirmedEntries, itemsCatalog = []) {
-  const orders = buildDailyConfirmedOrdersFromConfirmedEntries(
-    confirmedEntries,
-    itemsCatalog
-  );
-
-  enqueueDailyConfirmedOrders(orders);
-  return orders;
-}
-
-export function addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder = []) {
-  const orders = buildDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder);
-  enqueueDailyConfirmedOrders(orders);
-  return orders;
-}
-
-export function updateDailyOrder(orderId, updater) {
-  const queue = getDailyOrderQueue();
-  const nextQueue = queue.map((order) => {
-    if (order.id !== orderId) return order;
-
-    const updated =
-      typeof updater === "function"
-        ? updater(order)
-        : {
-            ...order,
-            ...updater,
-          };
-
-    return normalizeOrder(updated);
-  });
-
-  replaceDailyOrderQueue(nextQueue);
-  return nextQueue;
-}
-
-export function updateDailyOrderItemQuantity(orderId, itemIndex, nextQuantity) {
-  return updateDailyOrder(orderId, (order) => {
-    if (order.isLocked) return order;
-
-    const items = (order.items || []).map((item, index) =>
-      index === itemIndex
-        ? {
-            ...item,
-            quantity: normalizeQuantity(nextQuantity),
-          }
-        : item
-    );
-
-    return {
-      ...order,
-      items,
-      totalQuantity: getTotalQuantity(items),
     };
   });
+
+  return createDailyOrdersFromPhoto(entries);
 }
 
-export function markDailyOrderReady(orderId) {
-  return updateDailyOrder(orderId, (order) => {
-    if (order.status === DAILY_ORDER_STATUSES.EXECUTED) return order;
-
-    return {
-      ...order,
-      status: DAILY_ORDER_STATUSES.READY,
-      isLocked: true,
-      readyAt: new Date().toISOString(),
-    };
-  });
-}
-
-export function unlockDailyOrder(orderId) {
-  return updateDailyOrder(orderId, (order) => {
-    if (order.status === DAILY_ORDER_STATUSES.FILLING_ORDER) return order;
-    if (order.status === DAILY_ORDER_STATUSES.EXECUTED) return order;
-
-    return {
-      ...order,
-      status: DAILY_ORDER_STATUSES.DRAFT,
-      isLocked: false,
-    };
-  });
-}
-
-export async function executeDailyOrder(orderId) {
-  const queueBefore = getDailyOrderQueue();
-  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
-
-  if (!orderBefore) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: null,
-      reason: "not-found",
-    };
-  }
-
-  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "already-executed",
-    };
-  }
-
-  if (!canExecuteStatus(orderBefore.status)) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "not-ready",
-    };
-  }
-
-  const executionStartedAt = new Date().toISOString();
-  const startedAtMs = Date.now();
-
-  updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
-    isLocked: true,
-    attempts: Number(order.attempts || 0) + 1,
-    executionStartedAt,
-    executionFinishedAt: null,
-    executionDuration: null,
-    reviewScreenshot: "",
-    filledAt: null,
-    readyForReviewAt: null,
-    executionNotes: "Bot logged in successfully.",
+export async function addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder = []) {
+  const items = (suggestedOrder || []).map((item) => ({
+    id: item.id,
+    name: item.name || item.itemName || "",
+    orderAmount: normalizeQuantity(item.orderAmount),
+    unit: item.unit || "",
+    supplier: item.supplier || UNKNOWN_SUPPLIER_LABEL,
   }));
 
-  await wait(300);
-
-  updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
-    executionNotes: "Bot is filling order items and quantities.",
-  }));
-
-  let queue = getDailyOrderQueue();
-
-  if (!queue.some((order) => order.id === orderId)) {
-    return {
-      ok: false,
-      queue,
-      order: null,
-      reason: "not-found",
-    };
-  }
-
-  await wait(randomDelayMs());
-
-  const executionFinishedAt = new Date().toISOString();
-  const executionDuration = Date.now() - startedAtMs;
-  const success = Math.random() >= 0.35;
-  const queueAfterFill = getDailyOrderQueue();
-  const currentOrder = queueAfterFill.find((order) => order.id === orderId) || orderBefore;
-  const reviewScreenshot = buildMockReviewScreenshot(currentOrder);
-  const filledAt = executionFinishedAt;
-  const readyForReviewAt = executionFinishedAt;
-  const executionNotes = success
-    ? "Order filled by bot and stopped before submit. Ready for chef review."
-    : "Bot failed while filling order items.";
-
-  queue = updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: success
-      ? DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW
-      : DAILY_ORDER_STATUSES.FAILED,
-    isLocked: true,
-    executionStartedAt,
-    executionFinishedAt,
-    executionDuration,
-    reviewScreenshot: success ? reviewScreenshot : "",
-    filledAt: success ? filledAt : null,
-    readyForReviewAt: success ? readyForReviewAt : null,
-    executionNotes,
-    executionResult: {
-      duration: executionDuration,
-      timestamp: executionFinishedAt,
-      filledAt: success ? filledAt : null,
-      readyForReviewAt: success ? readyForReviewAt : null,
-      reviewScreenshot: success ? reviewScreenshot : "",
-      success,
-      message: executionNotes,
-    },
-  }));
-
-  return {
-    ok: success,
-    queue,
-    order: queue.find((order) => order.id === orderId) || null,
-    reason: success ? "success" : "failed",
-  };
+  return createDailyOrdersFromSuggestedOrder(items);
 }
 
-export async function runDailyOrderBotFill(orderId) {
-  const queueBefore = getDailyOrderQueue();
-  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
+export function getDailyOrderQueueCounts(queue = []) {
+  return (queue || []).reduce(
+    (counts, order) => {
+      counts.total += 1;
 
-  if (!orderBefore) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: null,
-      reason: "not-found",
-    };
-  }
-
-  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "already-executed",
-    };
-  }
-
-  if (hasAnotherOrderFilling(orderId, queueBefore)) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "another-order-filling",
-    };
-  }
-
-  if (!canExecuteStatus(orderBefore.status)) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "not-ready",
-    };
-  }
-
-  const botPayload = buildDailyOrderBotPayload(orderBefore);
-  if (botPayload.items.length === 0) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "invalid-order-items",
-    };
-  }
-
-  const executionStartedAt = new Date().toISOString();
-  const startedAtMs = Date.now();
-
-  updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
-    isLocked: true,
-    attempts: Number(order.attempts || 0) + 1,
-    executionStartedAt,
-    executionFinishedAt: null,
-    executionDuration: null,
-    reviewScreenshot: order.reviewScreenshot || "",
-    filledAt: order.filledAt || null,
-    readyForReviewAt: order.readyForReviewAt || null,
-    executionNotes: "Bot service started fill on mock supplier portal.",
-    chefApprovedAt: order.chefApprovedAt || null,
-    submittedAt: order.submittedAt || null,
-    orderNumber: order.orderNumber || "",
-    finalScreenshot: order.finalScreenshot || "",
-    submitDuration: order.submitDuration || null,
-    finalExecutionNotes: order.finalExecutionNotes || "",
-  }));
-
-  try {
-    const response = await executeDailyOrderFill(botPayload);
-
-    const executionFinishedAt = new Date().toISOString();
-    const executionDuration = Date.now() - startedAtMs;
-    const success =
-      response.ok && response.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW;
-
-    const executionNotes = success
-      ? response.executionNotes ||
-        response.message ||
-        "Bot filled items and stopped before submit. Ready for chef review."
-      : response.executionNotes ||
-        response.message ||
-        "Bot service request failed.";
-
-    const queue = updateDailyOrder(orderId, (order) => ({
-      ...order,
-      status: success
-        ? DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW
-        : DAILY_ORDER_STATUSES.FAILED,
-      isLocked: true,
-      executionStartedAt,
-      executionFinishedAt,
-      executionDuration,
-      reviewScreenshot: success
-        ? normalizeScreenshotUrl(
-            response.reviewScreenshot || response.screenshotPath
-          )
-        : order.reviewScreenshot || "",
-      filledAt: success
-        ? response.filledAt || executionFinishedAt
-        : order.filledAt || null,
-      readyForReviewAt: success
-        ? response.readyForReviewAt || executionFinishedAt
-        : order.readyForReviewAt || null,
-      executionNotes,
-      lastExecutionId: response.executionId || order.lastExecutionId || "",
-      lastExecutionPhase: response.phase || order.lastExecutionPhase || "",
-      lastErrorCode: success ? "" : response.errorCode || "BOT_FILL_FAILED",
-      lastErrorMessage: success
-        ? ""
-        : response.message || executionNotes,
-      executionResult: {
-        duration: executionDuration,
-        timestamp: executionFinishedAt,
-        filledAt: success ? response.filledAt || executionFinishedAt : null,
-        readyForReviewAt: success
-          ? response.readyForReviewAt || executionFinishedAt
-          : null,
-        reviewScreenshot: success
-          ? normalizeScreenshotUrl(
-              response.reviewScreenshot || response.screenshotPath
-            )
-          : order.reviewScreenshot || "",
-        success,
-        message: executionNotes,
-      },
-    }));
-
-    return {
-      ok: success,
-      queue,
-      order: queue.find((order) => order.id === orderId) || null,
-      reason: success ? "success" : "failed",
-      errorCode: success ? "" : response.errorCode || "BOT_FILL_FAILED",
-      errorMessage: success ? "" : response.message || executionNotes,
-      executionId: response.executionId || "",
-      phase: response.phase || "",
-    };
-  } catch (error) {
-    const executionFinishedAt = new Date().toISOString();
-    const executionDuration = Date.now() - startedAtMs;
-    const queue = updateDailyOrder(orderId, (order) => ({
-      ...order,
-      status: DAILY_ORDER_STATUSES.FAILED,
-      isLocked: true,
-      executionStartedAt,
-      executionFinishedAt,
-      executionDuration,
-      reviewScreenshot: order.reviewScreenshot || "",
-      filledAt: order.filledAt || null,
-      readyForReviewAt: order.readyForReviewAt || null,
-      executionNotes:
-        error?.message || "Bot service request failed unexpectedly.",
-      lastExecutionId: order.lastExecutionId || "",
-      lastExecutionPhase: "fill-transport-error",
-      lastErrorCode: "BOT_SERVICE_UNREACHABLE",
-      lastErrorMessage: error?.message || "Bot service request failed unexpectedly.",
-      executionResult: {
-        duration: executionDuration,
-        timestamp: executionFinishedAt,
-        filledAt: null,
-        readyForReviewAt: null,
-        reviewScreenshot: order.reviewScreenshot || "",
-        success: false,
-        message: error?.message || "Bot service request failed unexpectedly.",
-      },
-    }));
-
-    return {
-      ok: false,
-      queue,
-      order: queue.find((order) => order.id === orderId) || null,
-      reason: "bot-service-error",
-      errorCode: "BOT_SERVICE_UNREACHABLE",
-      errorMessage: error?.message || "Bot service request failed unexpectedly.",
-      executionId: "",
-      phase: "fill-transport-error",
-    };
-  }
-}
-
-export async function submitDailyOrderAfterChefApproval(orderId) {
-  const queueBefore = getDailyOrderQueue();
-  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
-
-  if (!orderBefore) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: null,
-      reason: "not-found",
-    };
-  }
-
-  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "already-executed",
-    };
-  }
-
-  if (orderBefore.status !== DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "not-ready-for-final-submit",
-    };
-  }
-
-  if (hasAnotherOrderFilling(orderId, queueBefore)) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "another-order-filling",
-    };
-  }
-
-  const botPayload = buildDailyOrderBotPayload(orderBefore);
-  if (botPayload.items.length === 0) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "invalid-order-items",
-    };
-  }
-
-  const chefApprovedAt = new Date().toISOString();
-
-  updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: DAILY_ORDER_STATUSES.FILLING_ORDER,
-    isLocked: true,
-    chefApprovedAt,
-    finalExecutionNotes: "Chef approved. Submitting final order on mock portal.",
-    lastExecutionPhase: "final-submit-started",
-    lastErrorCode: "",
-    lastErrorMessage: "",
-  }));
-
-  try {
-    const response = await submitDailyOrder(botPayload);
-
-    const success =
-      response.ok && response.status === DAILY_ORDER_STATUSES.EXECUTED;
-    const queue = updateDailyOrder(orderId, (order) => ({
-      ...order,
-      status: success ? DAILY_ORDER_STATUSES.EXECUTED : DAILY_ORDER_STATUSES.FAILED,
-      isLocked: true,
-      chefApprovedAt,
-      submittedAt: success
-        ? response.submittedAt || new Date().toISOString()
-        : order.submittedAt || null,
-      orderNumber: success
-        ? response.orderNumber || ""
-        : order.orderNumber || "",
-      finalScreenshot: success
-        ? normalizeScreenshotUrl(response.finalScreenshot)
-        : order.finalScreenshot || "",
-      submitDuration: success
-        ? response.submitDuration || 0
-        : order.submitDuration || null,
-      finalExecutionNotes: success
-        ? response.finalExecutionNotes ||
-          response.message ||
-          "Final submit executed."
-        : response.finalExecutionNotes ||
-          response.message ||
-          "Final submit failed.",
-      executionNotes: success
-        ? "Final submit completed on mock portal."
-        : order.executionNotes || "Bot fill completed and ready for review.",
-      lastExecutionId: response.executionId || order.lastExecutionId || "",
-      lastExecutionPhase: response.phase || order.lastExecutionPhase || "",
-      lastErrorCode: success
-        ? ""
-        : response.errorCode || "FINAL_SUBMIT_FAILED",
-      lastErrorMessage: success
-        ? ""
-        : response.message || "Final submit failed.",
-    }));
-
-    return {
-      ok: success,
-      queue,
-      order: queue.find((order) => order.id === orderId) || null,
-      reason: success ? "success" : "failed",
-      errorCode: success ? "" : response.errorCode || "FINAL_SUBMIT_FAILED",
-      errorMessage: success ? "" : response.message || "Final submit failed.",
-      executionId: response.executionId || "",
-      phase: response.phase || "",
-    };
-  } catch (error) {
-    const queue = updateDailyOrder(orderId, (order) => ({
-      ...order,
-      status: DAILY_ORDER_STATUSES.FAILED,
-      isLocked: true,
-      chefApprovedAt,
-      finalExecutionNotes:
-        error?.message || "Final submit request failed unexpectedly.",
-      executionNotes: order.executionNotes || "Bot fill completed and ready for review.",
-      lastExecutionPhase: "final-submit-transport-error",
-      lastErrorCode: "BOT_SERVICE_UNREACHABLE",
-      lastErrorMessage:
-        error?.message || "Final submit request failed unexpectedly.",
-    }));
-
-    return {
-      ok: false,
-      queue,
-      order: queue.find((order) => order.id === orderId) || null,
-      reason: "final-submit-error",
-      errorCode: "BOT_SERVICE_UNREACHABLE",
-      errorMessage: error?.message || "Final submit request failed unexpectedly.",
-      executionId: "",
-      phase: "final-submit-transport-error",
-    };
-  }
-}
-
-export function markDailyOrderChefApproved(orderId) {
-  const queueBefore = getDailyOrderQueue();
-  const orderBefore = queueBefore.find((order) => order.id === orderId) || null;
-
-  if (!orderBefore) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: null,
-      reason: "not-found",
-    };
-  }
-
-  if (orderBefore.status === DAILY_ORDER_STATUSES.EXECUTED) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "already-executed",
-    };
-  }
-
-  if (orderBefore.status !== DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW) {
-    return {
-      ok: false,
-      queue: queueBefore,
-      order: orderBefore,
-      reason: "not-ready-for-chef-review",
-    };
-  }
-
-  const approvedAt = new Date().toISOString();
-  const queue = updateDailyOrder(orderId, (order) => ({
-    ...order,
-    status: DAILY_ORDER_STATUSES.EXECUTED,
-    isLocked: true,
-    chefApprovedAt: approvedAt,
-    executionNotes: "Chef approved order after manual review.",
-  }));
-
-  return {
-    ok: true,
-    queue,
-    order: queue.find((order) => order.id === orderId) || null,
-    reason: "approved",
-  };
-}
-
-export async function executeReadyDailyOrders() {
-  const queue = getDailyOrderQueue();
-  const readyOrders = queue.filter(
-    (order) => order.status === DAILY_ORDER_STATUSES.READY
-  );
-
-  let successCount = 0;
-  let failedCount = 0;
-
-  for (let index = 0; index < readyOrders.length; index += 1) {
-    const order = readyOrders[index];
-    const result = await executeDailyOrder(order.id);
-
-    if (result.ok) successCount += 1;
-    if (!result.ok) failedCount += 1;
-  }
-
-  return {
-    processed: readyOrders.length,
-    successCount,
-    failedCount,
-    queue: getDailyOrderQueue(),
-  };
-}
-
-export function getDailyOrderQueueCounts(queue) {
-  const normalizedQueue = (queue || []).map(normalizeOrder);
-
-  return normalizedQueue.reduce(
-    (acc, order) => {
-      acc.total += 1;
-      if (order.status === DAILY_ORDER_STATUSES.DRAFT) acc.draft += 1;
-      if (order.status === DAILY_ORDER_STATUSES.READY) acc.ready += 1;
+      if (order.status === DAILY_ORDER_STATUSES.DRAFT) counts.draft += 1;
+      if (order.status === DAILY_ORDER_STATUSES.READY) counts.ready += 1;
       if (order.status === DAILY_ORDER_STATUSES.FILLING_ORDER) {
-        acc.fillingOrder += 1;
+        counts.fillingOrder += 1;
       }
       if (order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW) {
-        acc.readyForChefReview += 1;
+        counts.readyForChefReview += 1;
       }
-      if (order.status === DAILY_ORDER_STATUSES.EXECUTED) acc.executed += 1;
-      if (order.status === DAILY_ORDER_STATUSES.FAILED) acc.failed += 1;
-      return acc;
+      if (order.status === DAILY_ORDER_STATUSES.EXECUTED) counts.executed += 1;
+      if (order.status === DAILY_ORDER_STATUSES.FAILED) counts.failed += 1;
+
+      return counts;
     },
     {
       total: 0,
@@ -958,20 +124,41 @@ export function getDailyOrderQueueCounts(queue) {
 }
 
 export function getManualExecutionEligibleCount() {
-  return getDailyOrderQueue().filter((order) => canExecuteStatus(order.status))
-    .length;
+  const summary = getDailyOrderSummary();
+  return summary.ready + summary.failed;
 }
 
 export function getReadyOrdersCount() {
-  return getDailyOrderQueue().filter(
-    (order) => order.status === DAILY_ORDER_STATUSES.READY
-  ).length;
+  return getDailyOrderSummary().ready;
 }
 
 export function hasExecutableOrders() {
-  return hasAnyExecutableStatus(getDailyOrderQueue());
+  const summary = getDailyOrderSummary();
+  return summary.ready > 0 || summary.failed > 0;
+}
+
+export function updateDailyOrderItemQuantity(orderId, itemIndex, nextQuantity) {
+  return updateDailyOrderItemQuantityRequest(orderId, itemIndex, {
+    quantity: normalizeQuantity(nextQuantity),
+  });
+}
+
+export function markDailyOrderReady(orderId) {
+  return markDailyOrderReadyRequest(orderId);
+}
+
+export function unlockDailyOrder(orderId) {
+  return unlockDailyOrderRequest(orderId);
+}
+
+export function runDailyOrderBotFill(orderId) {
+  return runDailyOrderBotFillRequest(orderId);
+}
+
+export function submitDailyOrderAfterChefApproval(orderId) {
+  return submitDailyOrderAfterChefApprovalRequest(orderId);
 }
 
 export function resetDailyOrderExecutionState() {
-  return replaceDailyOrderQueue([]);
+  return resetDailyOrders();
 }

@@ -19,6 +19,9 @@ function StockTakePage({
   inputRefs,
   handleQuantityChange,
   voiceFilledItems,
+  isLoading,
+  isSaving,
+  errorMessage,
 }) {
   return (
     <div>
@@ -35,6 +38,9 @@ function StockTakePage({
         setSearch={setSearch}
         handleReset={handleReset}
         setCurrentPage={setCurrentPage}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        errorMessage={errorMessage}
       />
 
       <StockTakeTable

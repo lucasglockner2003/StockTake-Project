@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { PAGE_IDS } from "../constants/app";
 import {
   addAutomationJob,
@@ -49,19 +51,32 @@ function ReviewPage({
   handleCopyTable,
   voiceFilledItems,
 }) {
-  function handleSendSuggestedOrderToQueue() {
-    const createdOrders = addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder);
+  const [isSendingSuggestedOrder, setIsSendingSuggestedOrder] = useState(false);
 
-    if (createdOrders.length === 0) {
+  async function handleSendSuggestedOrderToQueue() {
+    const validSuggestedItems = (suggestedOrder || []).filter(
+      (item) => Number(item.orderAmount || 0) > 0
+    );
+
+    if (validSuggestedItems.length === 0) {
       alert("There are no suggested order items to send.");
       return;
     }
 
-    alert(`Daily order(s) created: ${createdOrders.length}`);
-    setCurrentPage(PAGE_IDS.DAILY_ORDER_EXECUTION);
+    try {
+      setIsSendingSuggestedOrder(true);
+      const result = await addDailyConfirmedOrdersFromSuggestedOrder(suggestedOrder);
+
+      alert(`Daily order(s) created: ${result.createdOrders.length}`);
+      setCurrentPage(PAGE_IDS.DAILY_ORDER_EXECUTION);
+    } catch (error) {
+      alert(error?.message || "Failed to create daily orders.");
+    } finally {
+      setIsSendingSuggestedOrder(false);
+    }
   }
 
-  function handleSendStockTableToQueue() {
+  async function handleSendStockTableToQueue() {
     const jobData = buildStockTableAutomationJob(items, quantities);
 
     if (jobData.items.length === 0) {
@@ -69,9 +84,13 @@ function ReviewPage({
       return;
     }
 
-    const job = addAutomationJob(jobData);
-    alert(`Stock table job created: ${job.jobId}`);
-    setCurrentPage(PAGE_IDS.AUTOMATION);
+    try {
+      const job = await addAutomationJob(jobData);
+      alert(`Stock table job created: ${job.jobId}`);
+      setCurrentPage(PAGE_IDS.AUTOMATION);
+    } catch (error) {
+      alert(error?.message || "Failed to create automation job.");
+    }
   }
 
   return (
@@ -196,12 +215,13 @@ function ReviewPage({
 
         <button
           onClick={handleSendSuggestedOrderToQueue}
+          disabled={isSendingSuggestedOrder}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#9900ff",
+            backgroundColor: isSendingSuggestedOrder ? "#888" : "#9900ff",
           }}
         >
-          Send Suggested Order
+          {isSendingSuggestedOrder ? "Sending..." : "Send Suggested Order"}
         </button>
       </PageActionBar>
 

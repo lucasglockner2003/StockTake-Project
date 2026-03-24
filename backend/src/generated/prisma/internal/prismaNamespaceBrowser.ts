@@ -51,7 +51,17 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  User: 'User'
+  User: 'User',
+  StockItem: 'StockItem',
+  StockTake: 'StockTake',
+  StockTakeEntry: 'StockTakeEntry',
+  DailyOrder: 'DailyOrder',
+  DailyOrderItem: 'DailyOrderItem',
+  Invoice: 'Invoice',
+  InvoiceItem: 'InvoiceItem',
+  AutomationJob: 'AutomationJob',
+  AutomationJobItem: 'AutomationJobItem',
+  SupplierOrderHistoryRevision: 'SupplierOrderHistoryRevision'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -81,6 +91,197 @@ export const UserScalarFieldEnum = {
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
+export const StockItemScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  supplier: 'supplier',
+  unit: 'unit',
+  area: 'area',
+  idealStock: 'idealStock',
+  critical: 'critical',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StockItemScalarFieldEnum = (typeof StockItemScalarFieldEnum)[keyof typeof StockItemScalarFieldEnum]
+
+
+export const StockTakeScalarFieldEnum = {
+  id: 'id',
+  takeDate: 'takeDate',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  lastResetAt: 'lastResetAt'
+} as const
+
+export type StockTakeScalarFieldEnum = (typeof StockTakeScalarFieldEnum)[keyof typeof StockTakeScalarFieldEnum]
+
+
+export const StockTakeEntryScalarFieldEnum = {
+  id: 'id',
+  stockTakeId: 'stockTakeId',
+  stockItemId: 'stockItemId',
+  quantity: 'quantity',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StockTakeEntryScalarFieldEnum = (typeof StockTakeEntryScalarFieldEnum)[keyof typeof StockTakeEntryScalarFieldEnum]
+
+
+export const DailyOrderScalarFieldEnum = {
+  id: 'id',
+  supplier: 'supplier',
+  source: 'source',
+  status: 'status',
+  isLocked: 'isLocked',
+  totalQuantity: 'totalQuantity',
+  attempts: 'attempts',
+  readyAt: 'readyAt',
+  executionStartedAt: 'executionStartedAt',
+  executionFinishedAt: 'executionFinishedAt',
+  executionDurationMs: 'executionDurationMs',
+  filledAt: 'filledAt',
+  readyForReviewAt: 'readyForReviewAt',
+  executionNotes: 'executionNotes',
+  reviewScreenshotPath: 'reviewScreenshotPath',
+  chefApprovedAt: 'chefApprovedAt',
+  submittedAt: 'submittedAt',
+  submitStartedAt: 'submitStartedAt',
+  submitFinishedAt: 'submitFinishedAt',
+  submitDurationMs: 'submitDurationMs',
+  finalExecutionNotes: 'finalExecutionNotes',
+  finalScreenshotPath: 'finalScreenshotPath',
+  orderNumber: 'orderNumber',
+  lastExecutionId: 'lastExecutionId',
+  lastExecutionPhase: 'lastExecutionPhase',
+  lastErrorCode: 'lastErrorCode',
+  lastErrorMessage: 'lastErrorMessage',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DailyOrderScalarFieldEnum = (typeof DailyOrderScalarFieldEnum)[keyof typeof DailyOrderScalarFieldEnum]
+
+
+export const DailyOrderItemScalarFieldEnum = {
+  id: 'id',
+  dailyOrderId: 'dailyOrderId',
+  itemIndex: 'itemIndex',
+  itemId: 'itemId',
+  itemName: 'itemName',
+  quantity: 'quantity',
+  unit: 'unit',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DailyOrderItemScalarFieldEnum = (typeof DailyOrderItemScalarFieldEnum)[keyof typeof DailyOrderItemScalarFieldEnum]
+
+
+export const InvoiceScalarFieldEnum = {
+  id: 'id',
+  supplier: 'supplier',
+  invoiceNumber: 'invoiceNumber',
+  invoiceDate: 'invoiceDate',
+  totalAmount: 'totalAmount',
+  status: 'status',
+  attempts: 'attempts',
+  payloadSnapshot: 'payloadSnapshot',
+  filledItemsSnapshot: 'filledItemsSnapshot',
+  screenshotPath: 'screenshotPath',
+  executionId: 'executionId',
+  executionDurationMs: 'executionDurationMs',
+  queuedAt: 'queuedAt',
+  executedAt: 'executedAt',
+  lastErrorCode: 'lastErrorCode',
+  lastErrorMessage: 'lastErrorMessage',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InvoiceScalarFieldEnum = (typeof InvoiceScalarFieldEnum)[keyof typeof InvoiceScalarFieldEnum]
+
+
+export const InvoiceItemScalarFieldEnum = {
+  id: 'id',
+  invoiceId: 'invoiceId',
+  itemIndex: 'itemIndex',
+  itemName: 'itemName',
+  quantity: 'quantity',
+  unitPrice: 'unitPrice',
+  lineTotal: 'lineTotal',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InvoiceItemScalarFieldEnum = (typeof InvoiceItemScalarFieldEnum)[keyof typeof InvoiceItemScalarFieldEnum]
+
+
+export const AutomationJobScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  source: 'source',
+  status: 'status',
+  notes: 'notes',
+  attempts: 'attempts',
+  totalItems: 'totalItems',
+  metadataSnapshot: 'metadataSnapshot',
+  lastErrorCode: 'lastErrorCode',
+  lastErrorMessage: 'lastErrorMessage',
+  runStartedAt: 'runStartedAt',
+  runFinishedAt: 'runFinishedAt',
+  runDurationMs: 'runDurationMs',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AutomationJobScalarFieldEnum = (typeof AutomationJobScalarFieldEnum)[keyof typeof AutomationJobScalarFieldEnum]
+
+
+export const AutomationJobItemScalarFieldEnum = {
+  id: 'id',
+  automationJobId: 'automationJobId',
+  sequence: 'sequence',
+  itemId: 'itemId',
+  itemName: 'itemName',
+  quantity: 'quantity',
+  source: 'source',
+  supplier: 'supplier',
+  currentStock: 'currentStock',
+  idealStock: 'idealStock',
+  orderAmount: 'orderAmount',
+  status: 'status',
+  area: 'area',
+  unit: 'unit',
+  rawLine: 'rawLine',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AutomationJobItemScalarFieldEnum = (typeof AutomationJobItemScalarFieldEnum)[keyof typeof AutomationJobItemScalarFieldEnum]
+
+
+export const SupplierOrderHistoryRevisionScalarFieldEnum = {
+  id: 'id',
+  automationJobId: 'automationJobId',
+  supplier: 'supplier',
+  totalQuantity: 'totalQuantity',
+  status: 'status',
+  attempts: 'attempts',
+  revisionNumber: 'revisionNumber',
+  snapshotTimestamp: 'snapshotTimestamp',
+  snapshotSignature: 'snapshotSignature',
+  snapshot: 'snapshot',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SupplierOrderHistoryRevisionScalarFieldEnum = (typeof SupplierOrderHistoryRevisionScalarFieldEnum)[keyof typeof SupplierOrderHistoryRevisionScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -89,10 +290,42 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
 export const QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

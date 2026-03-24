@@ -16,3 +16,64 @@ export const Role = {
 } as const
 
 export type Role = (typeof Role)[keyof typeof Role]
+
+
+export const DailyOrderStatus = {
+  DRAFT: 'DRAFT',
+  READY_TO_EXECUTE: 'READY_TO_EXECUTE',
+  FILLING_ORDER: 'FILLING_ORDER',
+  READY_FOR_CHEF_REVIEW: 'READY_FOR_CHEF_REVIEW',
+  EXECUTED: 'EXECUTED',
+  FAILED: 'FAILED'
+} as const
+
+export type DailyOrderStatus = (typeof DailyOrderStatus)[keyof typeof DailyOrderStatus]
+
+
+export const DailyOrderSource = {
+  PHOTO: 'PHOTO',
+  SUGGESTED_ORDER: 'SUGGESTED_ORDER'
+} as const
+
+export type DailyOrderSource = (typeof DailyOrderSource)[keyof typeof DailyOrderSource]
+
+
+export const InvoiceStatus = {
+  DRAFT: 'DRAFT',
+  QUEUED: 'QUEUED',
+  EXECUTED: 'EXECUTED',
+  FAILED: 'FAILED'
+} as const
+
+export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus]
+
+
+export const AutomationJobStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  DONE: 'DONE',
+  FAILED: 'FAILED'
+} as const
+
+export type AutomationJobStatus = (typeof AutomationJobStatus)[keyof typeof AutomationJobStatus]
+
+
+export const AutomationJobSource = {
+  UNKNOWN: 'UNKNOWN',
+  PHOTO: 'PHOTO',
+  REVIEW_SUGGESTED_ORDER: 'REVIEW_SUGGESTED_ORDER',
+  REVIEW_STOCK_TABLE: 'REVIEW_STOCK_TABLE',
+  REVIEW_SUPPLIER_ORDER: 'REVIEW_SUPPLIER_ORDER'
+} as const
+
+export type AutomationJobSource = (typeof AutomationJobSource)[keyof typeof AutomationJobSource]
+
+
+export const SupplierOrderHistoryStatus = {
+  PENDING: 'PENDING',
+  SENT_TO_QUEUE: 'SENT_TO_QUEUE',
+  EXECUTED: 'EXECUTED',
+  FAILED: 'FAILED'
+} as const
+
+export type SupplierOrderHistoryStatus = (typeof SupplierOrderHistoryStatus)[keyof typeof SupplierOrderHistoryStatus]

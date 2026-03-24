@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { DAILY_ORDER_STATUSES } from "../constants/app";
 import { styles } from "../utils/uiStyles";
 import {
+  ensureDailyOrderQueueLoaded,
   getDailyOrderQueue,
   getDailyOrderQueueCounts,
   markDailyOrderReady,
+  refreshDailyOrderQueue,
   resetDailyOrderExecutionState,
   runDailyOrderBotFill,
+  subscribeDailyOrderQueue,
   submitDailyOrderAfterChefApproval,
   unlockDailyOrder,
   updateDailyOrderItemQuantity,
@@ -150,6 +153,7 @@ function getNoticeToneStyle(tone) {
 
 function DailyOrderExecutionPage() {
   const [dailyOrders, setDailyOrders] = useState([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [runningBotFillSupplier, setRunningBotFillSupplier] = useState(null);
   const [runningFinalSubmitOrderId, setRunningFinalSubmitOrderId] = useState(null);
   const [isExecutingAllReady, setIsExecutingAllReady] = useState(false);
@@ -175,13 +179,75 @@ function DailyOrderExecutionPage() {
     lastCheckedAt: "",
   });
 
-  function refreshDailyOrders() {
+  function syncDailyOrdersFromCache() {
     setDailyOrders(getDailyOrderQueue());
   }
 
   useEffect(() => {
-    refreshDailyOrders();
+    let isActive = true;
+    const unsubscribe = subscribeDailyOrderQueue(() => {
+      if (!isActive) {
+        return;
+      }
+
+      syncDailyOrdersFromCache();
+    });
+
+    async function hydrateDailyOrders() {
+      setIsLoadingOrders(true);
+
+      try {
+        await ensureDailyOrderQueueLoaded();
+
+        if (!isActive) {
+          return;
+        }
+
+        syncDailyOrdersFromCache();
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setPageNotice({
+          tone: "error",
+          message: error?.message || "Failed to load daily orders.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingOrders(false);
+        }
+      }
+    }
+
+    hydrateDailyOrders();
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }, []);
+
+  async function refreshDailyOrders() {
+    setIsLoadingOrders(true);
+
+    try {
+      await refreshDailyOrderQueue();
+      setPageNotice((previous) =>
+        previous.tone === "error" &&
+        previous.message === "Failed to load daily orders."
+          ? { tone: "", message: "" }
+          : previous
+      );
+    } catch (error) {
+      setPageNotice({
+        tone: "error",
+        message: error?.message || "Failed to load daily orders.",
+      });
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  }
 
   useEffect(() => {
     let isActive = true;
@@ -273,22 +339,55 @@ function DailyOrderExecutionPage() {
     }));
   }
 
-  function handleOrderItemQuantityChange(orderId, index, value) {
-    updateDailyOrderItemQuantity(orderId, index, value);
-    clearWarning(orderId);
-    refreshDailyOrders();
+  async function handleOrderItemQuantityChange(orderId, index, value) {
+    try {
+      const result = await updateDailyOrderItemQuantity(orderId, index, value);
+
+      if (!result.ok) {
+        setWarning(
+          orderId,
+          result.errorMessage || "This order cannot be edited right now."
+        );
+        return;
+      }
+
+      clearWarning(orderId);
+      syncDailyOrdersFromCache();
+    } catch (error) {
+      setWarning(orderId, error?.message || "Failed to update order item.");
+    }
   }
 
-  function handleMarkReady(orderId) {
-    markDailyOrderReady(orderId);
-    clearWarning(orderId);
-    refreshDailyOrders();
+  async function handleMarkReady(orderId) {
+    try {
+      const result = await markDailyOrderReady(orderId);
+
+      if (!result.ok) {
+        setWarning(orderId, result.errorMessage || "Order could not be marked ready.");
+        return;
+      }
+
+      clearWarning(orderId);
+      syncDailyOrdersFromCache();
+    } catch (error) {
+      setWarning(orderId, error?.message || "Failed to mark order ready.");
+    }
   }
 
-  function handleUnlockOrder(orderId) {
-    unlockDailyOrder(orderId);
-    clearWarning(orderId);
-    refreshDailyOrders();
+  async function handleUnlockOrder(orderId) {
+    try {
+      const result = await unlockDailyOrder(orderId);
+
+      if (!result.ok) {
+        setWarning(orderId, result.errorMessage || "Order could not be unlocked.");
+        return;
+      }
+
+      clearWarning(orderId);
+      syncDailyOrdersFromCache();
+    } catch (error) {
+      setWarning(orderId, error?.message || "Failed to unlock order.");
+    }
   }
 
   async function handleChefApprovedFinalSubmit(orderId) {
@@ -307,7 +406,7 @@ function DailyOrderExecutionPage() {
     try {
       setRunningFinalSubmitOrderId(orderId);
       const result = await submitDailyOrderAfterChefApproval(orderId);
-      refreshDailyOrders();
+      syncDailyOrdersFromCache();
 
       if (result.reason === "already-executed") {
         setWarning(orderId, "This order was already finally submitted.");
@@ -417,7 +516,7 @@ function DailyOrderExecutionPage() {
     try {
       setRunningBotFillSupplier(order.supplier);
       const result = await runDailyOrderBotFill(order.id);
-      refreshDailyOrders();
+      syncDailyOrdersFromCache();
 
       if (result.reason === "already-executed") {
         setWarning(order.id, "This order is already executed and cannot run again.");
@@ -516,7 +615,7 @@ function DailyOrderExecutionPage() {
         if (!result.ok) failedCount += 1;
       }
 
-      refreshDailyOrders();
+      syncDailyOrdersFromCache();
       setPageNotice({
         tone: failedCount > 0 ? "warning" : "success",
         message: `Batch fill finished. Ready for chef review: ${successCount} | Failed: ${failedCount}`,
@@ -585,7 +684,7 @@ function DailyOrderExecutionPage() {
         if (!result.ok) failedCount += 1;
       }
 
-      refreshDailyOrders();
+      syncDailyOrdersFromCache();
       setPageNotice({
         tone: failedCount > 0 ? "warning" : "success",
         message: `Retry batch finished. Success: ${successCount} | Failed: ${failedCount}`,
@@ -606,7 +705,7 @@ function DailyOrderExecutionPage() {
     }
   }
 
-  function handleResetExecution() {
+  async function handleResetExecution() {
     const confirmed = window.confirm(
       "Are you sure you want to delete all daily execution orders? This will remove every order in this list."
     );
@@ -621,8 +720,28 @@ function DailyOrderExecutionPage() {
       return;
     }
 
-    resetDailyOrderExecutionState();
-    refreshDailyOrders();
+    try {
+      const result = await resetDailyOrderExecutionState();
+
+      if (!result.ok) {
+        setPageNotice({
+          tone: "warning",
+          message:
+            result.errorMessage ||
+            "Cannot delete orders while an execution is in progress.",
+        });
+        return;
+      }
+
+      syncDailyOrdersFromCache();
+    } catch (error) {
+      setPageNotice({
+        tone: "error",
+        message: error?.message || "Failed to delete daily execution orders.",
+      });
+      return;
+    }
+
     setRunningBotFillSupplier(null);
     setRunningFinalSubmitOrderId(null);
     setIsExecutingAllReady(false);
@@ -646,12 +765,13 @@ function DailyOrderExecutionPage() {
       <PageActionBar marginBottom="14px">
         <button
           onClick={refreshDailyOrders}
+          disabled={isLoadingOrders}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#2196F3",
+            backgroundColor: isLoadingOrders ? "#888" : "#2196F3",
           }}
         >
-          Refresh
+          {isLoadingOrders ? "Refreshing..." : "Refresh"}
         </button>
 
         <button
@@ -802,6 +922,18 @@ function DailyOrderExecutionPage() {
         </NoticePanel>
       )}
 
+      {isLoadingOrders && (
+        <NoticePanel
+          backgroundColor="#1f1f1f"
+          border="1px solid #555"
+          color="#8de0ea"
+          marginBottom="12px"
+          padding="10px"
+        >
+          Loading daily orders from backend...
+        </NoticePanel>
+      )}
+
       {(runningBotFillSupplier !== null ||
         runningFinalSubmitOrderId !== null ||
         isExecutingAllReady ||
@@ -822,7 +954,9 @@ function DailyOrderExecutionPage() {
         </NoticePanel>
       )}
 
-      {sortedDailyOrders.length === 0 ? (
+      {isLoadingOrders ? (
+        <div style={styles.emptyState}>Loading daily confirmed orders...</div>
+      ) : sortedDailyOrders.length === 0 ? (
         <div style={styles.emptyState}>No daily confirmed orders yet.</div>
       ) : (
         sortedDailyOrders.map((order) => {
