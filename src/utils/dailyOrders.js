@@ -1,8 +1,10 @@
 import { DAILY_ORDER_STATUSES } from "../constants/app";
+import {
+  getStoredDailyOrderQueue,
+  saveStoredDailyOrderQueue,
+} from "../repositories/daily-order-repository";
 import { UNKNOWN_SUPPLIER_LABEL } from "./stock";
 import { executeDailyOrderFill, submitDailyOrder } from "./botServiceClient";
-
-const DAILY_ORDER_QUEUE_KEY = "smartops-daily-order-queue";
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -187,21 +189,11 @@ function hasAnyExecutableStatus(queue = []) {
 }
 
 export function loadDailyOrderQueueFromStorage() {
-  try {
-    const saved = localStorage.getItem(DAILY_ORDER_QUEUE_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? parsed.map(normalizeOrder) : [];
-  } catch {
-    return [];
-  }
+  return getStoredDailyOrderQueue().map(normalizeOrder);
 }
 
 export function saveDailyOrderQueueToStorage(queue) {
-  try {
-    localStorage.setItem(DAILY_ORDER_QUEUE_KEY, JSON.stringify(queue));
-  } catch {
-    // ignore storage errors
-  }
+  saveStoredDailyOrderQueue(queue);
 }
 
 export function getDailyOrderQueue() {

@@ -3,10 +3,15 @@ import {
   SOURCES,
   SUPPLIER_ORDER_EXECUTION_STATUSES,
 } from "../constants/app";
+import {
+  clearStoredAutomationQueue,
+  clearStoredSupplierOrderHistory,
+  getStoredAutomationQueue,
+  getStoredSupplierOrderHistory,
+  saveStoredAutomationQueue,
+  saveStoredSupplierOrderHistory,
+} from "../repositories/automation-queue-repository";
 import { getItemStatus, getNumericValue } from "./stock";
-
-const AUTOMATION_QUEUE_KEY = "smartops-automation-queue";
-const SUPPLIER_ORDER_HISTORY_KEY = "smartops-supplier-order-history";
 const SUPPLIER_HISTORY_LIMIT = 60;
 
 function wait(ms) {
@@ -164,21 +169,11 @@ function toSupplierOrderHistoryRecord(job) {
 }
 
 export function loadSupplierOrderHistoryFromStorage() {
-  try {
-    const saved = localStorage.getItem(SUPPLIER_ORDER_HISTORY_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return getStoredSupplierOrderHistory();
 }
 
 export function saveSupplierOrderHistoryToStorage(history) {
-  try {
-    localStorage.setItem(SUPPLIER_ORDER_HISTORY_KEY, JSON.stringify(history));
-  } catch {
-    // ignore storage errors
-  }
+  saveStoredSupplierOrderHistory(history);
 }
 
 export function getSupplierOrderHistory() {
@@ -186,12 +181,7 @@ export function getSupplierOrderHistory() {
 }
 
 export function clearSupplierOrderHistory() {
-  try {
-    localStorage.removeItem(SUPPLIER_ORDER_HISTORY_KEY);
-  } catch {
-    // ignore storage errors
-  }
-
+  clearStoredSupplierOrderHistory();
   return [];
 }
 
@@ -257,29 +247,15 @@ export function createAutomationJob(jobData = {}) {
 ========================= */
 
 export function loadAutomationQueueFromStorage() {
-  try {
-    const saved = localStorage.getItem(AUTOMATION_QUEUE_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return getStoredAutomationQueue();
 }
 
 export function saveAutomationQueueToStorage(queue) {
-  try {
-    localStorage.setItem(AUTOMATION_QUEUE_KEY, JSON.stringify(queue));
-  } catch {
-    // ignore storage errors
-  }
+  saveStoredAutomationQueue(queue);
 }
 
 export function clearAutomationQueueFromStorage() {
-  try {
-    localStorage.removeItem(AUTOMATION_QUEUE_KEY);
-  } catch {
-    // ignore storage errors
-  }
+  clearStoredAutomationQueue();
 }
 
 /* =========================

@@ -1,23 +1,12 @@
 import { INVOICE_INTAKE_STATUSES } from "../constants/app";
+import {
+  getStoredInvoiceQueue,
+  saveStoredInvoiceQueue,
+} from "../repositories/invoice-queue-repository";
 import { buildInvoiceAutomationPayload, normalizeInvoiceDraft } from "./invoiceParsing";
 
-const INVOICE_QUEUE_KEY = "smartops-invoice-intake-queue";
-
-function safeParseQueue(value) {
-  try {
-    const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function saveInvoiceQueue(queue) {
-  try {
-    localStorage.setItem(INVOICE_QUEUE_KEY, JSON.stringify(queue));
-  } catch {
-    // ignore storage errors
-  }
+  saveStoredInvoiceQueue(queue);
 }
 
 function normalizeInvoiceQueueEntry(invoice) {
@@ -33,13 +22,16 @@ function normalizeInvoiceQueueEntry(invoice) {
   };
 }
 
+function normalizeInvoiceQueueEntries(queue) {
+  return (queue || []).map(normalizeInvoiceQueueEntry);
+}
+
 export function getInvoiceQueue() {
-  const saved = localStorage.getItem(INVOICE_QUEUE_KEY);
-  return safeParseQueue(saved).map(normalizeInvoiceQueueEntry);
+  return normalizeInvoiceQueueEntries(getStoredInvoiceQueue());
 }
 
 export function replaceInvoiceQueue(queue) {
-  const normalizedQueue = (queue || []).map(normalizeInvoiceQueueEntry);
+  const normalizedQueue = normalizeInvoiceQueueEntries(queue);
   saveInvoiceQueue(normalizedQueue);
   return normalizedQueue;
 }

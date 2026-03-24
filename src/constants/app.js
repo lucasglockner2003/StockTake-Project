@@ -1,4 +1,5 @@
 export const PAGE_IDS = {
+  OVERVIEW: "overview",
   STOCK: "stock",
   REVIEW: "review",
   SUPPLIER_REVIEW: "supplier-review",

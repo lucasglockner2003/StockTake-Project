@@ -1,1 +1,1 @@
-export { PAGE_IDS } from "./app";
+export { PAGE_IDS } from "./app.js";
