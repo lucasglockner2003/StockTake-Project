@@ -515,14 +515,6 @@ export type StockItemScalarRelationFilter = {
   isNot?: Prisma.StockItemWhereInput
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }

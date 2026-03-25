@@ -15,6 +15,13 @@ const publicUserSelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
+const authUserSelect = {
+  id: true,
+  email: true,
+  role: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -41,6 +48,19 @@ export class UsersService {
 
   countUsers() {
     return this.prismaService.user.count();
+  }
+
+  async findUserForAuthById(userId: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: { id: userId },
+      select: authUserSelect,
+    });
+
+    if (!user) {
+      throw new NotFoundException('User profile was not found.');
+    }
+
+    return user;
   }
 
   findAllUsers() {

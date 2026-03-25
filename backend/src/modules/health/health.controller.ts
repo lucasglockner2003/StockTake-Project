@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 
 import { Public } from '../../common/auth/public.decorator';
 import { HealthService } from './health.service';
@@ -9,7 +10,13 @@ export class HealthController {
 
   @Public()
   @Get()
-  getStatus() {
-    return this.healthService.getStatus();
+  async getStatus(@Res({ passthrough: true }) response: Response) {
+    const healthStatus = await this.healthService.getStatus();
+
+    if (healthStatus.status !== 'ok') {
+      response.status(503);
+    }
+
+    return healthStatus;
   }
 }

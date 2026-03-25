@@ -10,17 +10,13 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import { Role } from '../../generated/prisma/client';
+import { AuthSessionsRepository } from '../../modules/auth/auth-sessions.repository';
+import { AccessTokenPayload } from '../../modules/auth/auth.types';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { ROLES_KEY } from './roles.decorator';
 
-type AuthenticatedUser = {
-  sub: string;
-  email: string;
-  role: Role;
-};
-
 type AuthenticatedRequest = Request & {
-  user?: AuthenticatedUser;
+  user?: AccessTokenPayload;
 };
 
 @Injectable()
@@ -28,6 +24,7 @@ export class RolesGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
+    private readonly authSessionsRepository: AuthSessionsRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -48,7 +45,24 @@ export class RolesGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<AuthenticatedUser>(token);
+      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token);
+
+      if (payload.type !== 'access') {
+        throw new UnauthorizedException('Invalid authentication token type.');
+      }
+
+      const session = await this.authSessionsRepository.findSessionById(payload.sid);
+
+      if (
+        !session ||
+        session.userId !== payload.sub ||
+        session.revokedAt ||
+        session.expiresAt <= new Date() ||
+        session.accessTokenVersion !== payload.ver
+      ) {
+        throw new UnauthorizedException('Authentication session is invalid or expired.');
+      }
+
       request.user = payload;
     } catch {
       throw new UnauthorizedException('Invalid or expired authentication token.');

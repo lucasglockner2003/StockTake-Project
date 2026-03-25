@@ -15,6 +15,15 @@ const dailyOrderInclude = {
   },
 } satisfies Prisma.DailyOrderInclude;
 
+const dailyOrderItemQuantitiesSelect = {
+  items: {
+    select: {
+      itemIndex: true,
+      quantity: true,
+    },
+  },
+} satisfies Prisma.DailyOrderSelect;
+
 export type DailyOrderRecord = Prisma.DailyOrderGetPayload<{
   include: typeof dailyOrderInclude;
 }>;
@@ -101,14 +110,32 @@ export class DailyOrdersRepository {
     quantity: number,
   ) {
     return this.prismaService.$transaction(async (transactionClient) => {
-      const currentOrder = await this.findDailyOrderByIdWithClient(
-        transactionClient,
-        orderId,
-      );
+      const currentOrder = await transactionClient.dailyOrder.findUnique({
+        where: {
+          id: orderId,
+        },
+        select: dailyOrderItemQuantitiesSelect,
+      });
 
       if (!currentOrder) {
         return null;
       }
+
+      const existingItem = currentOrder.items.find(
+        (item) => item.itemIndex === itemIndex,
+      );
+
+      if (!existingItem) {
+        return null;
+      }
+
+      const nextTotalQuantity = currentOrder.items.reduce((sum, item) => {
+        if (item.itemIndex === itemIndex) {
+          return sum + quantity;
+        }
+
+        return sum + item.quantity;
+      }, 0);
 
       await transactionClient.dailyOrderItem.update({
         where: {
@@ -122,17 +149,12 @@ export class DailyOrdersRepository {
         },
       });
 
-      const totalQuantity = currentOrder.items.reduce(
-        (sum, item) => sum + (item.itemIndex === itemIndex ? quantity : item.quantity),
-        0,
-      );
-
       return transactionClient.dailyOrder.update({
         where: {
           id: orderId,
         },
         data: {
-          totalQuantity,
+          totalQuantity: nextTotalQuantity,
         },
         include: dailyOrderInclude,
       });
@@ -166,17 +188,5 @@ export class DailyOrdersRepository {
   async deleteAllDailyOrders() {
     const deleteResult = await this.prismaService.dailyOrder.deleteMany();
     return deleteResult.count;
-  }
-
-  private findDailyOrderByIdWithClient(
-    transactionClient: Prisma.TransactionClient,
-    orderId: string,
-  ) {
-    return transactionClient.dailyOrder.findUnique({
-      where: {
-        id: orderId,
-      },
-      include: dailyOrderInclude,
-    });
   }
 }

@@ -62,8 +62,28 @@ model User {
   password  String
   role      Role     @default(CHEF)
   createdAt DateTime @default(now())
+  authSessions AuthSession[]
 
   @@map("users")
+}
+
+model AuthSession {
+  id               String   @id
+  userId           String
+  accessTokenVersion Int    @default(1)
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  userAgent        String   @default("")
+  ipAddress        String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
 }
 
 model StockItem {

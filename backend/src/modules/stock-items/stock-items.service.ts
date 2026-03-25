@@ -13,6 +13,8 @@ import {
   StockItemResponse,
 } from './stock-items.types';
 
+const STOCK_ITEMS_CACHE_TTL_MS = 60_000;
+
 function normalizeString(value: unknown, fallback = '') {
   const normalizedValue = String(value ?? '').trim();
   return normalizedValue || fallback;
@@ -45,11 +47,33 @@ function buildAliasesJson(aliases: string[] | undefined): Prisma.InputJsonValue 
 
 @Injectable()
 export class StockItemsService {
+  private cachedStockItems:
+    | {
+        expiresAt: number;
+        items: StockItemResponse[];
+      }
+    | null = null;
+
   constructor(private readonly stockItemsRepository: StockItemsRepository) {}
 
   async listStockItems(): Promise<StockItemResponse[]> {
+    const now = Date.now();
+
+    if (this.cachedStockItems && this.cachedStockItems.expiresAt > now) {
+      return this.cachedStockItems.items;
+    }
+
     const stockItems = await this.stockItemsRepository.listActive();
-    return stockItems.map((stockItem) => this.mapStockItem(stockItem));
+    const mappedStockItems = stockItems.map((stockItem) =>
+      this.mapStockItem(stockItem),
+    );
+
+    this.cachedStockItems = {
+      expiresAt: now + STOCK_ITEMS_CACHE_TTL_MS,
+      items: mappedStockItems,
+    };
+
+    return mappedStockItems;
   }
 
   async createStockItem(
@@ -77,6 +101,8 @@ export class StockItemsService {
       critical: Boolean(createStockItemDto.critical),
       isActive: createStockItemDto.isActive ?? true,
     });
+
+    this.invalidateStockItemsCache();
 
     return {
       ok: true,
@@ -142,6 +168,8 @@ export class StockItemsService {
 
     const updatedStockItem = await this.stockItemsRepository.update(id, updateData);
 
+    this.invalidateStockItemsCache();
+
     return {
       ok: true,
       item: this.mapStockItem(updatedStockItem),
@@ -158,6 +186,7 @@ export class StockItemsService {
     await this.stockItemsRepository.update(id, {
       isActive: false,
     });
+    this.invalidateStockItemsCache();
 
     return {
       ok: true,
@@ -183,5 +212,9 @@ export class StockItemsService {
       createdAt: stockItem.createdAt.toISOString(),
       updatedAt: stockItem.updatedAt.toISOString(),
     };
+  }
+
+  private invalidateStockItemsCache() {
+    this.cachedStockItems = null;
   }
 }

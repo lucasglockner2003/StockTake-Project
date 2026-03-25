@@ -20,14 +20,16 @@ export class StockTakeRepository {
     });
   }
 
-  async findOrCreateStockTake(takeDate: Date) {
-    const existingStockTake = await this.findStockTakeByDate(takeDate);
-
-    if (existingStockTake) {
-      return existingStockTake;
-    }
-
-    return this.createStockTake(takeDate);
+  findOrCreateStockTake(takeDate: Date) {
+    return this.prismaService.stockTake.upsert({
+      where: {
+        takeDate,
+      },
+      update: {},
+      create: {
+        takeDate,
+      },
+    });
   }
 
   findActiveStockItemById(stockItemId: number) {

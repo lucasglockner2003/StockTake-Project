@@ -317,10 +317,6 @@ export type StockTakeScalarRelationFilter = {
   isNot?: Prisma.StockTakeWhereInput
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type StockTakeCreateNestedOneWithoutEntriesInput = {
   create?: Prisma.XOR<Prisma.StockTakeCreateWithoutEntriesInput, Prisma.StockTakeUncheckedCreateWithoutEntriesInput>
   connectOrCreate?: Prisma.StockTakeCreateOrConnectWithoutEntriesInput

@@ -4,9 +4,10 @@ import {
   Get,
   Post,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 import { Public } from '../../common/auth/public.decorator';
 import { LoginDto } from './dto/login.dto';
@@ -31,8 +32,30 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  login(
+    @Body() loginDto: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.login(loginDto, request, response);
+  }
+
+  @Public()
+  @Post('refresh')
+  refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.refresh(request, response);
+  }
+
+  @Public()
+  @Post('logout')
+  logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.logout(request, response);
   }
 
   @Get('me')

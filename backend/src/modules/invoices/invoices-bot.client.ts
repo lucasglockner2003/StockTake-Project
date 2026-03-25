@@ -2,22 +2,13 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-const BOT_SERVICE_BASE_URL = 'http://localhost:4190';
-const BOT_SERVICE_TIMEOUT_MS = 5000;
+const DEFAULT_BOT_SERVICE_BASE_URL = 'http://localhost:4190';
+const DEFAULT_BOT_SERVICE_TIMEOUT_MS = 30000;
 
 function resolveBotServiceBaseUrl(
   value: string | undefined,
-  logger: Logger,
 ) {
-  const normalizedValue = String(value || BOT_SERVICE_BASE_URL).trim().replace(/\/+$/, '');
-
-  if (normalizedValue && normalizedValue !== BOT_SERVICE_BASE_URL) {
-    logger.warn(
-      `Ignoring BOT_SERVICE_BASE_URL=${normalizedValue}. Using ${BOT_SERVICE_BASE_URL}.`,
-    );
-  }
-
-  return BOT_SERVICE_BASE_URL;
+  return String(value || DEFAULT_BOT_SERVICE_BASE_URL).trim().replace(/\/+$/, '');
 }
 
 function normalizeString(value: unknown, fallback = '') {
@@ -102,9 +93,11 @@ export class InvoicesBotClient implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = resolveBotServiceBaseUrl(
       this.configService.get<string>('BOT_SERVICE_BASE_URL'),
-      this.logger,
     );
-    this.timeoutMs = BOT_SERVICE_TIMEOUT_MS;
+    this.timeoutMs = this.configService.get<number>(
+      'BOT_SERVICE_TIMEOUT_MS',
+      DEFAULT_BOT_SERVICE_TIMEOUT_MS,
+    );
     this.httpClient = axios.create({
       baseURL: this.baseUrl,
       timeout: this.timeoutMs,
