@@ -5,16 +5,38 @@ import cors from "cors";
 import { fileURLToPath } from "url";
 import { runDailyOrderBot } from "../bot-poc/dailyOrderBotRunner.mjs";
 import { runDailyOrderFinalSubmit } from "./finalSubmitRunner.mjs";
+import {
+  BOT_SERVICE_SHARED_SECRET_HEADER,
+  MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH,
+  getNodeEnv,
+  normalizeBotServiceSharedSecret,
+  resolveMockPortalBaseUrl,
+} from "./config.mjs";
 import { runInvoiceIntakeExecution } from "./invoiceExecutionRunner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.BOT_SERVICE_PORT || 4190);
-const BOT_BASE_URL = process.env.MOCK_PORTAL_URL || "http://localhost:4177";
+const PORT = Number(process.env.PORT || process.env.BOT_SERVICE_PORT || 4190);
+const NODE_ENV = getNodeEnv();
+const BOT_BASE_URL = resolveMockPortalBaseUrl(process.env.MOCK_PORTAL_URL, NODE_ENV);
+const BOT_SERVICE_SHARED_SECRET = normalizeBotServiceSharedSecret(
+  process.env.BOT_SERVICE_SHARED_SECRET
+);
+const REQUIRE_BOT_SERVICE_SHARED_SECRET =
+  NODE_ENV === "production" || BOT_SERVICE_SHARED_SECRET.length > 0;
 const artifactsDir = path.resolve(__dirname, "../bot-poc/output");
 
 let currentExecution = null;
+
+if (
+  REQUIRE_BOT_SERVICE_SHARED_SECRET &&
+  BOT_SERVICE_SHARED_SECRET.length < MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH
+) {
+  throw new Error(
+    `BOT_SERVICE_SHARED_SECRET must contain at least ${MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH} characters when required.`
+  );
+}
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -164,12 +186,62 @@ function buildExecutionLockResponse() {
   });
 }
 
+function buildPortalConfigurationResponse() {
+  return structuredResponse({
+    ok: false,
+    status: "failed",
+    executionId: "",
+    phase: "configuration",
+    errorCode: "MOCK_PORTAL_URL_NOT_CONFIGURED",
+    message: "Supplier portal base URL is not configured for bot-service.",
+  });
+}
+
+function requirePortalConfiguration(res) {
+  if (BOT_BASE_URL) {
+    return false;
+  }
+
+  res.status(503).json(buildPortalConfigurationResponse());
+  return true;
+}
+
+function requireBotServiceSecret(req, res, next) {
+  if (!REQUIRE_BOT_SERVICE_SHARED_SECRET) {
+    next();
+    return;
+  }
+
+  const providedSecret = normalizeBotServiceSharedSecret(
+    req.get(BOT_SERVICE_SHARED_SECRET_HEADER)
+  );
+
+  if (providedSecret && providedSecret === BOT_SERVICE_SHARED_SECRET) {
+    next();
+    return;
+  }
+
+  res.status(401).json(
+    structuredResponse({
+      ok: false,
+      status: "failed",
+      executionId: "",
+      phase: "authentication",
+      errorCode: "BOT_SERVICE_UNAUTHORIZED",
+      message: "Bot-service shared secret is missing or invalid.",
+    })
+  );
+}
+
 ensureDir(artifactsDir);
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use("/artifacts", express.static(artifactsDir));
+app.use("/execute-daily-order", requireBotServiceSecret);
+app.use("/execute-invoice-intake", requireBotServiceSecret);
+app.use("/submit-daily-order", requireBotServiceSecret);
 
 app.get("/health", (_req, res) => {
   return res.json(
@@ -182,6 +254,7 @@ app.get("/health", (_req, res) => {
       service: "daily-order-bot-service",
       port: PORT,
       mockPortalUrl: BOT_BASE_URL,
+      portalConfigured: Boolean(BOT_BASE_URL),
       currentExecution,
     })
   );
@@ -204,6 +277,10 @@ app.get("/execution-status", (_req, res) => {
 });
 
 app.post("/execute-daily-order", async (req, res) => {
+  if (requirePortalConfiguration(res)) {
+    return;
+  }
+
   if (currentExecution) {
     return res.status(409).json(buildExecutionLockResponse());
   }
@@ -305,6 +382,10 @@ app.post("/execute-daily-order", async (req, res) => {
 });
 
 app.post("/execute-invoice-intake", async (req, res) => {
+  if (requirePortalConfiguration(res)) {
+    return;
+  }
+
   if (currentExecution) {
     return res.status(409).json(buildExecutionLockResponse());
   }
@@ -396,6 +477,10 @@ app.post("/execute-invoice-intake", async (req, res) => {
 });
 
 app.post("/submit-daily-order", async (req, res) => {
+  if (requirePortalConfiguration(res)) {
+    return;
+  }
+
   if (currentExecution) {
     return res.status(409).json(buildExecutionLockResponse());
   }
@@ -492,6 +577,6 @@ app.post("/submit-daily-order", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Bot service running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Bot service running on 0.0.0.0:${PORT}`);
 });

@@ -1,14 +1,16 @@
 import fs from "fs";
 import path from "path";
 import axios from "axios";
+import { getNodeEnv, isDevelopmentLike, resolveMockPortalBaseUrl } from "../config.mjs";
 
-const DEFAULT_MOCK_PORTAL_URL = "http://localhost:4177";
 const INTERNAL_EXECUTION_TARGET = "internal-simulation";
 const MOCK_PORTAL_TIMEOUT_MS = 10000;
 const SIMULATED_PROCESSING_DELAY_MS = Math.max(
   Number(process.env.BOT_SIMULATION_DELAY_MS || 150),
   0
 );
+const NODE_ENV = getNodeEnv();
+const ALLOW_PORTAL_SIMULATION_FALLBACK = isDevelopmentLike(NODE_ENV);
 const PLACEHOLDER_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==";
 
@@ -37,7 +39,7 @@ function logWarn(message, details) {
 }
 
 function normalizePortalBaseUrl(value) {
-  return String(value || DEFAULT_MOCK_PORTAL_URL).trim().replace(/\/+$/, "");
+  return resolveMockPortalBaseUrl(value, NODE_ENV);
 }
 
 function ensureArtifactDirectory(filePath) {
@@ -110,6 +112,34 @@ function logFallbackActivation(executionType, baseUrl, error) {
       stack,
     }
   );
+}
+
+function buildPortalExecutionFailure(message) {
+  return {
+    ok: false,
+    status: "failed",
+    success: false,
+    executionId: "",
+    duration: 0,
+    screenshot: "",
+    filledItems: [],
+    reviewScreenshot: "",
+    executionStartedAt: "",
+    filledAt: "",
+    readyForReviewAt: "",
+    executionFinishedAt: "",
+    executionDuration: 0,
+    orderNumber: "",
+    submittedAt: null,
+    submitStartedAt: "",
+    submitFinishedAt: "",
+    submitDuration: 0,
+    finalScreenshot: "",
+    executionNotes: message,
+    finalExecutionNotes: message,
+    notes: message,
+    itemsProcessed: 0,
+  };
 }
 
 async function simulateDailyOrderFill({ order, screenshotPath, baseUrl }) {
@@ -187,7 +217,7 @@ async function simulateGoodsReceived({ invoice, screenshotPath, baseUrl }) {
 export const mockPortalAdapter = {
   async fillDailyOrderToReview({
     order,
-    baseUrl = DEFAULT_MOCK_PORTAL_URL,
+    baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     screenshotPath,
   }) {
     try {
@@ -219,6 +249,13 @@ export const mockPortalAdapter = {
       };
     } catch (error) {
       logFallbackActivation("fill-daily-order", baseUrl, error);
+      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
+        return buildPortalExecutionFailure(
+          error instanceof Error
+            ? error.message
+            : "Mock portal is unavailable for fill-daily-order."
+        );
+      }
       return simulateDailyOrderFill({
         order,
         screenshotPath,
@@ -229,7 +266,7 @@ export const mockPortalAdapter = {
 
   async submitDailyOrder({
     order,
-    baseUrl = DEFAULT_MOCK_PORTAL_URL,
+    baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     finalScreenshotPath,
   }) {
     try {
@@ -261,6 +298,13 @@ export const mockPortalAdapter = {
       };
     } catch (error) {
       logFallbackActivation("submit-daily-order", baseUrl, error);
+      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
+        return buildPortalExecutionFailure(
+          error instanceof Error
+            ? error.message
+            : "Mock portal is unavailable for submit-daily-order."
+        );
+      }
       return simulateDailyOrderSubmit({
         order,
         finalScreenshotPath,
@@ -271,7 +315,7 @@ export const mockPortalAdapter = {
 
   async postGoodsReceived({
     invoice,
-    baseUrl = DEFAULT_MOCK_PORTAL_URL,
+    baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     screenshotPath,
   }) {
     try {
@@ -307,6 +351,13 @@ export const mockPortalAdapter = {
       };
     } catch (error) {
       logFallbackActivation("invoice-goods-received", baseUrl, error);
+      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
+        return buildPortalExecutionFailure(
+          error instanceof Error
+            ? error.message
+            : "Mock portal is unavailable for invoice-goods-received."
+        );
+      }
       return simulateGoodsReceived({
         invoice,
         screenshotPath,

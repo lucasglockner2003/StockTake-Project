@@ -205,7 +205,9 @@ function InvoiceIntakePage() {
       setPageNotice({
         tone: result.ok ? "success" : "error",
         message: result.ok
-          ? "Invoice execution completed successfully."
+          ? result.reason === "queued"
+            ? "Invoice queued successfully. Run bot execution from Invoice Queue."
+            : "Invoice execution completed successfully."
           : result.errorMessage || "Invoice execution failed.",
       });
       refreshQueue();

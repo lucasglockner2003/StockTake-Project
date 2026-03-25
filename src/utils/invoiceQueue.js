@@ -1,5 +1,6 @@
 import {
   deleteInvoiceFromQueue,
+  executeInvoiceInQueue,
   ensureInvoiceQueueLoaded as ensureInvoiceQueueLoadedRequest,
   fetchInvoiceQueue as fetchInvoiceQueueRequest,
   fetchInvoiceQueueSummary,
@@ -60,6 +61,10 @@ export function submitInvoiceIntake(invoiceDraft) {
 
 export function retryInvoice(invoiceId) {
   return retryInvoiceInQueue(invoiceId);
+}
+
+export function executeInvoice(invoiceId) {
+  return executeInvoiceInQueue(invoiceId);
 }
 
 export function deleteInvoice(invoiceId) {

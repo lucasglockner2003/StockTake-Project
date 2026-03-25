@@ -34,6 +34,12 @@ export class InvoicesController {
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @Post(':id/execute')
+  executeInvoice(@Param('id') id: string) {
+    return this.invoicesService.executeInvoice(id);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER)
   @Post(':id/retry')
   retryInvoice(@Param('id') id: string) {
     return this.invoicesService.retryInvoice(id);

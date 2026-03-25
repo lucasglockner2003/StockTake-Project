@@ -1,5 +1,6 @@
 import {
   deleteInvoice as deleteInvoiceRequest,
+  executeInvoice as executeInvoiceRequest,
   getInvoiceById as getInvoiceByIdRequest,
   getInvoices as getInvoicesRequest,
   getInvoicesSummary as getInvoicesSummaryRequest,
@@ -160,6 +161,22 @@ export async function submitInvoiceIntake(invoiceDraft) {
 
 export async function retryInvoiceInQueue(invoiceId) {
   const payload = await retryInvoiceRequest(invoiceId);
+
+  if (payload?.invoice) {
+    upsertCachedInvoice(payload.invoice, payload.summary);
+  }
+
+  return {
+    ...payload,
+    invoice: payload?.invoice ? normalizeInvoice(payload.invoice) : null,
+    summary: payload?.summary
+      ? normalizeInvoiceSummary(payload.summary)
+      : getCachedInvoiceSummary(),
+  };
+}
+
+export async function executeInvoiceInQueue(invoiceId) {
+  const payload = await executeInvoiceRequest(invoiceId);
 
   if (payload?.invoice) {
     upsertCachedInvoice(payload.invoice, payload.summary);

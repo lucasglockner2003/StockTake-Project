@@ -2,16 +2,14 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import {
+  BOT_SERVICE_SHARED_SECRET_HEADER,
+  normalizeBotServiceSharedSecret,
+  resolveBotServiceBaseUrl,
+} from '../../config/bot-service.config';
 import { DailyOrderBotPayload } from './daily-orders.types';
 
-const DEFAULT_BOT_SERVICE_BASE_URL = 'http://localhost:4190';
 const DEFAULT_BOT_SERVICE_TIMEOUT_MS = 30000;
-
-function resolveBotServiceBaseUrl(
-  value: string | undefined,
-) {
-  return String(value || DEFAULT_BOT_SERVICE_BASE_URL).trim().replace(/\/+$/, '');
-}
 
 function normalizeString(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;
@@ -80,27 +78,46 @@ export interface DailyOrdersBotResponse {
 export class DailyOrdersBotClient implements OnModuleInit {
   private readonly logger = new Logger(DailyOrdersBotClient.name);
   private readonly baseUrl: string;
+  private readonly isConfigured: boolean;
   private readonly timeoutMs: number;
+  private readonly sharedSecret: string;
   private readonly httpClient: AxiosInstance;
 
   constructor(private readonly configService: ConfigService) {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+
     this.baseUrl = resolveBotServiceBaseUrl(
       this.configService.get<string>('BOT_SERVICE_BASE_URL'),
+      nodeEnv,
     );
+    this.isConfigured = Boolean(this.baseUrl);
     this.timeoutMs = this.configService.get<number>(
       'BOT_SERVICE_TIMEOUT_MS',
       DEFAULT_BOT_SERVICE_TIMEOUT_MS,
     );
+    this.sharedSecret = normalizeBotServiceSharedSecret(
+      this.configService.get<string>('BOT_SERVICE_SHARED_SECRET'),
+    );
     this.httpClient = axios.create({
-      baseURL: this.baseUrl,
+      baseURL: this.baseUrl || undefined,
       timeout: this.timeoutMs,
       headers: {
         'Content-Type': 'application/json',
+        ...(this.sharedSecret
+          ? { [BOT_SERVICE_SHARED_SECRET_HEADER]: this.sharedSecret }
+          : {}),
       },
     });
   }
 
   async onModuleInit() {
+    if (!this.isConfigured) {
+      this.logger.warn(
+        'BOT_SERVICE_BASE_URL is not configured. Daily-order automation execution is disabled.',
+      );
+      return;
+    }
+
     await this.logHealthCheck();
   }
 
@@ -189,6 +206,10 @@ export class DailyOrdersBotClient implements OnModuleInit {
   }
 
   private async logHealthCheck() {
+    if (!this.isConfigured) {
+      return;
+    }
+
     const pathname = '/health';
     const url = `${this.baseUrl}${pathname}`;
 
@@ -237,6 +258,16 @@ export class DailyOrdersBotClient implements OnModuleInit {
       body?: DailyOrderBotPayload;
     } = {},
   ): Promise<DailyOrdersBotResponse> {
+    if (!this.isConfigured) {
+      return this.normalizeResponse(null, {
+        ok: false,
+        status: 'failed',
+        phase: 'not-configured',
+        errorCode: 'BOT_SERVICE_NOT_CONFIGURED',
+        message: 'Bot service base URL is not configured.',
+      });
+    }
+
     const method = options.method || 'GET';
     const url = `${this.baseUrl}${pathname}`;
 

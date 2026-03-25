@@ -1,9 +1,10 @@
 import { normalizeOrderPayload } from "../bot-poc/dailyOrderBotRunner.mjs";
+import { resolveMockPortalBaseUrl } from "./config.mjs";
 import { resolveSupplierAdapter } from "./adapters/index.mjs";
 
 export async function runDailyOrderFinalSubmit({
   order,
-  baseUrl = process.env.MOCK_PORTAL_URL || "http://localhost:4177",
+  baseUrl = resolveMockPortalBaseUrl(process.env.MOCK_PORTAL_URL),
   finalScreenshotPath,
   headless = true,
 }) {

@@ -51,6 +51,10 @@ function toIsoString(value: Date | null | undefined) {
   return value ? value.toISOString() : '';
 }
 
+function canExecuteInvoiceStatus(status: InvoiceStatus) {
+  return status === InvoiceStatus.QUEUED || status === InvoiceStatus.FAILED;
+}
+
 function buildInvoiceSummary(
   counts: Array<{
     status: InvoiceStatus;
@@ -180,10 +184,14 @@ export class InvoicesService {
       },
     });
 
-    return this.executeInvoiceBotRun(draftInvoice, {
-      attempts: draftInvoice.attempts + 1,
-      reasonOnSuccess: 'success',
-      reasonOnFailure: 'failed',
+    const queuedInvoice = await this.queueInvoiceForExecution(draftInvoice, {
+      notes: 'Invoice queued for bot execution.',
+    });
+
+    return this.buildMutationResponse({
+      ok: true,
+      reason: 'queued',
+      invoice: queuedInvoice,
     });
   }
 
@@ -226,6 +234,37 @@ export class InvoicesService {
     });
   }
 
+  async executeInvoice(invoiceId: string): Promise<InvoiceMutationResponse> {
+    const invoice = await this.getInvoiceOrThrow(invoiceId);
+
+    if (invoice.status === InvoiceStatus.EXECUTED) {
+      return this.buildMutationResponse({
+        ok: false,
+        reason: 'already-executed',
+        invoice,
+        errorCode: 'INVOICE_ALREADY_EXECUTED',
+        errorMessage: 'This invoice was already executed.',
+      });
+    }
+
+    if (!canExecuteInvoiceStatus(invoice.status)) {
+      return this.buildMutationResponse({
+        ok: false,
+        reason: 'not-executable',
+        invoice,
+        errorCode: 'INVOICE_NOT_EXECUTABLE',
+        errorMessage: 'Only queued or failed invoices can be sent to the bot.',
+      });
+    }
+
+    return this.executeInvoiceBotRun(invoice, {
+      attempts: invoice.attempts + 1,
+      reasonOnSuccess: 'success',
+      reasonOnFailure:
+        invoice.status === InvoiceStatus.QUEUED ? 'queued' : 'failed',
+    });
+  }
+
   async deleteInvoice(invoiceId: string): Promise<InvoiceDeleteResponse> {
     const invoice = await this.invoicesRepository.findInvoiceById(invoiceId);
 
@@ -253,32 +292,40 @@ export class InvoicesService {
       reasonOnFailure: string;
     },
   ) {
-    const payload = buildInvoiceBotPayload(invoice);
-    const queuedAt = new Date();
-
-    const queuedInvoice = await this.invoicesRepository.updateInvoice(invoice.id, {
-      status: InvoiceStatus.QUEUED,
+    const queuedInvoice = await this.queueInvoiceForExecution(invoice, {
       attempts: options.attempts,
-      queuedAt,
-      payloadSnapshot: payload as unknown as Prisma.InputJsonValue,
-      lastErrorCode: '',
-      lastErrorMessage: '',
-      notes: 'Invoice queued for bot execution.',
+      notes: 'Invoice dispatch requested for bot execution.',
     });
+    const payload = buildInvoiceBotPayload(queuedInvoice);
 
     const botResponse = await this.invoicesBotClient.executeInvoiceIntake(payload);
-    const updatedInvoice = await this.applyBotResponse(queuedInvoice, botResponse);
+    const updatedInvoice = await this.applyBotResponse(
+      queuedInvoice,
+      botResponse,
+    );
     const success =
       botResponse.ok &&
       botResponse.status === INVOICE_STATUS_VALUES.EXECUTED;
+    const remainsQueued =
+      updatedInvoice.status === InvoiceStatus.QUEUED &&
+      !success;
 
     return this.buildMutationResponse({
-      ok: success,
-      reason: success ? options.reasonOnSuccess : options.reasonOnFailure,
+      ok: success || remainsQueued,
+      reason: success
+        ? options.reasonOnSuccess
+        : remainsQueued
+          ? 'queued'
+          : options.reasonOnFailure,
       invoice: updatedInvoice,
-      errorCode: success ? '' : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
+      errorCode:
+        success || remainsQueued
+          ? ''
+          : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
       errorMessage: success
         ? ''
+        : remainsQueued
+          ? ''
         : botResponse.message || botResponse.notes || 'Invoice execution failed.',
     });
   }
@@ -287,17 +334,24 @@ export class InvoicesService {
     const success =
       botResponse.ok &&
       botResponse.status === INVOICE_STATUS_VALUES.EXECUTED;
+    const shouldRemainQueued =
+      botResponse.errorCode === 'EXECUTION_IN_PROGRESS' ||
+      botResponse.errorCode === 'BOT_SERVICE_NOT_CONFIGURED';
     const executedAt = new Date();
 
     return this.invoicesRepository.updateInvoice(invoice.id, {
-      status: success ? InvoiceStatus.EXECUTED : InvoiceStatus.FAILED,
+      status: success
+        ? InvoiceStatus.EXECUTED
+        : shouldRemainQueued
+          ? InvoiceStatus.QUEUED
+          : InvoiceStatus.FAILED,
       executionId: botResponse.executionId,
       executionDurationMs: Math.max(Math.round(botResponse.duration || 0), 0),
       screenshotPath: botResponse.screenshot || '',
       filledItemsSnapshot: Array.isArray(botResponse.filledItems)
         ? (botResponse.filledItems as Prisma.InputJsonValue)
         : ([] as Prisma.InputJsonValue),
-      executedAt,
+      executedAt: success ? executedAt : invoice.executedAt,
       lastErrorCode: success
         ? ''
         : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
@@ -311,7 +365,29 @@ export class InvoicesService {
         botResponse.message ||
         (success
           ? 'Invoice execution completed successfully.'
+          : shouldRemainQueued
+            ? 'Invoice remains queued for bot execution.'
           : 'Invoice execution failed.'),
+    });
+  }
+
+  private queueInvoiceForExecution(
+    invoice: InvoiceRecord,
+    options: {
+      attempts?: number;
+      notes: string;
+    },
+  ) {
+    const payload = buildInvoiceBotPayload(invoice);
+
+    return this.invoicesRepository.updateInvoice(invoice.id, {
+      status: InvoiceStatus.QUEUED,
+      attempts: options.attempts ?? invoice.attempts,
+      queuedAt: new Date(),
+      payloadSnapshot: payload as unknown as Prisma.InputJsonValue,
+      lastErrorCode: '',
+      lastErrorMessage: '',
+      notes: options.notes,
     });
   }
 

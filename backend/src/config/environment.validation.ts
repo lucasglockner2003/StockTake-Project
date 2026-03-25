@@ -10,7 +10,13 @@ import {
   validateSync,
 } from 'class-validator';
 
+import {
+  MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH,
+  normalizeOptionalUrl,
+} from './bot-service.config';
+
 const MINIMUM_JWT_SECRET_LENGTH = 32;
+const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 
 function transformBoolean(value: unknown) {
   if (value === undefined || value === null || value === '') {
@@ -57,6 +63,22 @@ function validateUrlList(values: string[], fieldName: string) {
   }
 }
 
+function validateProductionServiceUrl(value: string, fieldName: string) {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${fieldName} contains an invalid URL: ${value}`);
+  }
+
+  if (LOCALHOST_HOSTNAMES.has(url.hostname)) {
+    throw new Error(
+      `${fieldName} cannot point to localhost in production. Configure a reachable service URL.`,
+    );
+  }
+}
+
 class EnvironmentVariables {
   @IsString()
   DATABASE_URL!: string;
@@ -76,6 +98,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   BOT_SERVICE_BASE_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  BOT_SERVICE_SHARED_SECRET?: string;
 
   @IsOptional()
   @IsString()
@@ -185,6 +211,12 @@ export function validateEnvironment(config: Record<string, unknown>) {
   }
 
   const nodeEnv = validatedConfig.NODE_ENV || 'development';
+  const botServiceBaseUrl = normalizeOptionalUrl(
+    validatedConfig.BOT_SERVICE_BASE_URL,
+  );
+  const botServiceSharedSecret = String(
+    validatedConfig.BOT_SERVICE_SHARED_SECRET || '',
+  ).trim();
   const legacySecret = String(validatedConfig.JWT_SECRET || '').trim();
   const accessSecret = String(validatedConfig.JWT_ACCESS_SECRET || '').trim();
   const refreshSecret = String(validatedConfig.JWT_REFRESH_SECRET || '').trim();
@@ -222,8 +254,29 @@ export function validateEnvironment(config: Record<string, unknown>) {
 
   validatedConfig.JWT_ACCESS_SECRET = resolvedAccessSecret;
   validatedConfig.JWT_REFRESH_SECRET = resolvedRefreshSecret;
+  validatedConfig.BOT_SERVICE_BASE_URL = botServiceBaseUrl;
+  validatedConfig.BOT_SERVICE_SHARED_SECRET = botServiceSharedSecret;
+
+  if (
+    botServiceSharedSecret &&
+    botServiceSharedSecret.length < MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH
+  ) {
+    throw new Error(
+      `BOT_SERVICE_SHARED_SECRET must contain at least ${MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH} characters when configured.`,
+    );
+  }
 
   if (nodeEnv === 'production') {
+    if (botServiceBaseUrl) {
+      validateProductionServiceUrl(botServiceBaseUrl, 'BOT_SERVICE_BASE_URL');
+    }
+
+    if (botServiceBaseUrl && !botServiceSharedSecret) {
+      throw new Error(
+        'BOT_SERVICE_SHARED_SECRET must be configured in production when BOT_SERVICE_BASE_URL is set.',
+      );
+    }
+
     if (parseList(validatedConfig.CORS_ALLOWED_ORIGINS).length === 0) {
       throw new Error(
         'CORS_ALLOWED_ORIGINS must be configured in production.',

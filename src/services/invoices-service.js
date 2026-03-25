@@ -16,6 +16,10 @@ export function getInvoiceById(invoiceId) {
   return httpClient.get(`/invoices/${invoiceId}`);
 }
 
+export function executeInvoice(invoiceId) {
+  return httpClient.post(`/invoices/${invoiceId}/execute`, {});
+}
+
 export function retryInvoice(invoiceId) {
   return httpClient.post(`/invoices/${invoiceId}/retry`, {});
 }

@@ -8,6 +8,7 @@ import { styles } from "../utils/uiStyles";
 import {
   deleteInvoice,
   ensureInvoiceQueueLoaded,
+  executeInvoice,
   getInvoiceQueue,
   getInvoiceQueueCounts,
   refreshInvoiceQueue as refreshInvoiceQueueRequest,
@@ -144,6 +145,7 @@ function InvoiceQueuePage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [openPayloadInvoiceId, setOpenPayloadInvoiceId] = useState("");
+  const [activeExecuteInvoiceId, setActiveExecuteInvoiceId] = useState("");
   const [activeRetryInvoiceId, setActiveRetryInvoiceId] = useState("");
   const [isRetryingAllFailed, setIsRetryingAllFailed] = useState(false);
   const [retryProgress, setRetryProgress] = useState({
@@ -436,6 +438,52 @@ function InvoiceQueuePage() {
     }
   }
 
+  async function executeQueuedInvoice(invoice) {
+    if (invoice.status !== INVOICE_INTAKE_STATUSES.QUEUED) {
+      setNotice("warning", "Run Bot is available only for QUEUED invoices.");
+      return;
+    }
+
+    if (isRetryingAllFailed) {
+      setNotice("warning", "Batch retry is in progress. Wait for completion.");
+      return;
+    }
+
+    if (activeRetryInvoiceId || activeExecuteInvoiceId) {
+      setNotice("warning", "Another invoice execution is already in progress.");
+      return;
+    }
+
+    try {
+      setActiveExecuteInvoiceId(invoice.id);
+      setNotice(
+        "info",
+        `Running bot for invoice ${invoice.invoiceNumber || invoice.id}...`
+      );
+
+      refreshInvoiceQueue();
+      const result = await executeInvoice(invoice.id);
+      const executedNow =
+        result?.invoice?.status === INVOICE_INTAKE_STATUSES.EXECUTED;
+
+      setNotice(
+        executedNow ? "success" : "warning",
+        executedNow
+          ? "Invoice executed successfully."
+          : result?.invoice?.executionMetadata?.lastErrorMessage ||
+              "Invoice remains queued. Check bot-service availability and configuration."
+      );
+    } catch (error) {
+      refreshInvoiceQueue();
+      setNotice(
+        "error",
+        error?.message || "Failed to execute invoice in bot-service."
+      );
+    } finally {
+      setActiveExecuteInvoiceId("");
+    }
+  }
+
   async function handleRetryInvoice(invoice) {
     if (invoice.status !== INVOICE_INTAKE_STATUSES.FAILED) {
       setNotice("warning", "Retry is available only for FAILED invoices.");
@@ -447,7 +495,10 @@ function InvoiceQueuePage() {
       return;
     }
 
-    if (activeRetryInvoiceId && activeRetryInvoiceId !== invoice.id) {
+    if (
+      (activeRetryInvoiceId && activeRetryInvoiceId !== invoice.id) ||
+      activeExecuteInvoiceId
+    ) {
       setNotice("warning", "Another invoice retry is already in progress.");
       return;
     }
@@ -465,7 +516,7 @@ function InvoiceQueuePage() {
       return;
     }
 
-    if (isRetryingAllFailed || activeRetryInvoiceId) {
+    if (isRetryingAllFailed || activeRetryInvoiceId || activeExecuteInvoiceId) {
       setNotice("warning", "Another retry is currently in progress.");
       return;
     }
@@ -563,16 +614,25 @@ function InvoiceQueuePage() {
         <button
           onClick={handleRetryAllFailed}
           disabled={
-            allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+            allCounts.failed === 0 ||
+            isRetryingAllFailed ||
+            !!activeRetryInvoiceId ||
+            !!activeExecuteInvoiceId
           }
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+              allCounts.failed === 0 ||
+              isRetryingAllFailed ||
+              !!activeRetryInvoiceId ||
+              !!activeExecuteInvoiceId
                 ? "#888"
                 : "#d9534f",
             cursor:
-              allCounts.failed === 0 || isRetryingAllFailed || !!activeRetryInvoiceId
+              allCounts.failed === 0 ||
+              isRetryingAllFailed ||
+              !!activeRetryInvoiceId ||
+              !!activeExecuteInvoiceId
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -852,10 +912,17 @@ function InvoiceQueuePage() {
           const payload = getInvoicePayload(invoice);
           const hasScreenshot = Boolean(invoice?.executionMetadata?.screenshot);
           const isRetryingThis = activeRetryInvoiceId === invoice.id;
+          const isExecutingThis = activeExecuteInvoiceId === invoice.id;
+          const canExecute =
+            invoice.status === INVOICE_INTAKE_STATUSES.QUEUED &&
+            !isRetryingAllFailed &&
+            !activeRetryInvoiceId &&
+            !activeExecuteInvoiceId;
           const canRetry =
             invoice.status === INVOICE_INTAKE_STATUSES.FAILED &&
             !isRetryingAllFailed &&
-            !activeRetryInvoiceId;
+            !activeRetryInvoiceId &&
+            !activeExecuteInvoiceId;
 
           return (
             <div
@@ -951,6 +1018,20 @@ function InvoiceQueuePage() {
               )}
 
               <PageActionBar marginBottom="0">
+                {invoice.status === INVOICE_INTAKE_STATUSES.QUEUED && (
+                  <button
+                    onClick={() => executeQueuedInvoice(invoice)}
+                    disabled={!canExecute}
+                    style={{
+                      ...styles.primaryButton,
+                      backgroundColor: canExecute ? "#0288d1" : "#888",
+                      cursor: canExecute ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {isExecutingThis ? "Running Bot..." : "Run Bot"}
+                  </button>
+                )}
+
                 {invoice.status === INVOICE_INTAKE_STATUSES.FAILED && (
                   <button
                     onClick={() => handleRetryInvoice(invoice)}
@@ -981,13 +1062,23 @@ function InvoiceQueuePage() {
 
                 <button
                   onClick={() => handleDeleteInvoice(invoice.id)}
-                  disabled={isRetryingAllFailed || !!activeRetryInvoiceId}
+                  disabled={
+                    isRetryingAllFailed ||
+                    !!activeRetryInvoiceId ||
+                    !!activeExecuteInvoiceId
+                  }
                   style={{
                     ...styles.primaryButton,
                     backgroundColor:
-                      isRetryingAllFailed || !!activeRetryInvoiceId ? "#888" : "#d9534f",
+                      isRetryingAllFailed ||
+                      !!activeRetryInvoiceId ||
+                      !!activeExecuteInvoiceId
+                        ? "#888"
+                        : "#d9534f",
                     cursor:
-                      isRetryingAllFailed || !!activeRetryInvoiceId
+                      isRetryingAllFailed ||
+                      !!activeRetryInvoiceId ||
+                      !!activeExecuteInvoiceId
                         ? "not-allowed"
                         : "pointer",
                   }}

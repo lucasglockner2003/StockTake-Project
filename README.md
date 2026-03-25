@@ -41,6 +41,7 @@ PASSWORD_SALT_ROUNDS=12
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 AUTH_ALLOW_PUBLIC_REGISTRATION=false
 BOT_SERVICE_BASE_URL=http://localhost:4190
+BOT_SERVICE_SHARED_SECRET=change-this-bot-service-shared-secret-before-production-1234
 BOT_SERVICE_TIMEOUT_MS=30000
 ADMIN_SEED_EMAIL=admin@smartops.com
 ADMIN_SEED_PASSWORD=12345678
@@ -123,6 +124,10 @@ Example initial credentials from `backend/.env.example`:
 `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must each have at least 32 characters. `JWT_SECRET` is accepted only as a legacy fallback in development.
 
 `CORS_ALLOWED_ORIGINS` accepts one or more frontend URLs separated by commas. In production it is required, for example: `https://your-frontend.onrender.com,https://admin.your-domain.com`.
+
+`BOT_SERVICE_BASE_URL` uses a localhost fallback only in development. In production, configure a real reachable URL and pair it with the same `BOT_SERVICE_SHARED_SECRET` on both the backend and bot-service.
+
+Invoice intake now queues the invoice first and runs automation explicitly from the Invoice Queue page. This keeps login and draft creation independent from bot-service availability.
 
 ## Full Run From Zero
 

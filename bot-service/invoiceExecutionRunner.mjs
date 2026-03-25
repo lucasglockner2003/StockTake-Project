@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { resolveMockPortalBaseUrl } from "./config.mjs";
 import { resolveSupplierAdapter } from "./adapters/index.mjs";
 
 function normalizeNumeric(value) {
@@ -41,7 +42,7 @@ function normalizeInvoicePayload(invoiceInput) {
 
 export async function runInvoiceIntakeExecution({
   invoice,
-  baseUrl = process.env.MOCK_PORTAL_URL || "http://localhost:4177",
+  baseUrl = resolveMockPortalBaseUrl(process.env.MOCK_PORTAL_URL),
   screenshotPath,
   headless = true,
 }) {
