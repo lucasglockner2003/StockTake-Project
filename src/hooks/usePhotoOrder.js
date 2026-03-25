@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   extractTextFromImage,
   getMockPhotoText,
+  getPhotoExampleText,
   parsePhotoTextToEntries,
   getConfirmedPhotoEntries,
   getPhotoResultTextFromConfirmedEntries,
@@ -152,7 +153,7 @@ export function usePhotoOrder(
     try {
       setOcrError("");
       setOpenSearchKey(null);
-      commitParsedText(getMockPhotoText());
+      commitParsedText(getMockPhotoText(items));
     } catch (error) {
       setOcrError("Failed to generate mock AI result.");
       console.error("Mock AI error:", error);
@@ -237,6 +238,7 @@ export function usePhotoOrder(
     () => buildPhotoAutomationPayloadFromConfirmedEntries(confirmedEntries),
     [confirmedEntries]
   );
+  const examplePhotoText = useMemo(() => getPhotoExampleText(items), [items]);
 
   const automationJob = useMemo(
     () => buildPhotoAutomationJob(confirmedEntries, photoSessionId),
@@ -292,6 +294,7 @@ export function usePhotoOrder(
     isOutputLocked,
     searchableItems,
     liveValidEntriesCount,
+    examplePhotoText,
     automationPayload,
     automationJob,
     readyDailyOrdersCount,

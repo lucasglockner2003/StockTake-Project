@@ -394,7 +394,8 @@ export const ModelName = {
   InvoiceItem: 'InvoiceItem',
   AutomationJob: 'AutomationJob',
   AutomationJobItem: 'AutomationJobItem',
-  SupplierOrderHistoryRevision: 'SupplierOrderHistoryRevision'
+  SupplierOrderHistoryRevision: 'SupplierOrderHistoryRevision',
+  SupplierOrderHistory: 'SupplierOrderHistory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -410,7 +411,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "stockItem" | "stockTake" | "stockTakeEntry" | "dailyOrder" | "dailyOrderItem" | "invoice" | "invoiceItem" | "automationJob" | "automationJobItem" | "supplierOrderHistoryRevision"
+    modelProps: "user" | "stockItem" | "stockTake" | "stockTakeEntry" | "dailyOrder" | "dailyOrderItem" | "invoice" | "invoiceItem" | "automationJob" | "automationJobItem" | "supplierOrderHistoryRevision" | "supplierOrderHistory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1228,6 +1229,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    SupplierOrderHistory: {
+      payload: Prisma.$SupplierOrderHistoryPayload<ExtArgs>
+      fields: Prisma.SupplierOrderHistoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SupplierOrderHistoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SupplierOrderHistoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        findFirst: {
+          args: Prisma.SupplierOrderHistoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SupplierOrderHistoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        findMany: {
+          args: Prisma.SupplierOrderHistoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>[]
+        }
+        create: {
+          args: Prisma.SupplierOrderHistoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        createMany: {
+          args: Prisma.SupplierOrderHistoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SupplierOrderHistoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>[]
+        }
+        delete: {
+          args: Prisma.SupplierOrderHistoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        update: {
+          args: Prisma.SupplierOrderHistoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.SupplierOrderHistoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SupplierOrderHistoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SupplierOrderHistoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.SupplierOrderHistoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SupplierOrderHistoryPayload>
+        }
+        aggregate: {
+          args: Prisma.SupplierOrderHistoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSupplierOrderHistory>
+        }
+        groupBy: {
+          args: Prisma.SupplierOrderHistoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SupplierOrderHistoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SupplierOrderHistoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SupplierOrderHistoryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1281,8 +1356,10 @@ export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof User
 export const StockItemScalarFieldEnum = {
   id: 'id',
   name: 'name',
-  supplier: 'supplier',
   unit: 'unit',
+  category: 'category',
+  supplierName: 'supplierName',
+  aliases: 'aliases',
   area: 'area',
   idealStock: 'idealStock',
   critical: 'critical',
@@ -1409,9 +1486,13 @@ export type InvoiceItemScalarFieldEnum = (typeof InvoiceItemScalarFieldEnum)[key
 
 export const AutomationJobScalarFieldEnum = {
   id: 'id',
+  type: 'type',
+  payload: 'payload',
   sessionId: 'sessionId',
   source: 'source',
   status: 'status',
+  result: 'result',
+  error: 'error',
   notes: 'notes',
   attempts: 'attempts',
   totalItems: 'totalItems',
@@ -1469,6 +1550,22 @@ export const SupplierOrderHistoryRevisionScalarFieldEnum = {
 export type SupplierOrderHistoryRevisionScalarFieldEnum = (typeof SupplierOrderHistoryRevisionScalarFieldEnum)[keyof typeof SupplierOrderHistoryRevisionScalarFieldEnum]
 
 
+export const SupplierOrderHistoryScalarFieldEnum = {
+  id: 'id',
+  dailyOrderId: 'dailyOrderId',
+  supplierName: 'supplierName',
+  items: 'items',
+  totalItems: 'totalItems',
+  totalQuantity: 'totalQuantity',
+  status: 'status',
+  revisionNumber: 'revisionNumber',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SupplierOrderHistoryScalarFieldEnum = (typeof SupplierOrderHistoryScalarFieldEnum)[keyof typeof SupplierOrderHistoryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1500,14 +1597,6 @@ export const QueryMode = {
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
 
 
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
 export const JsonNullValueFilter = {
   DbNull: DbNull,
   JsonNull: JsonNull,
@@ -1515,6 +1604,14 @@ export const JsonNullValueFilter = {
 } as const
 
 export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
 
 
@@ -1580,6 +1677,20 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1639,20 +1750,6 @@ export type EnumInvoiceStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Pr
  * Reference to a field of type 'InvoiceStatus[]'
  */
 export type ListEnumInvoiceStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InvoiceStatus[]'>
-    
-
-
-/**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
-    
-
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -1803,6 +1900,7 @@ export type GlobalOmitConfig = {
   automationJob?: Prisma.AutomationJobOmit
   automationJobItem?: Prisma.AutomationJobItemOmit
   supplierOrderHistoryRevision?: Prisma.SupplierOrderHistoryRevisionOmit
+  supplierOrderHistory?: Prisma.SupplierOrderHistoryOmit
 }
 
 /* Types for Logging */

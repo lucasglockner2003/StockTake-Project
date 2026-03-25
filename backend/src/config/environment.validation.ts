@@ -1,5 +1,6 @@
-import { plainToInstance, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -8,6 +9,28 @@ import {
   Min,
   validateSync,
 } from 'class-validator';
+
+function transformBoolean(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalizedValue = String(value).trim().toLowerCase();
+
+  if (['true', '1', 'yes', 'on'].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'off'].includes(normalizedValue)) {
+    return false;
+  }
+
+  return value;
+}
 
 class EnvironmentVariables {
   @IsString()
@@ -21,10 +44,21 @@ class EnvironmentVariables {
   BOT_SERVICE_BASE_URL?: string;
 
   @IsOptional()
+  @IsString()
+  CORS_ALLOWED_ORIGINS?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   JWT_EXPIRES_IN?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(10)
+  @Max(15)
+  PASSWORD_SALT_ROUNDS?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -42,6 +76,11 @@ class EnvironmentVariables {
   @IsOptional()
   @IsIn(['development', 'test', 'production'])
   NODE_ENV?: 'development' | 'test' | 'production';
+
+  @IsOptional()
+  @Transform(({ value }) => transformBoolean(value))
+  @IsBoolean()
+  AUTH_ALLOW_PUBLIC_REGISTRATION?: boolean;
 }
 
 export function validateEnvironment(config: Record<string, unknown>) {

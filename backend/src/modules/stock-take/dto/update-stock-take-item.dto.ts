@@ -1,13 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsNotEmptyObject,
-  IsNumber,
-  IsOptional,
-  Min,
-  ValidateNested,
-} from 'class-validator';
-
-import { StockItemSnapshotDto } from './stock-item-snapshot.dto';
+import { IsNumber, IsOptional, Min } from 'class-validator';
 
 export class UpdateStockTakeItemDto {
   @IsOptional()
@@ -15,9 +7,4 @@ export class UpdateStockTakeItemDto {
   @IsNumber()
   @Min(0)
   quantity?: number | null;
-
-  @IsNotEmptyObject()
-  @ValidateNested()
-  @Type(() => StockItemSnapshotDto)
-  stockItem!: StockItemSnapshotDto;
 }

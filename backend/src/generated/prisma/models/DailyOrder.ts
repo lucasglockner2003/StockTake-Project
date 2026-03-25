@@ -421,6 +421,7 @@ export type DailyOrderWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"DailyOrder"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"DailyOrder"> | Date | string
   items?: Prisma.DailyOrderItemListRelationFilter
+  history?: Prisma.XOR<Prisma.SupplierOrderHistoryNullableScalarRelationFilter, Prisma.SupplierOrderHistoryWhereInput> | null
 }
 
 export type DailyOrderOrderByWithRelationInput = {
@@ -454,6 +455,7 @@ export type DailyOrderOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   items?: Prisma.DailyOrderItemOrderByRelationAggregateInput
+  history?: Prisma.SupplierOrderHistoryOrderByWithRelationInput
 }
 
 export type DailyOrderWhereUniqueInput = Prisma.AtLeast<{
@@ -490,6 +492,7 @@ export type DailyOrderWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"DailyOrder"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"DailyOrder"> | Date | string
   items?: Prisma.DailyOrderItemListRelationFilter
+  history?: Prisma.XOR<Prisma.SupplierOrderHistoryNullableScalarRelationFilter, Prisma.SupplierOrderHistoryWhereInput> | null
 }, "id">
 
 export type DailyOrderOrderByWithAggregationInput = {
@@ -595,6 +598,7 @@ export type DailyOrderCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DailyOrderItemCreateNestedManyWithoutDailyOrderInput
+  history?: Prisma.SupplierOrderHistoryCreateNestedOneWithoutDailyOrderInput
 }
 
 export type DailyOrderUncheckedCreateInput = {
@@ -628,6 +632,7 @@ export type DailyOrderUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DailyOrderItemUncheckedCreateNestedManyWithoutDailyOrderInput
+  history?: Prisma.SupplierOrderHistoryUncheckedCreateNestedOneWithoutDailyOrderInput
 }
 
 export type DailyOrderUpdateInput = {
@@ -661,6 +666,7 @@ export type DailyOrderUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DailyOrderItemUpdateManyWithoutDailyOrderNestedInput
+  history?: Prisma.SupplierOrderHistoryUpdateOneWithoutDailyOrderNestedInput
 }
 
 export type DailyOrderUncheckedUpdateInput = {
@@ -694,6 +700,7 @@ export type DailyOrderUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DailyOrderItemUncheckedUpdateManyWithoutDailyOrderNestedInput
+  history?: Prisma.SupplierOrderHistoryUncheckedUpdateOneWithoutDailyOrderNestedInput
 }
 
 export type DailyOrderCreateManyInput = {
@@ -907,6 +914,11 @@ export type DailyOrderScalarRelationFilter = {
   isNot?: Prisma.DailyOrderWhereInput
 }
 
+export type DailyOrderNullableScalarRelationFilter = {
+  is?: Prisma.DailyOrderWhereInput | null
+  isNot?: Prisma.DailyOrderWhereInput | null
+}
+
 export type EnumDailyOrderSourceFieldUpdateOperationsInput = {
   set?: $Enums.DailyOrderSource
 }
@@ -935,6 +947,22 @@ export type DailyOrderUpdateOneRequiredWithoutItemsNestedInput = {
   upsert?: Prisma.DailyOrderUpsertWithoutItemsInput
   connect?: Prisma.DailyOrderWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.DailyOrderUpdateToOneWithWhereWithoutItemsInput, Prisma.DailyOrderUpdateWithoutItemsInput>, Prisma.DailyOrderUncheckedUpdateWithoutItemsInput>
+}
+
+export type DailyOrderCreateNestedOneWithoutHistoryInput = {
+  create?: Prisma.XOR<Prisma.DailyOrderCreateWithoutHistoryInput, Prisma.DailyOrderUncheckedCreateWithoutHistoryInput>
+  connectOrCreate?: Prisma.DailyOrderCreateOrConnectWithoutHistoryInput
+  connect?: Prisma.DailyOrderWhereUniqueInput
+}
+
+export type DailyOrderUpdateOneWithoutHistoryNestedInput = {
+  create?: Prisma.XOR<Prisma.DailyOrderCreateWithoutHistoryInput, Prisma.DailyOrderUncheckedCreateWithoutHistoryInput>
+  connectOrCreate?: Prisma.DailyOrderCreateOrConnectWithoutHistoryInput
+  upsert?: Prisma.DailyOrderUpsertWithoutHistoryInput
+  disconnect?: Prisma.DailyOrderWhereInput | boolean
+  delete?: Prisma.DailyOrderWhereInput | boolean
+  connect?: Prisma.DailyOrderWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DailyOrderUpdateToOneWithWhereWithoutHistoryInput, Prisma.DailyOrderUpdateWithoutHistoryInput>, Prisma.DailyOrderUncheckedUpdateWithoutHistoryInput>
 }
 
 export type DailyOrderCreateWithoutItemsInput = {
@@ -967,6 +995,7 @@ export type DailyOrderCreateWithoutItemsInput = {
   lastErrorMessage?: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  history?: Prisma.SupplierOrderHistoryCreateNestedOneWithoutDailyOrderInput
 }
 
 export type DailyOrderUncheckedCreateWithoutItemsInput = {
@@ -999,6 +1028,7 @@ export type DailyOrderUncheckedCreateWithoutItemsInput = {
   lastErrorMessage?: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  history?: Prisma.SupplierOrderHistoryUncheckedCreateNestedOneWithoutDailyOrderInput
 }
 
 export type DailyOrderCreateOrConnectWithoutItemsInput = {
@@ -1047,6 +1077,7 @@ export type DailyOrderUpdateWithoutItemsInput = {
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  history?: Prisma.SupplierOrderHistoryUpdateOneWithoutDailyOrderNestedInput
 }
 
 export type DailyOrderUncheckedUpdateWithoutItemsInput = {
@@ -1079,6 +1110,155 @@ export type DailyOrderUncheckedUpdateWithoutItemsInput = {
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  history?: Prisma.SupplierOrderHistoryUncheckedUpdateOneWithoutDailyOrderNestedInput
+}
+
+export type DailyOrderCreateWithoutHistoryInput = {
+  id?: string
+  supplier: string
+  source: $Enums.DailyOrderSource
+  status?: $Enums.DailyOrderStatus
+  isLocked?: boolean
+  totalQuantity?: number
+  attempts?: number
+  readyAt?: Date | string | null
+  executionStartedAt?: Date | string | null
+  executionFinishedAt?: Date | string | null
+  executionDurationMs?: number | null
+  filledAt?: Date | string | null
+  readyForReviewAt?: Date | string | null
+  executionNotes?: string
+  reviewScreenshotPath?: string
+  chefApprovedAt?: Date | string | null
+  submittedAt?: Date | string | null
+  submitStartedAt?: Date | string | null
+  submitFinishedAt?: Date | string | null
+  submitDurationMs?: number | null
+  finalExecutionNotes?: string
+  finalScreenshotPath?: string
+  orderNumber?: string
+  lastExecutionId?: string
+  lastExecutionPhase?: string
+  lastErrorCode?: string
+  lastErrorMessage?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  items?: Prisma.DailyOrderItemCreateNestedManyWithoutDailyOrderInput
+}
+
+export type DailyOrderUncheckedCreateWithoutHistoryInput = {
+  id?: string
+  supplier: string
+  source: $Enums.DailyOrderSource
+  status?: $Enums.DailyOrderStatus
+  isLocked?: boolean
+  totalQuantity?: number
+  attempts?: number
+  readyAt?: Date | string | null
+  executionStartedAt?: Date | string | null
+  executionFinishedAt?: Date | string | null
+  executionDurationMs?: number | null
+  filledAt?: Date | string | null
+  readyForReviewAt?: Date | string | null
+  executionNotes?: string
+  reviewScreenshotPath?: string
+  chefApprovedAt?: Date | string | null
+  submittedAt?: Date | string | null
+  submitStartedAt?: Date | string | null
+  submitFinishedAt?: Date | string | null
+  submitDurationMs?: number | null
+  finalExecutionNotes?: string
+  finalScreenshotPath?: string
+  orderNumber?: string
+  lastExecutionId?: string
+  lastExecutionPhase?: string
+  lastErrorCode?: string
+  lastErrorMessage?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  items?: Prisma.DailyOrderItemUncheckedCreateNestedManyWithoutDailyOrderInput
+}
+
+export type DailyOrderCreateOrConnectWithoutHistoryInput = {
+  where: Prisma.DailyOrderWhereUniqueInput
+  create: Prisma.XOR<Prisma.DailyOrderCreateWithoutHistoryInput, Prisma.DailyOrderUncheckedCreateWithoutHistoryInput>
+}
+
+export type DailyOrderUpsertWithoutHistoryInput = {
+  update: Prisma.XOR<Prisma.DailyOrderUpdateWithoutHistoryInput, Prisma.DailyOrderUncheckedUpdateWithoutHistoryInput>
+  create: Prisma.XOR<Prisma.DailyOrderCreateWithoutHistoryInput, Prisma.DailyOrderUncheckedCreateWithoutHistoryInput>
+  where?: Prisma.DailyOrderWhereInput
+}
+
+export type DailyOrderUpdateToOneWithWhereWithoutHistoryInput = {
+  where?: Prisma.DailyOrderWhereInput
+  data: Prisma.XOR<Prisma.DailyOrderUpdateWithoutHistoryInput, Prisma.DailyOrderUncheckedUpdateWithoutHistoryInput>
+}
+
+export type DailyOrderUpdateWithoutHistoryInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  supplier?: Prisma.StringFieldUpdateOperationsInput | string
+  source?: Prisma.EnumDailyOrderSourceFieldUpdateOperationsInput | $Enums.DailyOrderSource
+  status?: Prisma.EnumDailyOrderStatusFieldUpdateOperationsInput | $Enums.DailyOrderStatus
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  totalQuantity?: Prisma.FloatFieldUpdateOperationsInput | number
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  readyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  filledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  readyForReviewAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionNotes?: Prisma.StringFieldUpdateOperationsInput | string
+  reviewScreenshotPath?: Prisma.StringFieldUpdateOperationsInput | string
+  chefApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  finalExecutionNotes?: Prisma.StringFieldUpdateOperationsInput | string
+  finalScreenshotPath?: Prisma.StringFieldUpdateOperationsInput | string
+  orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  lastExecutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  lastExecutionPhase?: Prisma.StringFieldUpdateOperationsInput | string
+  lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
+  lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  items?: Prisma.DailyOrderItemUpdateManyWithoutDailyOrderNestedInput
+}
+
+export type DailyOrderUncheckedUpdateWithoutHistoryInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  supplier?: Prisma.StringFieldUpdateOperationsInput | string
+  source?: Prisma.EnumDailyOrderSourceFieldUpdateOperationsInput | $Enums.DailyOrderSource
+  status?: Prisma.EnumDailyOrderStatusFieldUpdateOperationsInput | $Enums.DailyOrderStatus
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  totalQuantity?: Prisma.FloatFieldUpdateOperationsInput | number
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  readyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  filledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  readyForReviewAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionNotes?: Prisma.StringFieldUpdateOperationsInput | string
+  reviewScreenshotPath?: Prisma.StringFieldUpdateOperationsInput | string
+  chefApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  submitDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  finalExecutionNotes?: Prisma.StringFieldUpdateOperationsInput | string
+  finalScreenshotPath?: Prisma.StringFieldUpdateOperationsInput | string
+  orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  lastExecutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  lastExecutionPhase?: Prisma.StringFieldUpdateOperationsInput | string
+  lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
+  lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  items?: Prisma.DailyOrderItemUncheckedUpdateManyWithoutDailyOrderNestedInput
 }
 
 
@@ -1143,6 +1323,7 @@ export type DailyOrderSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   updatedAt?: boolean
   items?: boolean | Prisma.DailyOrder$itemsArgs<ExtArgs>
+  history?: boolean | Prisma.DailyOrder$historyArgs<ExtArgs>
   _count?: boolean | Prisma.DailyOrderCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["dailyOrder"]>
 
@@ -1245,6 +1426,7 @@ export type DailyOrderSelectScalar = {
 export type DailyOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "supplier" | "source" | "status" | "isLocked" | "totalQuantity" | "attempts" | "readyAt" | "executionStartedAt" | "executionFinishedAt" | "executionDurationMs" | "filledAt" | "readyForReviewAt" | "executionNotes" | "reviewScreenshotPath" | "chefApprovedAt" | "submittedAt" | "submitStartedAt" | "submitFinishedAt" | "submitDurationMs" | "finalExecutionNotes" | "finalScreenshotPath" | "orderNumber" | "lastExecutionId" | "lastExecutionPhase" | "lastErrorCode" | "lastErrorMessage" | "createdAt" | "updatedAt", ExtArgs["result"]["dailyOrder"]>
 export type DailyOrderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.DailyOrder$itemsArgs<ExtArgs>
+  history?: boolean | Prisma.DailyOrder$historyArgs<ExtArgs>
   _count?: boolean | Prisma.DailyOrderCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DailyOrderIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1254,6 +1436,7 @@ export type $DailyOrderPayload<ExtArgs extends runtime.Types.Extensions.Internal
   name: "DailyOrder"
   objects: {
     items: Prisma.$DailyOrderItemPayload<ExtArgs>[]
+    history: Prisma.$SupplierOrderHistoryPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1680,6 +1863,7 @@ readonly fields: DailyOrderFieldRefs;
 export interface Prisma__DailyOrderClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   items<T extends Prisma.DailyOrder$itemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DailyOrder$itemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DailyOrderItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  history<T extends Prisma.DailyOrder$historyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DailyOrder$historyArgs<ExtArgs>>): Prisma.Prisma__SupplierOrderHistoryClient<runtime.Types.Result.GetResult<Prisma.$SupplierOrderHistoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2152,6 +2336,25 @@ export type DailyOrder$itemsArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.DailyOrderItemScalarFieldEnum | Prisma.DailyOrderItemScalarFieldEnum[]
+}
+
+/**
+ * DailyOrder.history
+ */
+export type DailyOrder$historyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SupplierOrderHistory
+   */
+  select?: Prisma.SupplierOrderHistorySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SupplierOrderHistory
+   */
+  omit?: Prisma.SupplierOrderHistoryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SupplierOrderHistoryInclude<ExtArgs> | null
+  where?: Prisma.SupplierOrderHistoryWhereInput
 }
 
 /**

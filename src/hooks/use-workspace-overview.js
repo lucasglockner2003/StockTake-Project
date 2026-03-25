@@ -9,14 +9,16 @@ import {
 } from "../utils/dailyOrders";
 import {
   ensureAutomationQueueLoaded,
-  ensureSupplierOrderHistoryLoaded,
   subscribeAutomationQueue,
-  subscribeSupplierOrderHistory,
 } from "../utils/automation";
 import {
   ensureInvoiceQueueLoaded,
   subscribeInvoiceQueue,
 } from "../utils/invoiceQueue";
+import {
+  ensureSupplierOrderHistoryLoaded,
+  subscribeSupplierOrderHistory,
+} from "../utils/supplierHistory";
 
 export function useWorkspaceOverview({
   currentPage,

@@ -159,6 +159,7 @@ function syncSupplierOrderMetadata(job) {
 
 function buildAutomationCreatePayload(jobData = {}) {
   return {
+    type: jobData.type || undefined,
     sessionId: String(jobData.sessionId || Date.now()),
     source: jobData.source || SOURCES.UNKNOWN,
     notes: jobData.notes || "",

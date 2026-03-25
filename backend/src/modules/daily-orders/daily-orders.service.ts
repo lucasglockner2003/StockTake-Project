@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { DailyOrderSource, DailyOrderStatus } from '../../generated/prisma/client';
+import { SupplierHistoryService } from '../supplier-orders/supplier-history.service';
 import { CreateDailyOrdersFromPhotoDto } from './dto/create-daily-orders-from-photo.dto';
 import { CreateDailyOrdersFromSuggestedOrderDto } from './dto/create-daily-orders-from-suggested-order.dto';
 import { UpdateDailyOrderItemDto } from './dto/update-daily-order-item.dto';
@@ -139,6 +140,7 @@ export class DailyOrdersService {
   constructor(
     private readonly dailyOrdersRepository: DailyOrdersRepository,
     private readonly dailyOrdersBotClient: DailyOrdersBotClient,
+    private readonly supplierHistoryService: SupplierHistoryService,
   ) {}
 
   async listDailyOrders(): Promise<DailyOrderResponse[]> {
@@ -274,6 +276,8 @@ export class DailyOrdersService {
       throw new NotFoundException('Daily order was not found.');
     }
 
+    await this.syncSupplierHistory(updatedOrder);
+
     return this.buildMutationResponse({
       ok: true,
       reason: 'updated',
@@ -294,11 +298,22 @@ export class DailyOrdersService {
       });
     }
 
+    if (currentOrder.status !== DailyOrderStatus.DRAFT) {
+      return this.buildMutationResponse({
+        ok: false,
+        reason: 'not-draft',
+        order: currentOrder,
+        errorCode: 'ORDER_NOT_DRAFT',
+        errorMessage: 'Only draft orders can be marked ready.',
+      });
+    }
+
     const updatedOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
       status: DailyOrderStatus.READY_TO_EXECUTE,
       isLocked: true,
       readyAt: new Date(),
     });
+    await this.syncSupplierHistory(updatedOrder);
 
     return this.buildMutationResponse({
       ok: true,
@@ -324,6 +339,7 @@ export class DailyOrdersService {
       status: DailyOrderStatus.DRAFT,
       isLocked: false,
     });
+    await this.syncSupplierHistory(updatedOrder);
 
     return this.buildMutationResponse({
       ok: true,
@@ -447,6 +463,7 @@ export class DailyOrdersService {
       lastErrorCode: success ? '' : botResponse.errorCode || 'BOT_FILL_FAILED',
       lastErrorMessage: success ? '' : botResponse.message || executionNotes,
     });
+    await this.syncSupplierHistory(updatedOrder);
 
     if (!success) {
       return this.buildBotFailureResponse(updatedOrder, 'failed', botResponse);
@@ -568,6 +585,7 @@ export class DailyOrdersService {
       lastErrorCode: success ? '' : botResponse.errorCode || 'FINAL_SUBMIT_FAILED',
       lastErrorMessage: success ? '' : botResponse.message || finalNotes,
     });
+    await this.syncSupplierHistory(updatedOrder);
 
     if (!success) {
       return this.buildBotFailureResponse(updatedOrder, 'failed', botResponse);
@@ -664,6 +682,24 @@ export class DailyOrdersService {
       errorMessage: botResponse.message || 'Bot service request failed.',
       executionId: botResponse.executionId,
       phase: botResponse.phase,
+    });
+  }
+
+  private syncSupplierHistory(order: DailyOrderRecord) {
+    return this.supplierHistoryService.syncFromDailyOrder({
+      dailyOrderId: order.id,
+      supplierName: normalizeSupplier(order.supplier),
+      items: order.items.map((item) => ({
+        name: normalizeText(item.itemName),
+        itemId: item.itemId,
+        quantity: normalizeQuantity(item.quantity),
+        unit: normalizeText(item.unit),
+      })),
+      totalItems: order.items.length,
+      totalQuantity: order.totalQuantity,
+      status: order.status,
+      createdAt: order.readyAt || order.createdAt,
+      updatedAt: order.updatedAt,
     });
   }
 

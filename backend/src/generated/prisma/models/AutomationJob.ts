@@ -40,9 +40,11 @@ export type AutomationJobSumAggregateOutputType = {
 
 export type AutomationJobMinAggregateOutputType = {
   id: string | null
+  type: string | null
   sessionId: string | null
   source: $Enums.AutomationJobSource | null
   status: $Enums.AutomationJobStatus | null
+  error: string | null
   notes: string | null
   attempts: number | null
   totalItems: number | null
@@ -57,9 +59,11 @@ export type AutomationJobMinAggregateOutputType = {
 
 export type AutomationJobMaxAggregateOutputType = {
   id: string | null
+  type: string | null
   sessionId: string | null
   source: $Enums.AutomationJobSource | null
   status: $Enums.AutomationJobStatus | null
+  error: string | null
   notes: string | null
   attempts: number | null
   totalItems: number | null
@@ -74,9 +78,13 @@ export type AutomationJobMaxAggregateOutputType = {
 
 export type AutomationJobCountAggregateOutputType = {
   id: number
+  type: number
+  payload: number
   sessionId: number
   source: number
   status: number
+  result: number
+  error: number
   notes: number
   attempts: number
   totalItems: number
@@ -106,9 +114,11 @@ export type AutomationJobSumAggregateInputType = {
 
 export type AutomationJobMinAggregateInputType = {
   id?: true
+  type?: true
   sessionId?: true
   source?: true
   status?: true
+  error?: true
   notes?: true
   attempts?: true
   totalItems?: true
@@ -123,9 +133,11 @@ export type AutomationJobMinAggregateInputType = {
 
 export type AutomationJobMaxAggregateInputType = {
   id?: true
+  type?: true
   sessionId?: true
   source?: true
   status?: true
+  error?: true
   notes?: true
   attempts?: true
   totalItems?: true
@@ -140,9 +152,13 @@ export type AutomationJobMaxAggregateInputType = {
 
 export type AutomationJobCountAggregateInputType = {
   id?: true
+  type?: true
+  payload?: true
   sessionId?: true
   source?: true
   status?: true
+  result?: true
+  error?: true
   notes?: true
   attempts?: true
   totalItems?: true
@@ -245,9 +261,13 @@ export type AutomationJobGroupByArgs<ExtArgs extends runtime.Types.Extensions.In
 
 export type AutomationJobGroupByOutputType = {
   id: string
+  type: string
+  payload: runtime.JsonValue
   sessionId: string
   source: $Enums.AutomationJobSource
   status: $Enums.AutomationJobStatus
+  result: runtime.JsonValue | null
+  error: string
   notes: string
   attempts: number
   totalItems: number
@@ -286,9 +306,13 @@ export type AutomationJobWhereInput = {
   OR?: Prisma.AutomationJobWhereInput[]
   NOT?: Prisma.AutomationJobWhereInput | Prisma.AutomationJobWhereInput[]
   id?: Prisma.StringFilter<"AutomationJob"> | string
+  type?: Prisma.StringFilter<"AutomationJob"> | string
+  payload?: Prisma.JsonFilter<"AutomationJob">
   sessionId?: Prisma.StringFilter<"AutomationJob"> | string
   source?: Prisma.EnumAutomationJobSourceFilter<"AutomationJob"> | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFilter<"AutomationJob"> | $Enums.AutomationJobStatus
+  result?: Prisma.JsonNullableFilter<"AutomationJob">
+  error?: Prisma.StringFilter<"AutomationJob"> | string
   notes?: Prisma.StringFilter<"AutomationJob"> | string
   attempts?: Prisma.IntFilter<"AutomationJob"> | number
   totalItems?: Prisma.IntFilter<"AutomationJob"> | number
@@ -306,9 +330,13 @@ export type AutomationJobWhereInput = {
 
 export type AutomationJobOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  type?: Prisma.SortOrder
+  payload?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  result?: Prisma.SortOrderInput | Prisma.SortOrder
+  error?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
@@ -329,9 +357,13 @@ export type AutomationJobWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.AutomationJobWhereInput | Prisma.AutomationJobWhereInput[]
   OR?: Prisma.AutomationJobWhereInput[]
   NOT?: Prisma.AutomationJobWhereInput | Prisma.AutomationJobWhereInput[]
+  type?: Prisma.StringFilter<"AutomationJob"> | string
+  payload?: Prisma.JsonFilter<"AutomationJob">
   sessionId?: Prisma.StringFilter<"AutomationJob"> | string
   source?: Prisma.EnumAutomationJobSourceFilter<"AutomationJob"> | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFilter<"AutomationJob"> | $Enums.AutomationJobStatus
+  result?: Prisma.JsonNullableFilter<"AutomationJob">
+  error?: Prisma.StringFilter<"AutomationJob"> | string
   notes?: Prisma.StringFilter<"AutomationJob"> | string
   attempts?: Prisma.IntFilter<"AutomationJob"> | number
   totalItems?: Prisma.IntFilter<"AutomationJob"> | number
@@ -349,9 +381,13 @@ export type AutomationJobWhereUniqueInput = Prisma.AtLeast<{
 
 export type AutomationJobOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  type?: Prisma.SortOrder
+  payload?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  result?: Prisma.SortOrderInput | Prisma.SortOrder
+  error?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
@@ -375,9 +411,13 @@ export type AutomationJobScalarWhereWithAggregatesInput = {
   OR?: Prisma.AutomationJobScalarWhereWithAggregatesInput[]
   NOT?: Prisma.AutomationJobScalarWhereWithAggregatesInput | Prisma.AutomationJobScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"AutomationJob"> | string
+  type?: Prisma.StringWithAggregatesFilter<"AutomationJob"> | string
+  payload?: Prisma.JsonWithAggregatesFilter<"AutomationJob">
   sessionId?: Prisma.StringWithAggregatesFilter<"AutomationJob"> | string
   source?: Prisma.EnumAutomationJobSourceWithAggregatesFilter<"AutomationJob"> | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusWithAggregatesFilter<"AutomationJob"> | $Enums.AutomationJobStatus
+  result?: Prisma.JsonNullableWithAggregatesFilter<"AutomationJob">
+  error?: Prisma.StringWithAggregatesFilter<"AutomationJob"> | string
   notes?: Prisma.StringWithAggregatesFilter<"AutomationJob"> | string
   attempts?: Prisma.IntWithAggregatesFilter<"AutomationJob"> | number
   totalItems?: Prisma.IntWithAggregatesFilter<"AutomationJob"> | number
@@ -393,9 +433,13 @@ export type AutomationJobScalarWhereWithAggregatesInput = {
 
 export type AutomationJobCreateInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -413,9 +457,13 @@ export type AutomationJobCreateInput = {
 
 export type AutomationJobUncheckedCreateInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -433,9 +481,13 @@ export type AutomationJobUncheckedCreateInput = {
 
 export type AutomationJobUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -453,9 +505,13 @@ export type AutomationJobUpdateInput = {
 
 export type AutomationJobUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -473,9 +529,13 @@ export type AutomationJobUncheckedUpdateInput = {
 
 export type AutomationJobCreateManyInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -491,9 +551,13 @@ export type AutomationJobCreateManyInput = {
 
 export type AutomationJobUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -509,9 +573,13 @@ export type AutomationJobUpdateManyMutationInput = {
 
 export type AutomationJobUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -527,9 +595,13 @@ export type AutomationJobUncheckedUpdateManyInput = {
 
 export type AutomationJobCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  type?: Prisma.SortOrder
+  payload?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  result?: Prisma.SortOrder
+  error?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
@@ -551,9 +623,11 @@ export type AutomationJobAvgOrderByAggregateInput = {
 
 export type AutomationJobMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  type?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  error?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
@@ -568,9 +642,11 @@ export type AutomationJobMaxOrderByAggregateInput = {
 
 export type AutomationJobMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  type?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  error?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
@@ -632,9 +708,13 @@ export type AutomationJobUpdateOneRequiredWithoutSupplierHistoryNestedInput = {
 
 export type AutomationJobCreateWithoutItemsInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -651,9 +731,13 @@ export type AutomationJobCreateWithoutItemsInput = {
 
 export type AutomationJobUncheckedCreateWithoutItemsInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -686,9 +770,13 @@ export type AutomationJobUpdateToOneWithWhereWithoutItemsInput = {
 
 export type AutomationJobUpdateWithoutItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -705,9 +793,13 @@ export type AutomationJobUpdateWithoutItemsInput = {
 
 export type AutomationJobUncheckedUpdateWithoutItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -724,9 +816,13 @@ export type AutomationJobUncheckedUpdateWithoutItemsInput = {
 
 export type AutomationJobCreateWithoutSupplierHistoryInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -743,9 +839,13 @@ export type AutomationJobCreateWithoutSupplierHistoryInput = {
 
 export type AutomationJobUncheckedCreateWithoutSupplierHistoryInput = {
   id?: string
+  type?: string
+  payload: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: string
   source?: $Enums.AutomationJobSource
   status?: $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string
   notes?: string
   attempts?: number
   totalItems?: number
@@ -778,9 +878,13 @@ export type AutomationJobUpdateToOneWithWhereWithoutSupplierHistoryInput = {
 
 export type AutomationJobUpdateWithoutSupplierHistoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -797,9 +901,13 @@ export type AutomationJobUpdateWithoutSupplierHistoryInput = {
 
 export type AutomationJobUncheckedUpdateWithoutSupplierHistoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  payload?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   source?: Prisma.EnumAutomationJobSourceFieldUpdateOperationsInput | $Enums.AutomationJobSource
   status?: Prisma.EnumAutomationJobStatusFieldUpdateOperationsInput | $Enums.AutomationJobStatus
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.StringFieldUpdateOperationsInput | string
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -847,9 +955,13 @@ export type AutomationJobCountOutputTypeCountItemsArgs<ExtArgs extends runtime.T
 
 export type AutomationJobSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  type?: boolean
+  payload?: boolean
   sessionId?: boolean
   source?: boolean
   status?: boolean
+  result?: boolean
+  error?: boolean
   notes?: boolean
   attempts?: boolean
   totalItems?: boolean
@@ -868,9 +980,13 @@ export type AutomationJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
 
 export type AutomationJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  type?: boolean
+  payload?: boolean
   sessionId?: boolean
   source?: boolean
   status?: boolean
+  result?: boolean
+  error?: boolean
   notes?: boolean
   attempts?: boolean
   totalItems?: boolean
@@ -886,9 +1002,13 @@ export type AutomationJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types
 
 export type AutomationJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  type?: boolean
+  payload?: boolean
   sessionId?: boolean
   source?: boolean
   status?: boolean
+  result?: boolean
+  error?: boolean
   notes?: boolean
   attempts?: boolean
   totalItems?: boolean
@@ -904,9 +1024,13 @@ export type AutomationJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
 
 export type AutomationJobSelectScalar = {
   id?: boolean
+  type?: boolean
+  payload?: boolean
   sessionId?: boolean
   source?: boolean
   status?: boolean
+  result?: boolean
+  error?: boolean
   notes?: boolean
   attempts?: boolean
   totalItems?: boolean
@@ -920,7 +1044,7 @@ export type AutomationJobSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AutomationJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "source" | "status" | "notes" | "attempts" | "totalItems" | "metadataSnapshot" | "lastErrorCode" | "lastErrorMessage" | "runStartedAt" | "runFinishedAt" | "runDurationMs" | "createdAt" | "updatedAt", ExtArgs["result"]["automationJob"]>
+export type AutomationJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "payload" | "sessionId" | "source" | "status" | "result" | "error" | "notes" | "attempts" | "totalItems" | "metadataSnapshot" | "lastErrorCode" | "lastErrorMessage" | "runStartedAt" | "runFinishedAt" | "runDurationMs" | "createdAt" | "updatedAt", ExtArgs["result"]["automationJob"]>
 export type AutomationJobInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.AutomationJob$itemsArgs<ExtArgs>
   supplierHistory?: boolean | Prisma.AutomationJob$supplierHistoryArgs<ExtArgs>
@@ -937,9 +1061,13 @@ export type $AutomationJobPayload<ExtArgs extends runtime.Types.Extensions.Inter
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
+    type: string
+    payload: runtime.JsonValue
     sessionId: string
     source: $Enums.AutomationJobSource
     status: $Enums.AutomationJobStatus
+    result: runtime.JsonValue | null
+    error: string
     notes: string
     attempts: number
     totalItems: number
@@ -1377,9 +1505,13 @@ export interface Prisma__AutomationJobClient<T, Null = never, ExtArgs extends ru
  */
 export interface AutomationJobFieldRefs {
   readonly id: Prisma.FieldRef<"AutomationJob", 'String'>
+  readonly type: Prisma.FieldRef<"AutomationJob", 'String'>
+  readonly payload: Prisma.FieldRef<"AutomationJob", 'Json'>
   readonly sessionId: Prisma.FieldRef<"AutomationJob", 'String'>
   readonly source: Prisma.FieldRef<"AutomationJob", 'AutomationJobSource'>
   readonly status: Prisma.FieldRef<"AutomationJob", 'AutomationJobStatus'>
+  readonly result: Prisma.FieldRef<"AutomationJob", 'Json'>
+  readonly error: Prisma.FieldRef<"AutomationJob", 'String'>
   readonly notes: Prisma.FieldRef<"AutomationJob", 'String'>
   readonly attempts: Prisma.FieldRef<"AutomationJob", 'Int'>
   readonly totalItems: Prisma.FieldRef<"AutomationJob", 'Int'>

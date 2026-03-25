@@ -1,9 +1,10 @@
-import { createContext, useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import {
   getMe,
   login as loginRequest,
   logoutLocal,
   persistAuthSession,
+  registerAuthSessionExpiredHandler,
   register as registerRequest,
   restoreAuthSession,
 } from "../services/auth-service";
@@ -15,6 +16,18 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const unregisterUnauthorizedHandler = registerAuthSessionExpiredHandler(() => {
+      logoutLocal();
+      setToken("");
+      setUser(null);
+      setLoading(false);
+      setIsReady(true);
+    });
+
+    return unregisterUnauthorizedHandler;
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -159,20 +172,17 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }
 
-  const authValue = useMemo(
-    () => ({
-      user,
-      token,
-      isAuthenticated: Boolean(token),
-      loading,
-      isReady,
-      login,
-      register,
-      getMe: refreshProfile,
-      logout,
-    }),
-    [isReady, loading, token, user]
-  );
+  const authValue = {
+    user,
+    token,
+    isAuthenticated: Boolean(token),
+    loading,
+    isReady,
+    login,
+    register,
+    getMe: refreshProfile,
+    logout,
+  };
 
   return <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>;
 }

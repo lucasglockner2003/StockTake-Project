@@ -8,7 +8,7 @@ import {
   getSupplierOrderHistory,
   refreshSupplierOrderHistory,
   subscribeSupplierOrderHistory,
-} from "../utils/automation";
+} from "../utils/supplierHistory";
 import { UNKNOWN_SUPPLIER_LABEL } from "../utils/stock";
 import { styles } from "../utils/uiStyles";
 import NoticePanel from "../components/NoticePanel";

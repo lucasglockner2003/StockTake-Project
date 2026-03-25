@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { StockTakeRepository } from './stock-take.repository';
 import { UpdateStockTakeItemDto } from './dto/update-stock-take-item.dto';
-import { DEFAULT_STOCK_ITEM_CATALOG } from './stock-item-catalog';
 import {
   StockTakeMutationResponse,
   StockTakeStatus,
@@ -160,8 +159,11 @@ export class StockTakeService {
     updateStockTakeItemDto: UpdateStockTakeItemDto,
   ): Promise<StockTakeMutationResponse> {
     const todayContext = await this.ensureTodayContext();
+    const stockItem = await this.stockTakeRepository.findActiveStockItemById(itemId);
 
-    await this.stockTakeRepository.upsertStockItem(itemId, updateStockTakeItemDto.stockItem);
+    if (!stockItem) {
+      throw new NotFoundException('Stock item was not found.');
+    }
 
     if (updateStockTakeItemDto.quantity === null || updateStockTakeItemDto.quantity === undefined) {
       await this.stockTakeRepository.deleteStockTakeEntry(todayContext.stockTake.id, itemId);
@@ -210,8 +212,6 @@ export class StockTakeService {
   }
 
   private async ensureTodayContext() {
-    await this.stockTakeRepository.syncCatalog(DEFAULT_STOCK_ITEM_CATALOG);
-
     const { takeDate, takeDateKey } = getTodayDateValue();
     const stockTake = await this.stockTakeRepository.findOrCreateStockTake(takeDate);
 
@@ -237,7 +237,7 @@ export class StockTakeService {
       return {
         itemId: stockItem.id,
         name: stockItem.name,
-        supplier: stockItem.supplier || '',
+        supplier: stockItem.supplierName || '',
         unit: stockItem.unit,
         area: stockItem.area,
         idealStock: stockItem.idealStock,

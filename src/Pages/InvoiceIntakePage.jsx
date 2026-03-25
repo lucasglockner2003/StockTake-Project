@@ -363,8 +363,8 @@ function InvoiceIntakePage() {
           placeholder={`Supplier: Example Foods
 Invoice Number: INV-1002
 Invoice Date: 2026-03-19
-Tomato 12 2.5 30
-Wings 5 8.4 42`}
+Item A 12 2.5 30
+Item B 5 8.4 42`}
           style={{
             width: "100%",
             minHeight: "150px",

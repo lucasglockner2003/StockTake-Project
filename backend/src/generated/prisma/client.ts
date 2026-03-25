@@ -94,3 +94,8 @@ export type AutomationJobItem = Prisma.AutomationJobItemModel
  * 
  */
 export type SupplierOrderHistoryRevision = Prisma.SupplierOrderHistoryRevisionModel
+/**
+ * Model SupplierOrderHistory
+ * 
+ */
+export type SupplierOrderHistory = Prisma.SupplierOrderHistoryModel

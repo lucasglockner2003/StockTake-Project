@@ -38,7 +38,7 @@ export type SupplierOrderHistoryRecord = Prisma.SupplierOrderHistoryRevisionGetP
 }>;
 
 @Injectable()
-export class AutomationRepository {
+export class AutomationJobsRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
   listJobs() {

@@ -23,17 +23,6 @@ function normalizeNumber(value) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
-function buildStockItemSnapshot(item) {
-  return {
-    name: item.name,
-    supplier: item.supplier || "",
-    unit: item.unit,
-    area: item.area,
-    idealStock: Number(item.idealStock || 0),
-    critical: Boolean(item.critical),
-  };
-}
-
 function mapStockTakeItemsToQuantities(items = []) {
   return items.reduce((accumulator, item) => {
     const quantity = normalizeNumber(item?.quantity);
@@ -77,10 +66,9 @@ export async function fetchTodayStockTake() {
   return normalizeStockTakePayload(payload);
 }
 
-export async function saveStockTakeItemQuantity(item, quantity) {
-  const payload = await updateStockTakeItem(item.id, {
+export async function saveStockTakeItemQuantity(itemId, quantity) {
+  const payload = await updateStockTakeItem(itemId, {
     quantity: normalizeNumber(quantity),
-    stockItem: buildStockItemSnapshot(item),
   });
 
   return normalizeStockTakeMutationPayload(payload);

@@ -39,8 +39,9 @@ export type StockItemSumAggregateOutputType = {
 export type StockItemMinAggregateOutputType = {
   id: number | null
   name: string | null
-  supplier: string | null
   unit: string | null
+  category: string | null
+  supplierName: string | null
   area: string | null
   idealStock: number | null
   critical: boolean | null
@@ -52,8 +53,9 @@ export type StockItemMinAggregateOutputType = {
 export type StockItemMaxAggregateOutputType = {
   id: number | null
   name: string | null
-  supplier: string | null
   unit: string | null
+  category: string | null
+  supplierName: string | null
   area: string | null
   idealStock: number | null
   critical: boolean | null
@@ -65,8 +67,10 @@ export type StockItemMaxAggregateOutputType = {
 export type StockItemCountAggregateOutputType = {
   id: number
   name: number
-  supplier: number
   unit: number
+  category: number
+  supplierName: number
+  aliases: number
   area: number
   idealStock: number
   critical: number
@@ -90,8 +94,9 @@ export type StockItemSumAggregateInputType = {
 export type StockItemMinAggregateInputType = {
   id?: true
   name?: true
-  supplier?: true
   unit?: true
+  category?: true
+  supplierName?: true
   area?: true
   idealStock?: true
   critical?: true
@@ -103,8 +108,9 @@ export type StockItemMinAggregateInputType = {
 export type StockItemMaxAggregateInputType = {
   id?: true
   name?: true
-  supplier?: true
   unit?: true
+  category?: true
+  supplierName?: true
   area?: true
   idealStock?: true
   critical?: true
@@ -116,8 +122,10 @@ export type StockItemMaxAggregateInputType = {
 export type StockItemCountAggregateInputType = {
   id?: true
   name?: true
-  supplier?: true
   unit?: true
+  category?: true
+  supplierName?: true
+  aliases?: true
   area?: true
   idealStock?: true
   critical?: true
@@ -216,8 +224,10 @@ export type StockItemGroupByArgs<ExtArgs extends runtime.Types.Extensions.Intern
 export type StockItemGroupByOutputType = {
   id: number
   name: string
-  supplier: string | null
   unit: string
+  category: string
+  supplierName: string | null
+  aliases: runtime.JsonValue | null
   area: string
   idealStock: number
   critical: boolean
@@ -252,8 +262,10 @@ export type StockItemWhereInput = {
   NOT?: Prisma.StockItemWhereInput | Prisma.StockItemWhereInput[]
   id?: Prisma.IntFilter<"StockItem"> | number
   name?: Prisma.StringFilter<"StockItem"> | string
-  supplier?: Prisma.StringNullableFilter<"StockItem"> | string | null
   unit?: Prisma.StringFilter<"StockItem"> | string
+  category?: Prisma.StringFilter<"StockItem"> | string
+  supplierName?: Prisma.StringNullableFilter<"StockItem"> | string | null
+  aliases?: Prisma.JsonNullableFilter<"StockItem">
   area?: Prisma.StringFilter<"StockItem"> | string
   idealStock?: Prisma.FloatFilter<"StockItem"> | number
   critical?: Prisma.BoolFilter<"StockItem"> | boolean
@@ -266,8 +278,10 @@ export type StockItemWhereInput = {
 export type StockItemOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  supplier?: Prisma.SortOrderInput | Prisma.SortOrder
   unit?: Prisma.SortOrder
+  category?: Prisma.SortOrder
+  supplierName?: Prisma.SortOrderInput | Prisma.SortOrder
+  aliases?: Prisma.SortOrderInput | Prisma.SortOrder
   area?: Prisma.SortOrder
   idealStock?: Prisma.SortOrder
   critical?: Prisma.SortOrder
@@ -283,8 +297,10 @@ export type StockItemWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.StockItemWhereInput[]
   NOT?: Prisma.StockItemWhereInput | Prisma.StockItemWhereInput[]
   name?: Prisma.StringFilter<"StockItem"> | string
-  supplier?: Prisma.StringNullableFilter<"StockItem"> | string | null
   unit?: Prisma.StringFilter<"StockItem"> | string
+  category?: Prisma.StringFilter<"StockItem"> | string
+  supplierName?: Prisma.StringNullableFilter<"StockItem"> | string | null
+  aliases?: Prisma.JsonNullableFilter<"StockItem">
   area?: Prisma.StringFilter<"StockItem"> | string
   idealStock?: Prisma.FloatFilter<"StockItem"> | number
   critical?: Prisma.BoolFilter<"StockItem"> | boolean
@@ -297,8 +313,10 @@ export type StockItemWhereUniqueInput = Prisma.AtLeast<{
 export type StockItemOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  supplier?: Prisma.SortOrderInput | Prisma.SortOrder
   unit?: Prisma.SortOrder
+  category?: Prisma.SortOrder
+  supplierName?: Prisma.SortOrderInput | Prisma.SortOrder
+  aliases?: Prisma.SortOrderInput | Prisma.SortOrder
   area?: Prisma.SortOrder
   idealStock?: Prisma.SortOrder
   critical?: Prisma.SortOrder
@@ -318,8 +336,10 @@ export type StockItemScalarWhereWithAggregatesInput = {
   NOT?: Prisma.StockItemScalarWhereWithAggregatesInput | Prisma.StockItemScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"StockItem"> | number
   name?: Prisma.StringWithAggregatesFilter<"StockItem"> | string
-  supplier?: Prisma.StringNullableWithAggregatesFilter<"StockItem"> | string | null
   unit?: Prisma.StringWithAggregatesFilter<"StockItem"> | string
+  category?: Prisma.StringWithAggregatesFilter<"StockItem"> | string
+  supplierName?: Prisma.StringNullableWithAggregatesFilter<"StockItem"> | string | null
+  aliases?: Prisma.JsonNullableWithAggregatesFilter<"StockItem">
   area?: Prisma.StringWithAggregatesFilter<"StockItem"> | string
   idealStock?: Prisma.FloatWithAggregatesFilter<"StockItem"> | number
   critical?: Prisma.BoolWithAggregatesFilter<"StockItem"> | boolean
@@ -331,10 +351,12 @@ export type StockItemScalarWhereWithAggregatesInput = {
 export type StockItemCreateInput = {
   id: number
   name: string
-  supplier?: string | null
   unit: string
-  area: string
-  idealStock: number
+  category?: string
+  supplierName?: string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  area?: string
+  idealStock?: number
   critical?: boolean
   isActive?: boolean
   createdAt?: Date | string
@@ -345,10 +367,12 @@ export type StockItemCreateInput = {
 export type StockItemUncheckedCreateInput = {
   id: number
   name: string
-  supplier?: string | null
   unit: string
-  area: string
-  idealStock: number
+  category?: string
+  supplierName?: string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  area?: string
+  idealStock?: number
   critical?: boolean
   isActive?: boolean
   createdAt?: Date | string
@@ -359,8 +383,10 @@ export type StockItemUncheckedCreateInput = {
 export type StockItemUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -373,8 +399,10 @@ export type StockItemUpdateInput = {
 export type StockItemUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -387,10 +415,12 @@ export type StockItemUncheckedUpdateInput = {
 export type StockItemCreateManyInput = {
   id: number
   name: string
-  supplier?: string | null
   unit: string
-  area: string
-  idealStock: number
+  category?: string
+  supplierName?: string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  area?: string
+  idealStock?: number
   critical?: boolean
   isActive?: boolean
   createdAt?: Date | string
@@ -400,8 +430,10 @@ export type StockItemCreateManyInput = {
 export type StockItemUpdateManyMutationInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -413,8 +445,10 @@ export type StockItemUpdateManyMutationInput = {
 export type StockItemUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -426,8 +460,10 @@ export type StockItemUncheckedUpdateManyInput = {
 export type StockItemCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  supplier?: Prisma.SortOrder
   unit?: Prisma.SortOrder
+  category?: Prisma.SortOrder
+  supplierName?: Prisma.SortOrder
+  aliases?: Prisma.SortOrder
   area?: Prisma.SortOrder
   idealStock?: Prisma.SortOrder
   critical?: Prisma.SortOrder
@@ -444,8 +480,9 @@ export type StockItemAvgOrderByAggregateInput = {
 export type StockItemMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  supplier?: Prisma.SortOrder
   unit?: Prisma.SortOrder
+  category?: Prisma.SortOrder
+  supplierName?: Prisma.SortOrder
   area?: Prisma.SortOrder
   idealStock?: Prisma.SortOrder
   critical?: Prisma.SortOrder
@@ -457,8 +494,9 @@ export type StockItemMaxOrderByAggregateInput = {
 export type StockItemMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  supplier?: Prisma.SortOrder
   unit?: Prisma.SortOrder
+  category?: Prisma.SortOrder
+  supplierName?: Prisma.SortOrder
   area?: Prisma.SortOrder
   idealStock?: Prisma.SortOrder
   critical?: Prisma.SortOrder
@@ -518,10 +556,12 @@ export type StockItemUpdateOneRequiredWithoutStockTakeEntriesNestedInput = {
 export type StockItemCreateWithoutStockTakeEntriesInput = {
   id: number
   name: string
-  supplier?: string | null
   unit: string
-  area: string
-  idealStock: number
+  category?: string
+  supplierName?: string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  area?: string
+  idealStock?: number
   critical?: boolean
   isActive?: boolean
   createdAt?: Date | string
@@ -531,10 +571,12 @@ export type StockItemCreateWithoutStockTakeEntriesInput = {
 export type StockItemUncheckedCreateWithoutStockTakeEntriesInput = {
   id: number
   name: string
-  supplier?: string | null
   unit: string
-  area: string
-  idealStock: number
+  category?: string
+  supplierName?: string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  area?: string
+  idealStock?: number
   critical?: boolean
   isActive?: boolean
   createdAt?: Date | string
@@ -560,8 +602,10 @@ export type StockItemUpdateToOneWithWhereWithoutStockTakeEntriesInput = {
 export type StockItemUpdateWithoutStockTakeEntriesInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -573,8 +617,10 @@ export type StockItemUpdateWithoutStockTakeEntriesInput = {
 export type StockItemUncheckedUpdateWithoutStockTakeEntriesInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  supplier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unit?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aliases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   area?: Prisma.StringFieldUpdateOperationsInput | string
   idealStock?: Prisma.FloatFieldUpdateOperationsInput | number
   critical?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -617,8 +663,10 @@ export type StockItemCountOutputTypeCountStockTakeEntriesArgs<ExtArgs extends ru
 export type StockItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
-  supplier?: boolean
   unit?: boolean
+  category?: boolean
+  supplierName?: boolean
+  aliases?: boolean
   area?: boolean
   idealStock?: boolean
   critical?: boolean
@@ -632,8 +680,10 @@ export type StockItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type StockItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
-  supplier?: boolean
   unit?: boolean
+  category?: boolean
+  supplierName?: boolean
+  aliases?: boolean
   area?: boolean
   idealStock?: boolean
   critical?: boolean
@@ -645,8 +695,10 @@ export type StockItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
 export type StockItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
-  supplier?: boolean
   unit?: boolean
+  category?: boolean
+  supplierName?: boolean
+  aliases?: boolean
   area?: boolean
   idealStock?: boolean
   critical?: boolean
@@ -658,8 +710,10 @@ export type StockItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
 export type StockItemSelectScalar = {
   id?: boolean
   name?: boolean
-  supplier?: boolean
   unit?: boolean
+  category?: boolean
+  supplierName?: boolean
+  aliases?: boolean
   area?: boolean
   idealStock?: boolean
   critical?: boolean
@@ -668,7 +722,7 @@ export type StockItemSelectScalar = {
   updatedAt?: boolean
 }
 
-export type StockItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "supplier" | "unit" | "area" | "idealStock" | "critical" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["stockItem"]>
+export type StockItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "unit" | "category" | "supplierName" | "aliases" | "area" | "idealStock" | "critical" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["stockItem"]>
 export type StockItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   stockTakeEntries?: boolean | Prisma.StockItem$stockTakeEntriesArgs<ExtArgs>
   _count?: boolean | Prisma.StockItemCountOutputTypeDefaultArgs<ExtArgs>
@@ -684,8 +738,10 @@ export type $StockItemPayload<ExtArgs extends runtime.Types.Extensions.InternalA
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
     name: string
-    supplier: string | null
     unit: string
+    category: string
+    supplierName: string | null
+    aliases: runtime.JsonValue | null
     area: string
     idealStock: number
     critical: boolean
@@ -1118,8 +1174,10 @@ export interface Prisma__StockItemClient<T, Null = never, ExtArgs extends runtim
 export interface StockItemFieldRefs {
   readonly id: Prisma.FieldRef<"StockItem", 'Int'>
   readonly name: Prisma.FieldRef<"StockItem", 'String'>
-  readonly supplier: Prisma.FieldRef<"StockItem", 'String'>
   readonly unit: Prisma.FieldRef<"StockItem", 'String'>
+  readonly category: Prisma.FieldRef<"StockItem", 'String'>
+  readonly supplierName: Prisma.FieldRef<"StockItem", 'String'>
+  readonly aliases: Prisma.FieldRef<"StockItem", 'Json'>
   readonly area: Prisma.FieldRef<"StockItem", 'String'>
   readonly idealStock: Prisma.FieldRef<"StockItem", 'Float'>
   readonly critical: Prisma.FieldRef<"StockItem", 'Boolean'>

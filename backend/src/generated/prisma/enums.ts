@@ -51,7 +51,7 @@ export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus]
 export const AutomationJobStatus = {
   PENDING: 'PENDING',
   RUNNING: 'RUNNING',
-  DONE: 'DONE',
+  SUCCESS: 'SUCCESS',
   FAILED: 'FAILED'
 } as const
 

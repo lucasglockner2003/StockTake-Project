@@ -37,7 +37,7 @@ enum InvoiceStatus {
 enum AutomationJobStatus {
   PENDING
   RUNNING
-  DONE
+  SUCCESS
   FAILED
 }
 
@@ -67,18 +67,22 @@ model User {
 }
 
 model StockItem {
-  id              Int              @id
-  name            String
-  supplier        String?
-  unit            String
-  area            String
-  idealStock      Float
-  critical        Boolean          @default(false)
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id               Int              @id
+  name             String
+  unit             String
+  category         String           @default("")
+  supplierName     String?          @map("supplier")
+  aliases          Json?
+  area             String           @default("")
+  idealStock       Float            @default(0)
+  critical         Boolean          @default(false)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   stockTakeEntries StockTakeEntry[]
 
+  @@index([category])
+  @@index([supplierName])
   @@map("stock_items")
 }
 
@@ -140,6 +144,7 @@ model DailyOrder {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
   items                DailyOrderItem[]
+  history              SupplierOrderHistory?
 
   @@index([createdAt])
   @@index([status])
@@ -212,9 +217,13 @@ model InvoiceItem {
 
 model AutomationJob {
   id                 String              @id @default(uuid())
+  type               String              @default("unknown")
+  payload            Json
   sessionId          String              @default("")
   source             AutomationJobSource @default(UNKNOWN)
   status             AutomationJobStatus @default(PENDING)
+  result             Json?
+  error              String              @default("")
   notes              String              @default("")
   attempts           Int                 @default(0)
   totalItems         Int                 @default(0)
@@ -279,4 +288,22 @@ model SupplierOrderHistoryRevision {
   @@index([supplier, snapshotTimestamp])
   @@index([status])
   @@map("supplier_order_history_revisions")
+}
+
+model SupplierOrderHistory {
+  id            String                     @id @default(uuid())
+  dailyOrderId  String?                    @unique
+  supplierName  String
+  items         Json
+  totalItems    Int                        @default(0)
+  totalQuantity Float                      @default(0)
+  status        SupplierOrderHistoryStatus @default(PENDING)
+  revisionNumber Int                       @default(1)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  dailyOrder    DailyOrder?                @relation(fields: [dailyOrderId], references: [id], onDelete: SetNull)
+
+  @@index([supplierName, createdAt])
+  @@index([status])
+  @@map("supplier_order_history")
 }

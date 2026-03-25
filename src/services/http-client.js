@@ -3,6 +3,7 @@ const API_BASE_URL = String(
 ).replace(/\/+$/, "");
 
 let authToken = "";
+let unauthorizedHandler = null;
 
 function buildUrl(pathname) {
   const safePath = String(pathname || "").startsWith("/")
@@ -65,6 +66,7 @@ function normalizeErrorMessage(response, payload) {
 
 async function request(pathname, options = {}) {
   const body = options.body;
+  const hasAuthenticatedSession = Boolean(authToken);
 
   let response;
 
@@ -88,6 +90,19 @@ async function request(pathname, options = {}) {
     const nextError = new Error(normalizeErrorMessage(response, payload));
     nextError.status = response.status;
     nextError.payload = payload;
+
+    if (
+      response.status === 401 &&
+      hasAuthenticatedSession &&
+      typeof unauthorizedHandler === "function"
+    ) {
+      try {
+        unauthorizedHandler(nextError);
+      } catch {
+        // Ignore logout handler failures and rethrow the request error below.
+      }
+    }
+
     throw nextError;
   }
 
@@ -100,6 +115,16 @@ export function setHttpClientToken(token) {
 
 export function clearHttpClientToken() {
   authToken = "";
+}
+
+export function setHttpClientUnauthorizedHandler(handler) {
+  unauthorizedHandler = typeof handler === "function" ? handler : null;
+
+  return () => {
+    if (unauthorizedHandler === handler) {
+      unauthorizedHandler = null;
+    }
+  };
 }
 
 export function getApiBaseUrl() {

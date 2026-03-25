@@ -1,70 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { StockItemSnapshotDto } from './dto/stock-item-snapshot.dto';
-import { StockTakeCatalogItem } from './stock-take.types';
 
 @Injectable()
 export class StockTakeRepository {
   constructor(private readonly prismaService: PrismaService) {}
-
-  async syncCatalog(items: StockTakeCatalogItem[]) {
-    if (items.length === 0) {
-      return;
-    }
-
-    await this.prismaService.$transaction(
-      items.map((item) =>
-        this.prismaService.stockItem.upsert({
-          where: { id: item.id },
-          update: {
-            name: item.name,
-            supplier: item.supplier || null,
-            unit: item.unit,
-            area: item.area,
-            idealStock: item.idealStock,
-            critical: Boolean(item.critical),
-            isActive: true,
-          },
-          create: {
-            id: item.id,
-            name: item.name,
-            supplier: item.supplier || null,
-            unit: item.unit,
-            area: item.area,
-            idealStock: item.idealStock,
-            critical: Boolean(item.critical),
-            isActive: true,
-          },
-        }),
-      ),
-    );
-  }
-
-  upsertStockItem(itemId: number, stockItem: StockItemSnapshotDto) {
-    return this.prismaService.stockItem.upsert({
-      where: { id: itemId },
-      update: {
-        name: stockItem.name,
-        supplier: stockItem.supplier || null,
-        unit: stockItem.unit,
-        area: stockItem.area,
-        idealStock: stockItem.idealStock,
-        critical: Boolean(stockItem.critical),
-        isActive: true,
-      },
-      create: {
-        id: itemId,
-        name: stockItem.name,
-        supplier: stockItem.supplier || null,
-        unit: stockItem.unit,
-        area: stockItem.area,
-        idealStock: stockItem.idealStock,
-        critical: Boolean(stockItem.critical),
-        isActive: true,
-      },
-    });
-  }
 
   findStockTakeByDate(takeDate: Date) {
     return this.prismaService.stockTake.findUnique({
@@ -90,6 +30,18 @@ export class StockTakeRepository {
     return this.createStockTake(takeDate);
   }
 
+  findActiveStockItemById(stockItemId: number) {
+    return this.prismaService.stockItem.findFirst({
+      where: {
+        id: stockItemId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   listStockItemsWithTakeEntry(stockTakeId: string) {
     return this.prismaService.stockItem.findMany({
       where: {
@@ -99,7 +51,7 @@ export class StockTakeRepository {
       select: {
         id: true,
         name: true,
-        supplier: true,
+        supplierName: true,
         unit: true,
         area: true,
         idealStock: true,

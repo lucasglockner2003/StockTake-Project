@@ -107,6 +107,14 @@ function App() {
     };
   }, [authNotice]);
 
+  useEffect(() => {
+    if (!isReady || isAuthenticated) {
+      return;
+    }
+
+    clearVoiceSession();
+  }, [isAuthenticated, isReady]);
+
   const areas = useMemo(() => {
     return [...new Set(items.map((item) => item.area))];
   }, [items]);
@@ -196,6 +204,7 @@ function App() {
 
   function handleLogout() {
     setIsListening(false);
+    clearVoiceSession();
     setCurrentPage(PAGE_IDS.OVERVIEW);
     setAuthNotice("");
     logout();

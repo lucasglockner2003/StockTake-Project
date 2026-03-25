@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ENTRY_STATUSES } from "../constants/app";
-import { items } from "../data/items";
+import { fetchStockItems } from "../repositories/stock-items-repository";
 import {
   fetchTodayStockTake,
   resetStockTake,
@@ -30,6 +30,7 @@ function canApplyEntry(entry) {
 }
 
 export function useStockTake({ enabled = true } = {}) {
+  const [items, setItems] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [lastSaved, setLastSaved] = useState(null);
   const [voiceFilledItems, setVoiceFilledItems] = useState({});
@@ -45,6 +46,9 @@ export function useStockTake({ enabled = true } = {}) {
     let isMounted = true;
 
     if (!enabled) {
+      setItems([]);
+      setQuantities({});
+      setLastSaved(null);
       setIsLoading(false);
       setIsSaving(false);
       setErrorMessage("");
@@ -58,12 +62,16 @@ export function useStockTake({ enabled = true } = {}) {
       setErrorMessage("");
 
       try {
-        const stockTake = await fetchTodayStockTake();
+        const [catalogItems, stockTake] = await Promise.all([
+          fetchStockItems(),
+          fetchTodayStockTake(),
+        ]);
 
         if (!isMounted) {
           return;
         }
 
+        setItems(catalogItems);
         setQuantities(stockTake.quantities);
         setLastSaved(stockTake.lastSavedAt);
       } catch (error) {
@@ -93,23 +101,23 @@ export function useStockTake({ enabled = true } = {}) {
   const filledItems = useMemo(() => getFilledItemsCount(quantities), [quantities]);
   const missingItems = useMemo(
     () => getMissingItemsCount(items, quantities),
-    [quantities]
+    [items, quantities]
   );
-  const progress = useMemo(() => getProgress(items, quantities), [quantities]);
+  const progress = useMemo(() => getProgress(items, quantities), [items, quantities]);
   const reviewTableText = useMemo(
     () => getReviewTableText(items, quantities),
-    [quantities]
+    [items, quantities]
   );
 
   const { okCount, criticalCount, lowCount, checkCount } = useMemo(
     () => getStatusCounts(items, quantities),
-    [quantities]
+    [items, quantities]
   );
 
-  const groupedItems = useMemo(() => groupItemsByArea(items), []);
+  const groupedItems = useMemo(() => groupItemsByArea(items), [items]);
   const suggestedOrder = useMemo(
     () => getSuggestedOrder(items, quantities),
-    [quantities]
+    [items, quantities]
   );
   const orderText = useMemo(() => getOrderText(suggestedOrder), [suggestedOrder]);
   const itemsById = useMemo(() => {
@@ -117,7 +125,7 @@ export function useStockTake({ enabled = true } = {}) {
       accumulator[item.id] = item;
       return accumulator;
     }, {});
-  }, []);
+  }, [items]);
 
   function clearPendingSave(itemId) {
     const timeoutId = saveTimeoutsRef.current[itemId];
@@ -155,7 +163,7 @@ export function useStockTake({ enabled = true } = {}) {
       setIsSaving(true);
 
       try {
-        const mutation = await saveStockTakeItemQuantity(item, nextQuantity);
+        const mutation = await saveStockTakeItemQuantity(itemId, nextQuantity);
 
         if (latestSaveSequenceRef.current[itemId] !== sequence) {
           return;

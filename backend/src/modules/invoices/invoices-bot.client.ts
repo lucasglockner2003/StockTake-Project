@@ -1,8 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import axios, { AxiosError, AxiosInstance } from 'axios';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-function normalizeBaseUrl(value: string | undefined) {
-  return String(value || 'http://localhost:4190').replace(/\/+$/, '');
+const BOT_SERVICE_BASE_URL = 'http://localhost:4190';
+const BOT_SERVICE_TIMEOUT_MS = 5000;
+
+function resolveBotServiceBaseUrl(
+  value: string | undefined,
+  logger: Logger,
+) {
+  const normalizedValue = String(value || BOT_SERVICE_BASE_URL).trim().replace(/\/+$/, '');
+
+  if (normalizedValue && normalizedValue !== BOT_SERVICE_BASE_URL) {
+    logger.warn(
+      `Ignoring BOT_SERVICE_BASE_URL=${normalizedValue}. Using ${BOT_SERVICE_BASE_URL}.`,
+    );
+  }
+
+  return BOT_SERVICE_BASE_URL;
 }
 
 function normalizeString(value: unknown, fallback = '') {
@@ -36,11 +51,11 @@ function normalizePublicAssetUrl(baseUrl: string, value: unknown) {
   return `${baseUrl}/${pathValue}`;
 }
 
-async function safeParseJson(response: Response) {
+function safeJsonStringify(value: unknown) {
   try {
-    return await response.json();
+    return JSON.stringify(value);
   } catch {
-    return null;
+    return '[unserializable]';
   }
 }
 
@@ -78,17 +93,29 @@ export interface InvoiceBotResponse {
 }
 
 @Injectable()
-export class InvoicesBotClient {
+export class InvoicesBotClient implements OnModuleInit {
+  private readonly logger = new Logger(InvoicesBotClient.name);
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly httpClient: AxiosInstance;
 
   constructor(private readonly configService: ConfigService) {
-    this.baseUrl = normalizeBaseUrl(
+    this.baseUrl = resolveBotServiceBaseUrl(
       this.configService.get<string>('BOT_SERVICE_BASE_URL'),
+      this.logger,
     );
-    this.timeoutMs = Number(
-      this.configService.get<number>('BOT_SERVICE_TIMEOUT_MS', 30000),
-    );
+    this.timeoutMs = BOT_SERVICE_TIMEOUT_MS;
+    this.httpClient = axios.create({
+      baseURL: this.baseUrl,
+      timeout: this.timeoutMs,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  async onModuleInit() {
+    await this.logHealthCheck();
   }
 
   executeInvoiceIntake(payload: InvoiceBotPayload) {
@@ -125,48 +152,95 @@ export class InvoicesBotClient {
     };
   }
 
+  private async logHealthCheck() {
+    const pathname = '/health';
+    const url = `${this.baseUrl}${pathname}`;
+
+    this.logger.log(`Bot service request -> GET ${url}`);
+
+    try {
+      const response = await this.httpClient.get(pathname);
+
+      this.logger.log(
+        `Bot service response <- GET ${url} status=${response.status} payload=${safeJsonStringify(response.data)}`,
+      );
+    } catch (error) {
+      this.logRequestError(url, error);
+    }
+  }
+
+  private logRequestError(url: string, error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError;
+      const responseStatus = axiosError.response?.status ?? 'no-response';
+      const responseData = safeJsonStringify(axiosError.response?.data ?? null);
+      const stack = axiosError.stack || axiosError.message;
+
+      this.logger.error(
+        `Bot service error <- ${url} status=${responseStatus} response=${responseData} message=${axiosError.message}`,
+        stack,
+      );
+      return;
+    }
+
+    if (error instanceof Error) {
+      this.logger.error(
+        `Bot service error <- ${url} message=${error.message}`,
+        error.stack,
+      );
+      return;
+    }
+
+    this.logger.error(`Bot service error <- ${url} message=${String(error)}`);
+  }
+
   private async request(
     pathname: string,
     body: InvoiceBotPayload,
   ): Promise<InvoiceBotResponse> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    const url = `${this.baseUrl}${pathname}`;
+
+    this.logger.log(
+      `Bot service request -> POST ${url} payload=${safeJsonStringify(body)}`,
+    );
 
     try {
-      const response = await fetch(`${this.baseUrl}${pathname}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
+      const response = await this.httpClient.post(pathname, body);
+      const payload = response.data;
 
-      const payload = await safeParseJson(response);
-
-      if (response.ok) {
-        return this.normalizeResponse(payload, {
-          ok: true,
-          status: 'executed',
-        });
-      }
+      this.logger.log(
+        `Bot service response <- POST ${url} status=${response.status} payload=${safeJsonStringify(payload)}`,
+      );
 
       return this.normalizeResponse(payload, {
-        ok: false,
-        status: 'failed',
-        phase: 'http-error',
-        errorCode: 'BOT_SERVICE_HTTP_ERROR',
-        message: `Bot service returned HTTP ${response.status}.`,
+        ok: true,
+        status: 'executed',
       });
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return this.normalizeResponse(null, {
-          ok: false,
-          status: 'failed',
-          phase: 'transport-timeout',
-          errorCode: 'BOT_SERVICE_TIMEOUT',
-          message: 'Bot service request timed out.',
-        });
+      this.logRequestError(url, error);
+
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+
+        if (axiosError.code === 'ECONNABORTED') {
+          return this.normalizeResponse(null, {
+            ok: false,
+            status: 'failed',
+            phase: 'transport-timeout',
+            errorCode: 'BOT_SERVICE_TIMEOUT',
+            message: 'Bot service request timed out.',
+          });
+        }
+
+        if (axiosError.response) {
+          return this.normalizeResponse(axiosError.response.data, {
+            ok: false,
+            status: 'failed',
+            phase: 'http-error',
+            errorCode: 'BOT_SERVICE_HTTP_ERROR',
+            message: `Bot service returned HTTP ${axiosError.response.status}.`,
+          });
+        }
       }
 
       return this.normalizeResponse(null, {
@@ -179,8 +253,6 @@ export class InvoicesBotClient {
             ? error.message
             : 'Failed to reach bot service.',
       });
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 }

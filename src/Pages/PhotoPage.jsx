@@ -22,6 +22,7 @@ function PhotoPage({ items, setCurrentPage }) {
     isOutputLocked,
     searchableItems,
     liveValidEntriesCount,
+    examplePhotoText,
     automationPayload,
     automationJob,
     handleImageChange,
@@ -133,10 +134,7 @@ function PhotoPage({ items, setCurrentPage }) {
           placeholder={`Text will appear here automatically.
 
 Example:
-Wings: 25
-Tomato: 12
-Potato: 8
-Salsa: 15`}
+${examplePhotoText}`}
           style={{
             width: "100%",
             minHeight: "160px",

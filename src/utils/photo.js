@@ -1,4 +1,5 @@
 import { SOURCES } from "../constants/app";
+import { extractPhotoOrderText } from "../services/photo-ocr-service";
 import { findBestMatch } from "./matching";
 import {
   createMatchedEntryFromMatchResult,
@@ -212,22 +213,48 @@ export function getPhotoAutomationPreviewText(entries) {
     .join("\n");
 }
 
-export function getMockPhotoText() {
-  const mockSamples = [
-    `WINGS: 25
-TOMATO: 12
-POTATO: 8
-SALSA: 15`,
-    `WINGS: 10
-POTATO: 5
-TOMATO: 10`,
-    `HALLOUMI: 3
-BACON: 4
-DRY TOMATO: 1`,
+function getCatalogSampleItems(items = []) {
+  const validItems = (items || []).filter((item) => String(item?.name || "").trim());
+
+  if (validItems.length > 0) {
+    return validItems.slice(0, 4);
+  }
+
+  return [
+    { name: "Item A" },
+    { name: "Item B" },
+    { name: "Item C" },
+    { name: "Item D" },
+  ];
+}
+
+export function getPhotoExampleText(items = []) {
+  const sampleItems = getCatalogSampleItems(items);
+  const quantities = [25, 12, 8, 15];
+
+  return sampleItems
+    .map((item, index) => `${item.name}: ${quantities[index] || index + 1}`)
+    .join("\n");
+}
+
+export function getMockPhotoText(items = []) {
+  const sampleItems = getCatalogSampleItems(items);
+  const quantitySets = [
+    [25, 12, 8, 15],
+    [10, 5, 10, 3],
+    [3, 4, 1, 2],
   ];
 
-  const randomIndex = Math.floor(Math.random() * mockSamples.length);
-  return mockSamples[randomIndex];
+  const randomIndex = Math.floor(Math.random() * quantitySets.length);
+  const selectedQuantities = quantitySets[randomIndex];
+
+  return sampleItems
+    .slice(0, selectedQuantities.length)
+    .map(
+      (item, index) =>
+        `${String(item.name || "").toUpperCase()}: ${selectedQuantities[index]}`
+    )
+    .join("\n");
 }
 
 export async function extractTextFromImage(file) {
@@ -235,25 +262,6 @@ export async function extractTextFromImage(file) {
     throw new Error("No image file provided.");
   }
 
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const response = await fetch("http://localhost:3001/api/photo-order-ocr", {
-    method: "POST",
-    body: formData,
-  });
-
-  let data = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to process image with OpenAI.");
-  }
-
-  return normalizeOcrText(data.text || "");
+  const extractedText = await extractPhotoOrderText(file);
+  return normalizeOcrText(extractedText);
 }

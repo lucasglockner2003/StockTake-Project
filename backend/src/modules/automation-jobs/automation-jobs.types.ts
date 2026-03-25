@@ -1,12 +1,14 @@
 import {
   AutomationJobSource,
   AutomationJobStatus,
+  Prisma,
   SupplierOrderHistoryStatus,
 } from '../../generated/prisma/client';
 
 export const AUTOMATION_JOB_STATUS_VALUES = {
   PENDING: 'pending',
   RUNNING: 'running',
+  SUCCESS: 'success',
   DONE: 'done',
   FAILED: 'failed',
 } as const;
@@ -14,6 +16,7 @@ export const AUTOMATION_JOB_STATUS_VALUES = {
 export const AUTOMATION_JOB_SOURCE_VALUES = {
   UNKNOWN: 'unknown',
   PHOTO: 'photo',
+  PHOTO_ORDER: 'photo-order',
   REVIEW_SUGGESTED_ORDER: 'review-suggested-order',
   REVIEW_STOCK_TABLE: 'review-stock-table',
   REVIEW_SUPPLIER_ORDER: 'review-supplier-order',
@@ -79,11 +82,15 @@ export interface SupplierOrderMetadataResponse {
 
 export interface AutomationJobResponse {
   jobId: string;
+  type: string;
+  payload: Prisma.JsonValue;
   sessionId: string;
   createdAt: string;
   updatedAt: string;
   status: AutomationJobStatusValue;
   source: AutomationJobSourceValue;
+  result: Prisma.JsonValue | null;
+  error: string;
   notes: string;
   attemptCount: number;
   lastError: string;
@@ -172,7 +179,7 @@ export function mapAutomationJobStatusToApi(
     return AUTOMATION_JOB_STATUS_VALUES.RUNNING;
   }
 
-  if (status === AutomationJobStatus.DONE) {
+  if (status === AutomationJobStatus.SUCCESS) {
     return AUTOMATION_JOB_STATUS_VALUES.DONE;
   }
 
@@ -190,8 +197,12 @@ export function mapApiAutomationJobStatusToPrisma(
     return AutomationJobStatus.RUNNING;
   }
 
+  if (status === AUTOMATION_JOB_STATUS_VALUES.SUCCESS) {
+    return AutomationJobStatus.SUCCESS;
+  }
+
   if (status === AUTOMATION_JOB_STATUS_VALUES.DONE) {
-    return AutomationJobStatus.DONE;
+    return AutomationJobStatus.SUCCESS;
   }
 
   if (status === AUTOMATION_JOB_STATUS_VALUES.FAILED) {
@@ -227,6 +238,10 @@ export function mapApiAutomationJobSourceToPrisma(
   source: string,
 ): AutomationJobSource {
   if (source === AUTOMATION_JOB_SOURCE_VALUES.PHOTO) {
+    return AutomationJobSource.PHOTO;
+  }
+
+  if (source === AUTOMATION_JOB_SOURCE_VALUES.PHOTO_ORDER) {
     return AutomationJobSource.PHOTO;
   }
 

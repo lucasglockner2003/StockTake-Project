@@ -1,13 +1,3 @@
-export type StockTakeCatalogItem = {
-  id: number;
-  name: string;
-  supplier: string;
-  unit: string;
-  area: string;
-  idealStock: number;
-  critical?: boolean;
-};
-
 export type StockTakeStatus = 'Pending' | 'Critical' | 'Low' | 'Check' | 'Ok';
 
 export type StockTakeTodayItemResponse = {

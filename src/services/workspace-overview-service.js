@@ -1,14 +1,11 @@
 import { PAGE_IDS } from "../constants/pages";
 import { normalizeUserRole, USER_ROLES } from "../constants/access-control";
-import {
-  getAutomationJobCounts,
-  getAutomationQueue,
-  getSupplierOrderHistory,
-} from "../utils/automation";
+import { getAutomationJobCounts, getAutomationQueue } from "../utils/automation";
 import { getDailyOrderQueue, getDailyOrderQueueCounts } from "../utils/dailyOrders";
 import { getInvoiceQueue, getInvoiceQueueCounts } from "../utils/invoiceQueue";
 import { groupSuggestedOrderBySupplier } from "../utils/stock";
 import { loadVoiceData } from "../utils/storage";
+import { getSupplierOrderHistory } from "../utils/supplierHistory";
 
 function sumOrderAmount(items = []) {
   return items.reduce((sum, item) => sum + Number(item.orderAmount || 0), 0);

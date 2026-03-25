@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
@@ -17,13 +18,26 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
+  private isPublicRegistrationEnabled() {
+    return this.configService.get<boolean>('AUTH_ALLOW_PUBLIC_REGISTRATION', false);
+  }
+
   async register(registerDto: RegisterDto) {
+    if (!this.isPublicRegistrationEnabled()) {
+      throw new ForbiddenException(
+        'Public registration is disabled. Seed the initial admin account instead.',
+      );
+    }
+
     const usersCount = await this.usersService.countUsers();
 
     if (usersCount > 0) {
-      throw new ForbiddenException('Public registration is disabled.');
+      throw new ForbiddenException(
+        'Bootstrap registration is only available before the first user exists.',
+      );
     }
 
     const createUserDto: CreateUserDto = {
@@ -63,6 +77,11 @@ export class AuthService {
     return {
       accessToken,
       tokenType: 'Bearer',
+      expiresIn: this.configService.get<number>('JWT_EXPIRES_IN', 86400),
     };
+  }
+
+  getAuthenticatedProfile(userId: string) {
+    return this.usersService.findUserProfileById(userId);
   }
 }

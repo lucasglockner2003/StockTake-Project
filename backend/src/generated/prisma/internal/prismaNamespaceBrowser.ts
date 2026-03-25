@@ -61,7 +61,8 @@ export const ModelName = {
   InvoiceItem: 'InvoiceItem',
   AutomationJob: 'AutomationJob',
   AutomationJobItem: 'AutomationJobItem',
-  SupplierOrderHistoryRevision: 'SupplierOrderHistoryRevision'
+  SupplierOrderHistoryRevision: 'SupplierOrderHistoryRevision',
+  SupplierOrderHistory: 'SupplierOrderHistory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -94,8 +95,10 @@ export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof User
 export const StockItemScalarFieldEnum = {
   id: 'id',
   name: 'name',
-  supplier: 'supplier',
   unit: 'unit',
+  category: 'category',
+  supplierName: 'supplierName',
+  aliases: 'aliases',
   area: 'area',
   idealStock: 'idealStock',
   critical: 'critical',
@@ -222,9 +225,13 @@ export type InvoiceItemScalarFieldEnum = (typeof InvoiceItemScalarFieldEnum)[key
 
 export const AutomationJobScalarFieldEnum = {
   id: 'id',
+  type: 'type',
+  payload: 'payload',
   sessionId: 'sessionId',
   source: 'source',
   status: 'status',
+  result: 'result',
+  error: 'error',
   notes: 'notes',
   attempts: 'attempts',
   totalItems: 'totalItems',
@@ -282,6 +289,22 @@ export const SupplierOrderHistoryRevisionScalarFieldEnum = {
 export type SupplierOrderHistoryRevisionScalarFieldEnum = (typeof SupplierOrderHistoryRevisionScalarFieldEnum)[keyof typeof SupplierOrderHistoryRevisionScalarFieldEnum]
 
 
+export const SupplierOrderHistoryScalarFieldEnum = {
+  id: 'id',
+  dailyOrderId: 'dailyOrderId',
+  supplierName: 'supplierName',
+  items: 'items',
+  totalItems: 'totalItems',
+  totalQuantity: 'totalQuantity',
+  status: 'status',
+  revisionNumber: 'revisionNumber',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SupplierOrderHistoryScalarFieldEnum = (typeof SupplierOrderHistoryScalarFieldEnum)[keyof typeof SupplierOrderHistoryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -313,14 +336,6 @@ export const QueryMode = {
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
 
 
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
 export const JsonNullValueFilter = {
   DbNull: DbNull,
   JsonNull: JsonNull,
@@ -328,4 +343,12 @@ export const JsonNullValueFilter = {
 } as const
 
 export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 

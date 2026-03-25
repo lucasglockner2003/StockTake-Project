@@ -6,6 +6,7 @@ import {
 import {
   clearHttpClientToken,
   httpClient,
+  setHttpClientUnauthorizedHandler,
   setHttpClientToken,
 } from "./http-client";
 
@@ -29,10 +30,14 @@ export async function register(payload) {
 }
 
 export async function getMe() {
-  return httpClient.get("/users/me");
+  return httpClient.get("/auth/me");
 }
 
 export function logoutLocal() {
   clearAuthSession();
   clearHttpClientToken();
+}
+
+export function registerAuthSessionExpiredHandler(handler) {
+  return setHttpClientUnauthorizedHandler(handler);
 }

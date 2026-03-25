@@ -5,13 +5,14 @@ import {
   deleteAutomationJob as deleteAutomationJobRequest,
   getAutomationJobs as getAutomationJobsRequest,
   getAutomationJobsSummary as getAutomationJobsSummaryRequest,
+  retryAutomationJob as retryAutomationJobRequest,
   getSupplierOrderHistory as getSupplierOrderHistoryRequest,
   resetAutomationJob as resetAutomationJobRequest,
   runAutomationJob as runAutomationJobRequest,
   updateAutomationJobError as updateAutomationJobErrorRequest,
   updateAutomationJobNotes as updateAutomationJobNotesRequest,
   updateAutomationJobStatus as updateAutomationJobStatusRequest,
-} from "../services/automation-service";
+} from "../services/automation-jobs-service";
 
 const EMPTY_SUMMARY = Object.freeze({
   total: 0,
@@ -127,17 +128,22 @@ function normalizeAutomationJob(job = {}) {
   const items = Array.isArray(job?.items)
     ? job.items.map((item, index) => normalizeJobItem(item, index))
     : [];
+  const normalizedStatus = normalizeString(job?.status, "pending");
 
   return {
     jobId: normalizeString(job?.jobId || job?.id),
+    type: normalizeString(job?.type, "unknown"),
+    payload: job?.payload ?? null,
     sessionId: normalizeString(job?.sessionId),
     createdAt: normalizeString(job?.createdAt),
     updatedAt: normalizeString(job?.updatedAt || job?.createdAt),
-    status: normalizeString(job?.status, "pending"),
+    status: normalizedStatus === "success" ? "done" : normalizedStatus,
     source: normalizeString(job?.source, "unknown"),
+    result: job?.result ?? null,
+    error: normalizeString(job?.error),
     notes: normalizeString(job?.notes),
     attemptCount: normalizeNumber(job?.attemptCount, job?.attempts || 0),
-    lastError: normalizeString(job?.lastError),
+    lastError: normalizeString(job?.lastError || job?.error),
     totalItems: normalizeNumber(job?.totalItems, items.length),
     items,
     metadata: {
@@ -496,7 +502,12 @@ export async function clearAutomationQueue() {
 }
 
 export async function executeAutomationQueueJob(jobId, payload = {}) {
-  const mutation = await runAutomationJobRequest(jobId, payload);
+  const currentJob = cachedAutomationQueue.find((job) => job.jobId === jobId);
+  const request =
+    currentJob?.status === "failed"
+      ? retryAutomationJobRequest
+      : runAutomationJobRequest;
+  const mutation = await request(jobId, payload);
 
   if (mutation?.job) {
     upsertCachedAutomationJob(mutation.job, mutation.summary);

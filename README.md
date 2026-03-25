@@ -1,113 +1,115 @@
-# SmartOps - Restaurant Workflow Automation
+# SmartOps
 
-SmartOps is a production-oriented restaurant operations system focused on inventory capture, order review, and controlled supplier order execution.
+SmartOps is a fullstack operations workspace for stock take, supplier order execution, automation queue tracking, and invoice intake.
 
-This project is intentionally built around operational safety:
-- human correction before execution
-- screenshot evidence at key stages
-- explicit chef approval gate before final submit
-- manual trigger flow only (no scheduler, no auto-run)
-
-## What SmartOps Does Today
-
-### 1) Stocktake Capture
-- Manual stocktake entry for kitchen teams
-- Voice capture flow for fast quantity input
-- Photo OCR capture flow for handwritten/printed order notes
-
-### 2) Review and Correction
-- Parsed entries are matched against catalog items
-- Team can correct item mapping and quantities
-- Suggested order output is reviewed before automation
-
-### 3) Daily Order Execution
-- Daily confirmed orders are stored locally
-- Orders move through the existing state machine with manual transitions
-- Bot fill and final submit are manually triggered by chef/operator actions
-
-### 4) Bot Service Layer
-- Dedicated `bot-service` (Node + Express) executes browser automation via Playwright
-- Endpoints handle fill and final submit separately:
-  - `POST /execute-daily-order`
-  - `POST /submit-daily-order`
-- Includes structured execution responses for safer retry/error UX
-
-### 5) Mock Supplier Portal (Safety Environment)
-- Automation targets the mock supplier portal only
-- Used for safe testing of:
-  - login
-  - item fill
-  - review screenshot capture
-  - final submit simulation
-  - mock order number generation
-
-## Safety-Critical Gate: Chef Review Before Final Submit
-
-SmartOps enforces a manual approval gate:
-1. Bot fills order and stops at review stage
-2. Chef reviews evidence (screenshot + order details)
-3. Chef explicitly triggers final submit
-
-No automatic submit is performed.
-
-## Architecture Snapshot
+## Stack
 
 - Frontend: React + Vite
-- Local persistence: `localStorage` (current phase)
-- Automation service: Node.js + Express
-- Browser automation: Playwright
-- Test target portal: `mock-portal`
+- Backend: NestJS + Prisma
+- Database: PostgreSQL
 
-## Run Locally
+## Minimal Environment
 
-Install:
-```bash
-npm install
+Frontend file: `.env`
+
+```env
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_DAILY_ORDER_BOT_SERVICE_URL=http://localhost:4190
+VITE_BOT_SERVICE_TIMEOUT_MS=30000
+VITE_MOCK_PORTAL_URL=http://localhost:4177
 ```
 
-Frontend:
-```bash
-npm run dev
+Backend file: `backend/.env`
+
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/smartops?schema=public
+JWT_SECRET=change-this-before-production
+JWT_EXPIRES_IN=86400
+PASSWORD_SALT_ROUNDS=12
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+AUTH_ALLOW_PUBLIC_REGISTRATION=false
+BOT_SERVICE_BASE_URL=http://localhost:4190
+BOT_SERVICE_TIMEOUT_MS=30000
+ADMIN_SEED_EMAIL=admin@smartops.local
+ADMIN_SEED_PASSWORD=ChangeMe123!
 ```
 
-Mock supplier portal:
-```bash
-npm run mock:portal
+## Bootstrap Database
+
+Start PostgreSQL with Docker:
+
+```powershell
+docker run --name smartops-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=smartops -p 5432:5432 -d postgres:16
 ```
 
-Bot service:
-```bash
-npm run bot:service
+Apply Prisma migrations:
+
+```powershell
+npm.cmd --prefix backend run prisma:deploy
 ```
 
-## Environment Variables
+## Run Backend
 
-- `VITE_DAILY_ORDER_BOT_SERVICE_URL` (frontend, optional)  
-  default: `http://localhost:4190`
-- `BOT_SERVICE_PORT` (bot-service, optional)  
-  default: `4190`
-- `MOCK_PORTAL_URL` (bot-service/bot runners, optional)  
-  default: `http://localhost:4177`
+```powershell
+npm.cmd --prefix backend run start:dev
+```
 
-## Current Product Focus
+Backend base URL:
 
-SmartOps is currently focused on execution reliability and operational safety:
-- retry UX improvements
-- structured error handling
-- bot execution stability
-- failure visibility without silent data loss
+```text
+http://localhost:3000/api
+```
 
-## Roadmap
+## Run Frontend
 
-### Current
-- Reliability hardening
-- Retry UX and operator feedback
-- Structured bot/service errors
-- Bot execution stability and recovery behavior
+```powershell
+npm.cmd run dev
+```
 
-### Later
-- Multi-supplier execution support
-- Remote headless execution infrastructure
-- Persistent execution storage
-- SaaS multi-restaurant architecture
-- PWA tablet support for kitchen operations
+Frontend dev URL:
+
+```text
+http://localhost:5173
+```
+
+## Seed Initial Admin
+
+Run the official seed after the database migrations:
+
+```powershell
+npm.cmd --prefix backend run seed:admin
+```
+
+Example initial credentials from `backend/.env.example`:
+
+- Email: `admin@smartops.local`
+- Password: `ChangeMe123!`
+
+Change these values before using any shared or production-like environment.
+
+## Full Run From Zero
+
+Execute these commands in order from the project root:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item backend\.env.example backend\.env
+npm.cmd install
+npm.cmd --prefix backend install
+docker run --name smartops-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=smartops -p 5432:5432 -d postgres:16
+npm.cmd --prefix backend run prisma:generate
+npm.cmd --prefix backend run prisma:deploy
+npm.cmd --prefix backend run seed:admin
+```
+
+Then start the services in separate terminals:
+
+```powershell
+npm.cmd --prefix backend run start:dev
+```
+
+```powershell
+npm.cmd run dev
+```

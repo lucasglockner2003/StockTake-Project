@@ -14,7 +14,7 @@ import { Type } from 'class-transformer';
 import {
   AUTOMATION_JOB_SOURCE_VALUES,
   SUPPLIER_ORDER_HISTORY_STATUS_VALUES,
-} from '../automation.types';
+} from '../automation-jobs.types';
 
 const AUTOMATION_JOB_SOURCE_OPTIONS = Object.values(AUTOMATION_JOB_SOURCE_VALUES);
 const SUPPLIER_HISTORY_STATUS_OPTIONS = Object.values(
@@ -180,6 +180,10 @@ export class CreateAutomationJobItemDto {
 }
 
 export class CreateAutomationJobDto {
+  @IsString()
+  @IsOptional()
+  type?: string;
+
   @IsString()
   @IsOptional()
   sessionId?: string;
