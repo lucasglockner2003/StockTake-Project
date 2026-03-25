@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   buildRoleWorkspaceDashboard,
   buildWorkspaceOverviewSnapshot,
@@ -21,7 +21,6 @@ import {
 } from "../utils/supplierHistory";
 
 export function useWorkspaceOverview({
-  currentPage,
   role,
   stockState,
   enabled = true,
@@ -80,31 +79,18 @@ export function useWorkspaceOverview({
     };
   }, [enabled]);
 
-  return useMemo(() => {
-    const snapshot = buildWorkspaceOverviewSnapshot(stockState);
-    const dashboard = buildRoleWorkspaceDashboard(role, snapshot);
+  const revisionToken =
+    automationRevision +
+    dailyOrderRevision +
+    invoiceRevision +
+    supplierHistoryRevision;
+  void revisionToken;
 
-    return {
-      snapshot,
-      dashboard,
-    };
-  }, [
-    currentPage,
-    role,
-    stockState.checkCount,
-    stockState.criticalCount,
-    stockState.filledItems,
-    stockState.items,
-    stockState.lowCount,
-    stockState.missingItems,
-    stockState.okCount,
-    stockState.progress,
-    stockState.quantities,
-    stockState.suggestedOrder,
-    stockState.voiceFilledItems,
-    automationRevision,
-    dailyOrderRevision,
-    invoiceRevision,
-    supplierHistoryRevision,
-  ]);
+  const snapshot = buildWorkspaceOverviewSnapshot(stockState);
+  const dashboard = buildRoleWorkspaceDashboard(role, snapshot);
+
+  return {
+    snapshot,
+    dashboard,
+  };
 }

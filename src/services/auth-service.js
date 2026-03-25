@@ -12,7 +12,7 @@ import {
 
 export function restoreAuthSession() {
   const session = loadAuthSession();
-  setHttpClientToken(session.token);
+  setHttpClientToken("");
   return session;
 }
 
@@ -25,12 +25,30 @@ export async function login(credentials) {
   return httpClient.post("/auth/login", credentials);
 }
 
+export async function refreshSession() {
+  return httpClient.refreshSession();
+}
+
 export async function register(payload) {
   return httpClient.post("/auth/register", payload);
 }
 
 export async function getMe() {
   return httpClient.get("/auth/me");
+}
+
+export async function logout() {
+  try {
+    await httpClient.post(
+      "/auth/logout",
+      {},
+      {
+        skipAuthRefresh: true,
+      }
+    );
+  } finally {
+    logoutLocal();
+  }
 }
 
 export function logoutLocal() {

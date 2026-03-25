@@ -37,7 +37,6 @@ function PhotoPage({ items, setCurrentPage }) {
     handleUnlockOutput,
     handleCopyFinalText,
     handleCopyAutomationPayload,
-    handleSendToAutomationQueue,
     readyDailyOrdersCount,
     isCreatingDailyOrders,
     handleSendDailyOrderToBot,

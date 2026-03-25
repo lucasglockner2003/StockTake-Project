@@ -8,14 +8,12 @@ const AUTH_STORAGE_KEY = "smartops-auth-session";
 
 function getEmptyAuthSession() {
   return {
-    token: "",
     user: null,
   };
 }
 
 export function loadAuthSession() {
   return readJsonStorageItem(AUTH_STORAGE_KEY, getEmptyAuthSession(), (value) => ({
-    token: typeof value?.token === "string" ? value.token : "",
     user:
       value?.user && typeof value.user === "object" && !Array.isArray(value.user)
         ? value.user
@@ -25,8 +23,10 @@ export function loadAuthSession() {
 
 export function saveAuthSession(session) {
   writeJsonStorageItem(AUTH_STORAGE_KEY, {
-    ...getEmptyAuthSession(),
-    ...session,
+    user:
+      session?.user && typeof session.user === "object" && !Array.isArray(session.user)
+        ? session.user
+        : null,
   });
 }
 

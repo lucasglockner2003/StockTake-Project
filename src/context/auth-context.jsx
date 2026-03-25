@@ -1,15 +1,16 @@
-import { createContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { AuthContext } from "./auth-context-instance";
 import {
   getMe,
   login as loginRequest,
+  logout as logoutRequest,
   logoutLocal,
   persistAuthSession,
   registerAuthSessionExpiredHandler,
   register as registerRequest,
+  refreshSession,
   restoreAuthSession,
 } from "../services/auth-service";
-
-export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -36,32 +37,23 @@ export function AuthProvider({ children }) {
       setLoading(true);
       const storedSession = restoreAuthSession();
 
-      if (!storedSession.token) {
-        if (isMounted) {
-          setLoading(false);
-          setIsReady(true);
-        }
-
-        return;
-      }
-
       if (isMounted) {
-        setToken(storedSession.token);
         setUser(storedSession.user);
       }
 
       try {
-        const nextUser = await getMe();
+        const nextSession = await refreshSession();
 
         if (!isMounted) {
           return;
         }
 
         persistAuthSession({
-          token: storedSession.token,
-          user: nextUser,
+          token: nextSession?.accessToken || "",
+          user: nextSession?.user || null,
         });
-        setUser(nextUser);
+        setToken(nextSession?.accessToken || "");
+        setUser(nextSession?.user || null);
       } catch {
         if (!isMounted) {
           return;
@@ -85,28 +77,34 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function establishAuthenticatedSession(nextToken) {
+  async function establishAuthenticatedSession(authenticationResponse) {
+    const nextToken =
+      typeof authenticationResponse?.accessToken === "string"
+        ? authenticationResponse.accessToken
+        : "";
+
     if (!nextToken) {
       throw new Error("Authentication token was not returned by the API.");
     }
 
     try {
+      const nextUser =
+        authenticationResponse?.user && typeof authenticationResponse.user === "object"
+          ? authenticationResponse.user
+          : await getMe();
+
       persistAuthSession({
         token: nextToken,
-        user: null,
+        user: nextUser,
       });
 
-      const nextUser = await getMe();
-      const nextSession = {
+      setToken(nextToken);
+      setUser(nextUser);
+
+      return {
         token: nextToken,
         user: nextUser,
       };
-
-      persistAuthSession(nextSession);
-      setToken(nextSession.token);
-      setUser(nextSession.user);
-
-      return nextSession;
     } catch (error) {
       logoutLocal();
       setToken("");
@@ -120,7 +118,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await loginRequest(credentials);
-      return await establishAuthenticatedSession(response?.accessToken || "");
+      return await establishAuthenticatedSession(response);
     } finally {
       setLoading(false);
     }
@@ -166,10 +164,13 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    logoutLocal();
-    setToken("");
-    setUser(null);
-    setLoading(false);
+    setLoading(true);
+
+    return logoutRequest().finally(() => {
+      setToken("");
+      setUser(null);
+      setLoading(false);
+    });
   }
 
   const authValue = {

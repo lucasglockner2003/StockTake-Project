@@ -22,10 +22,9 @@ import {
   getBotServiceExecutionStatus,
   getBotServiceHealth,
 } from "../utils/botServiceClient";
+import { runtimeConfig } from "../services/runtime-config";
 
-const MOCK_PORTAL_URL = String(
-  import.meta.env.VITE_MOCK_PORTAL_URL || "http://localhost:4177"
-).replace(/\/+$/, "");
+const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
 
 function getStatusLabel(status) {
   if (status === DAILY_ORDER_STATUSES.READY) return "READY";
@@ -439,6 +438,14 @@ function DailyOrderExecutionPage() {
     if (!order) return;
 
     clearWarning(order.id);
+
+    if (!MOCK_PORTAL_URL) {
+      setPageNotice({
+        tone: "warning",
+        message: "Supplier portal URL is not configured for this environment.",
+      });
+      return;
+    }
 
     if (!order.reviewScreenshot) {
       setPageNotice({

@@ -1,8 +1,20 @@
-const PHOTO_OCR_API_BASE_URL = String(
-  import.meta.env.VITE_PHOTO_OCR_API_BASE_URL || "http://localhost:3001"
-).replace(/\/+$/, "");
+import { runtimeConfig } from "./runtime-config";
+
+const PHOTO_OCR_API_BASE_URL = runtimeConfig.photoOcrApiBaseUrl;
+
+async function parseJsonSafely(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
 
 export async function extractPhotoOrderText(file) {
+  if (!PHOTO_OCR_API_BASE_URL) {
+    throw new Error("Photo OCR API base URL is not configured.");
+  }
+
   const formData = new FormData();
   formData.append("image", file);
 
@@ -11,16 +23,12 @@ export async function extractPhotoOrderText(file) {
     body: formData,
   });
 
-  let data = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
+  const data = await parseJsonSafely(response);
 
   if (!response.ok) {
-    throw new Error(data.error || "Failed to process image with OCR.");
+    throw new Error(
+      data.error || data.message || "Failed to process image with OCR."
+    );
   }
 
   return String(data.text || "");

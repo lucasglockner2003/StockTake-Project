@@ -15,10 +15,9 @@ import {
   subscribeInvoiceQueue,
 } from "../utils/invoiceQueue";
 import { buildInvoiceAutomationPayload } from "../utils/invoiceParsing";
+import { runtimeConfig } from "../services/runtime-config";
 
-const MOCK_PORTAL_URL = String(
-  import.meta.env.VITE_MOCK_PORTAL_URL || "http://localhost:4177"
-).replace(/\/+$/, "");
+const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
 
 const STATUS_FILTERS = [
   { value: "all", label: "All" },
@@ -528,6 +527,11 @@ function InvoiceQueuePage() {
   }
 
   function handleOpenSupplierPortal() {
+    if (!MOCK_PORTAL_URL) {
+      setNotice("warning", "Supplier portal URL is not configured for this environment.");
+      return;
+    }
+
     window.open(MOCK_PORTAL_URL, "_blank");
   }
 

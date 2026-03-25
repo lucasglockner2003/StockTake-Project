@@ -107,12 +107,36 @@ function App() {
     };
   }, [authNotice]);
 
+  function clearVoiceSession() {
+    const emptyVoiceData = getInitialVoiceData();
+
+    setSelectedArea(emptyVoiceData.selectedArea);
+    setTranscriptLines(emptyVoiceData.transcriptLines);
+    setVoiceEntriesByArea(emptyVoiceData.voiceEntriesByArea);
+    setUsedAreasOrder(emptyVoiceData.usedAreasOrder);
+
+    clearVoiceData();
+  }
+
   useEffect(() => {
     if (!isReady || isAuthenticated) {
-      return;
+      return undefined;
     }
 
-    clearVoiceSession();
+    const timeoutId = window.setTimeout(() => {
+      const emptyVoiceData = getInitialVoiceData();
+
+      setSelectedArea(emptyVoiceData.selectedArea);
+      setTranscriptLines(emptyVoiceData.transcriptLines);
+      setVoiceEntriesByArea(emptyVoiceData.voiceEntriesByArea);
+      setUsedAreasOrder(emptyVoiceData.usedAreasOrder);
+
+      clearVoiceData();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [isAuthenticated, isReady]);
 
   const areas = useMemo(() => {
@@ -133,7 +157,6 @@ function App() {
     [currentPage, user?.role]
   );
   const workspaceOverview = useWorkspaceOverview({
-    currentPage,
     role: user?.role,
     enabled: isAuthenticated && isReady,
     stockState: {
@@ -150,17 +173,6 @@ function App() {
       voiceFilledItems,
     },
   });
-
-  function clearVoiceSession() {
-    const emptyVoiceData = getInitialVoiceData();
-
-    setSelectedArea(emptyVoiceData.selectedArea);
-    setTranscriptLines(emptyVoiceData.transcriptLines);
-    setVoiceEntriesByArea(emptyVoiceData.voiceEntriesByArea);
-    setUsedAreasOrder(emptyVoiceData.usedAreasOrder);
-
-    clearVoiceData();
-  }
 
   function handleBackToStock() {
     setIsListening(false);
@@ -212,17 +224,25 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated || !defaultPageForRole) {
-      return;
+      return undefined;
     }
 
-    if (!canAccessCurrentPage) {
+    if (canAccessCurrentPage) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
       setCurrentPage(defaultPageForRole);
       setAuthNotice(
         `You were redirected to ${getPageLabel(
           defaultPageForRole
         )} because your role cannot access ${getPageLabel(currentPage)}.`
       );
-    }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [
     canAccessCurrentPage,
     currentPage,

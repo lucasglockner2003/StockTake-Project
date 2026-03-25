@@ -27,8 +27,8 @@ function normalizeOcrText(text) {
 function sanitizeDetectedName(name) {
   return cleanLine(
     String(name || "")
-      .replace(/^[:\-.\sx]+/i, "")
-      .replace(/[:\-.\s]+$/, "")
+      .replace(/^[-:.\sx]+/i, "")
+      .replace(/[-:.\s]+$/, "")
   );
 }
 
@@ -57,7 +57,7 @@ function parsePhotoLine(line) {
   if (!cleaned) return null;
 
   const patterns = [
-    /^(.+?)\s*[:\-]\s*(\d+(?:[.,]\d+)?)(?:\s*[a-zA-Z]{1,3})?$/i,
+    /^(.+?)\s*[:-]\s*(\d+(?:[.,]\d+)?)(?:\s*[a-zA-Z]{1,3})?$/i,
     /^(.+?)\s+[x]\s*(\d+(?:[.,]\d+)?)(?:\s*[a-zA-Z]{1,3})?$/i,
     /^(.+?)\s+(\d+(?:[.,]\d+)?)(?:\s*[a-zA-Z]{1,3})?$/i,
     /^(\d+(?:[.,]\d+)?)(?:\s*[a-zA-Z]{1,3})?\s+(.+)$/i,

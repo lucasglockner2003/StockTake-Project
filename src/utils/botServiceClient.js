@@ -1,10 +1,7 @@
-const BOT_SERVICE_BASE_URL = String(
-  import.meta.env.VITE_DAILY_ORDER_BOT_SERVICE_URL || "http://localhost:4190"
-).replace(/\/+$/, "");
+import { runtimeConfig } from "../services/runtime-config";
 
-const BOT_SERVICE_TIMEOUT_MS = Number(
-  import.meta.env.VITE_BOT_SERVICE_TIMEOUT_MS || 30000
-);
+const BOT_SERVICE_BASE_URL = runtimeConfig.botServiceBaseUrl;
+const BOT_SERVICE_TIMEOUT_MS = runtimeConfig.botServiceTimeoutMs;
 
 function buildUrl(pathname) {
   const safePath = String(pathname || "").startsWith("/")
@@ -81,6 +78,17 @@ function normalizeTransportError(error) {
 }
 
 async function requestBotService(pathname, options = {}) {
+  if (!BOT_SERVICE_BASE_URL) {
+    return {
+      ok: false,
+      status: "failed",
+      executionId: "",
+      phase: "not-configured",
+      errorCode: "BOT_SERVICE_NOT_CONFIGURED",
+      message: "Bot service base URL is not configured.",
+    };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),

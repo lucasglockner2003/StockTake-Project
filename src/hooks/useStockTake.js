@@ -44,6 +44,7 @@ export function useStockTake({ enabled = true } = {}) {
 
   useEffect(() => {
     let isMounted = true;
+    const pendingSaveTimeouts = saveTimeoutsRef.current;
 
     if (!enabled) {
       setItems([]);
@@ -92,7 +93,7 @@ export function useStockTake({ enabled = true } = {}) {
     return () => {
       isMounted = false;
 
-      Object.values(saveTimeoutsRef.current).forEach((timeoutId) => {
+      Object.values(pendingSaveTimeouts).forEach((timeoutId) => {
         window.clearTimeout(timeoutId);
       });
     };
