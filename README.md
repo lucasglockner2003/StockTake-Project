@@ -93,6 +93,7 @@ For Render Static Site or Vercel, configure:
 - Build command: `npm run build`
 - Publish directory: `dist`
 - Required environment variable: `VITE_API_BASE_URL=https://stocktake-project.onrender.com/api`
+- Render Blueprint: `render.yaml` already includes the static publish path and SPA rewrite to `/index.html`
 
 If you host optional services separately, also configure:
 

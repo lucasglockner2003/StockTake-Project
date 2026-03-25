@@ -1,4 +1,3 @@
-const DEFAULT_PRODUCTION_API_BASE_URL = "https://stocktake-project.onrender.com/api";
 const DEVELOPMENT_API_PROXY_PATH = "/api";
 const DEVELOPMENT_BOT_SERVICE_PROXY_PATH = "/bot-service";
 const DEVELOPMENT_MOCK_PORTAL_PROXY_PATH = "/mock-portal";
@@ -33,7 +32,6 @@ function resolveNumber(value, fallbackValue) {
 export const runtimeConfig = {
   apiBaseUrl: resolveBaseUrl(import.meta.env.VITE_API_BASE_URL, {
     devDefault: DEVELOPMENT_API_PROXY_PATH,
-    prodDefault: DEFAULT_PRODUCTION_API_BASE_URL,
   }),
   photoOcrApiBaseUrl: resolveBaseUrl(import.meta.env.VITE_PHOTO_OCR_API_BASE_URL, {
     devDefault: DEVELOPMENT_PHOTO_OCR_PROXY_PATH,
