@@ -19,9 +19,7 @@ const DEFAULT_ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret:
-          configService.get<string>('JWT_ACCESS_SECRET') ||
-          configService.getOrThrow<string>('JWT_SECRET'),
+        secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
         signOptions: {
           expiresIn: configService.get<number>(
             'JWT_ACCESS_EXPIRES_IN',

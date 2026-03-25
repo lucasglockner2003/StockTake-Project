@@ -54,17 +54,11 @@ export class AuthService {
   }
 
   private getAccessTokenSecret() {
-    return (
-      this.configService.get<string>('JWT_ACCESS_SECRET') ||
-      this.configService.getOrThrow<string>('JWT_SECRET')
-    );
+    return this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
   }
 
   private getRefreshTokenSecret() {
-    return (
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      this.configService.getOrThrow<string>('JWT_SECRET')
-    );
+    return this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
   }
 
   private getAccessTokenExpiresInSeconds() {

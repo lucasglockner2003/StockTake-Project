@@ -22,6 +22,16 @@ const authUserSelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
+type PublicUser = Prisma.UserGetPayload<{
+  select: typeof publicUserSelect;
+}>;
+
+type EnsureUserWithPlainPasswordResult = {
+  user: PublicUser;
+  created: boolean;
+  updated: boolean;
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -38,6 +48,10 @@ export class UsersService {
       'PASSWORD_SALT_ROUNDS',
       DEFAULT_PASSWORD_SALT_ROUNDS,
     );
+  }
+
+  private async hashPassword(password: string) {
+    return bcrypt.hash(password, this.getPasswordSaltRounds());
   }
 
   findByEmail(email: string) {
@@ -103,11 +117,66 @@ export class UsersService {
       throw new ConflictException('A user with this email already exists.');
     }
 
-    const hashedPassword = await bcrypt.hash(
-      createUserDto.password,
-      this.getPasswordSaltRounds(),
-    );
+    const hashedPassword = await this.hashPassword(createUserDto.password);
 
     return this.createUser(createUserDto.email, hashedPassword, createUserDto.role);
+  }
+
+  async ensureUserWithPlainPassword(
+    createUserDto: CreateUserDto,
+  ): Promise<EnsureUserWithPlainPasswordResult> {
+    const normalizedEmail = this.normalizeEmail(createUserDto.email);
+    const existingUser = await this.findByEmail(normalizedEmail);
+
+    if (!existingUser) {
+      const user = await this.createUserWithPlainPassword({
+        ...createUserDto,
+        email: normalizedEmail,
+      });
+
+      return {
+        user,
+        created: true,
+        updated: false,
+      };
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      createUserDto.password,
+      existingUser.password,
+    );
+
+    if (existingUser.role === createUserDto.role && isPasswordValid) {
+      return {
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          role: existingUser.role,
+          createdAt: existingUser.createdAt,
+        },
+        created: false,
+        updated: false,
+      };
+    }
+
+    const nextPassword = isPasswordValid
+      ? existingUser.password
+      : await this.hashPassword(createUserDto.password);
+    const user = await this.prismaService.user.update({
+      where: {
+        id: existingUser.id,
+      },
+      data: {
+        password: nextPassword,
+        role: createUserDto.role,
+      },
+      select: publicUserSelect,
+    });
+
+    return {
+      user,
+      created: false,
+      updated: true,
+    };
   }
 }

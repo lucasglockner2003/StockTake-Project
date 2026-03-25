@@ -10,6 +10,8 @@ import {
   validateSync,
 } from 'class-validator';
 
+const MINIMUM_JWT_SECRET_LENGTH = 32;
+
 function transformBoolean(value: unknown) {
   if (value === undefined || value === null || value === '') {
     return undefined;
@@ -182,31 +184,46 @@ export function validateEnvironment(config: Record<string, unknown>) {
     );
   }
 
-  const accessSecret = String(
-    validatedConfig.JWT_ACCESS_SECRET || validatedConfig.JWT_SECRET || '',
-  ).trim();
-  const refreshSecret = String(
-    validatedConfig.JWT_REFRESH_SECRET || validatedConfig.JWT_SECRET || '',
-  ).trim();
+  const nodeEnv = validatedConfig.NODE_ENV || 'development';
+  const legacySecret = String(validatedConfig.JWT_SECRET || '').trim();
+  const accessSecret = String(validatedConfig.JWT_ACCESS_SECRET || '').trim();
+  const refreshSecret = String(validatedConfig.JWT_REFRESH_SECRET || '').trim();
+  const canUseLegacySecretFallback =
+    nodeEnv === 'development' && legacySecret.length > 0;
+  const resolvedAccessSecret =
+    accessSecret || (canUseLegacySecretFallback ? legacySecret : '');
+  const resolvedRefreshSecret =
+    refreshSecret || (canUseLegacySecretFallback ? legacySecret : '');
 
-  if (!accessSecret || !refreshSecret) {
+  if (
+    nodeEnv !== 'development' &&
+    legacySecret &&
+    (!accessSecret || !refreshSecret)
+  ) {
     throw new Error(
-      'JWT access and refresh secrets must be configured through JWT_ACCESS_SECRET/JWT_REFRESH_SECRET or JWT_SECRET.',
+      'JWT_SECRET fallback is allowed only in development. Configure both JWT_ACCESS_SECRET and JWT_REFRESH_SECRET explicitly.',
     );
   }
 
-  if (validatedConfig.NODE_ENV === 'production') {
-    if (
-      accessSecret.length < 32 ||
-      refreshSecret.length < 32 ||
-      accessSecret === 'change-this-before-production' ||
-      refreshSecret === 'change-this-before-production'
-    ) {
-      throw new Error(
-        'JWT access and refresh secrets must be at least 32 characters and not use the default placeholder in production.',
-      );
-    }
+  if (!resolvedAccessSecret || !resolvedRefreshSecret) {
+    throw new Error(
+      'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET are required. In development only, JWT_SECRET can be used as a legacy fallback.',
+    );
+  }
 
+  if (
+    resolvedAccessSecret.length < MINIMUM_JWT_SECRET_LENGTH ||
+    resolvedRefreshSecret.length < MINIMUM_JWT_SECRET_LENGTH
+  ) {
+    throw new Error(
+      `JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must each contain at least ${MINIMUM_JWT_SECRET_LENGTH} characters.`,
+    );
+  }
+
+  validatedConfig.JWT_ACCESS_SECRET = resolvedAccessSecret;
+  validatedConfig.JWT_REFRESH_SECRET = resolvedRefreshSecret;
+
+  if (nodeEnv === 'production') {
     if (parseList(validatedConfig.CORS_ALLOWED_ORIGINS).length === 0) {
       throw new Error(
         'CORS_ALLOWED_ORIGINS must be configured in production.',

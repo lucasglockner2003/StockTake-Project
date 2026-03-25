@@ -48,22 +48,14 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
     const usersService = app.get(UsersService);
     const seedAdminDto = buildSeedAdminDto(configService);
-    const existingUser = await usersService.findByEmail(seedAdminDto.email);
+    const result = await usersService.ensureUserWithPlainPassword(seedAdminDto);
+    const action = result.created
+      ? 'created'
+      : result.updated
+        ? 'updated'
+        : 'already up to date';
 
-    if (existingUser) {
-      if (existingUser.role !== Role.ADMIN) {
-        throw new Error(
-          `User ${seedAdminDto.email} already exists with role ${existingUser.role}.`,
-        );
-      }
-
-      console.log(`Admin user already exists for ${seedAdminDto.email}.`);
-      return;
-    }
-
-    const user = await usersService.createUserWithPlainPassword(seedAdminDto);
-
-    console.log(`Admin user created: ${user.email} (${user.role}).`);
+    console.log(`Admin user ${action}: ${result.user.email} (${result.user.role}).`);
   } finally {
     await app.close();
   }

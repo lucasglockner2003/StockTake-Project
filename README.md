@@ -25,15 +25,16 @@ Backend file: `backend/.env`
 NODE_ENV=development
 PORT=3000
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/smartops?schema=public
-JWT_SECRET=change-this-before-production
+JWT_ACCESS_SECRET=change-this-access-secret-before-production-1234
+JWT_REFRESH_SECRET=change-this-refresh-secret-before-production-1234
 JWT_EXPIRES_IN=86400
 PASSWORD_SALT_ROUNDS=12
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 AUTH_ALLOW_PUBLIC_REGISTRATION=false
 BOT_SERVICE_BASE_URL=http://localhost:4190
 BOT_SERVICE_TIMEOUT_MS=30000
-ADMIN_SEED_EMAIL=admin@smartops.local
-ADMIN_SEED_PASSWORD=ChangeMe123!
+ADMIN_SEED_EMAIL=admin@smartops.com
+ADMIN_SEED_PASSWORD=12345678
 ```
 
 ## Bootstrap Database
@@ -84,10 +85,10 @@ npm.cmd --prefix backend run seed:admin
 
 Example initial credentials from `backend/.env.example`:
 
-- Email: `admin@smartops.local`
-- Password: `ChangeMe123!`
+- Email: `admin@smartops.com`
+- Password: `12345678`
 
-Change these values before using any shared or production-like environment.
+`JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must each have at least 32 characters. `JWT_SECRET` is accepted only as a legacy fallback in development.
 
 ## Full Run From Zero
 

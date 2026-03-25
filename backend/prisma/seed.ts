@@ -16,17 +16,17 @@ const DEFAULT_PASSWORD_SALT_ROUNDS = 12;
 const INITIAL_USERS: readonly SeedUserDefinition[] = [
   {
     email: 'admin@smartops.com',
-    password: '123456789',
+    password: '12345678',
     role: Role.ADMIN,
   },
   {
     email: 'chef@smartops.com',
-    password: '123456789',
+    password: '12345678',
     role: Role.CHEF,
   },
   {
     email: 'manager@smartops.com',
-    password: '123456789',
+    password: '12345678',
     role: Role.MANAGER,
   },
 ];
@@ -65,16 +65,40 @@ async function ensureUser(seedUser: SeedUserDefinition) {
   });
 
   if (existingUser) {
-    if (existingUser.role !== seedUser.role) {
-      throw new Error(
-        `User ${normalizedEmail} already exists with role ${existingUser.role}.`,
-      );
+    const isPasswordValid = await bcrypt.compare(
+      seedUser.password,
+      existingUser.password,
+    );
+
+    if (existingUser.role === seedUser.role && isPasswordValid) {
+      return {
+        email: existingUser.email,
+        role: existingUser.role,
+        action: 'unchanged' as const,
+      };
     }
 
+    const hashedPassword = isPasswordValid
+      ? existingUser.password
+      : await bcrypt.hash(seedUser.password, getPasswordSaltRounds());
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: existingUser.id,
+      },
+      data: {
+        password: hashedPassword,
+        role: seedUser.role,
+      },
+      select: {
+        email: true,
+        role: true,
+      },
+    });
+
     return {
-      email: existingUser.email,
-      role: existingUser.role,
-      created: false,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      action: 'updated' as const,
     };
   }
 
@@ -98,16 +122,15 @@ async function ensureUser(seedUser: SeedUserDefinition) {
   return {
     email: createdUser.email,
     role: createdUser.role,
-    created: true,
+    action: 'created' as const,
   };
 }
 
 async function main() {
   for (const seedUser of INITIAL_USERS) {
     const result = await ensureUser(seedUser);
-    const action = result.created ? 'created' : 'already exists';
 
-    console.log(`Seed user ${action}: ${result.email} (${result.role}).`);
+    console.log(`Seed user ${result.action}: ${result.email} (${result.role}).`);
   }
 }
 
