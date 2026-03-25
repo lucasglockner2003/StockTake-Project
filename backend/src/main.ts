@@ -12,23 +12,29 @@ import { getRequestId, getRequestPath } from './common/http/request-context';
 import { requestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { SanitizeInputPipe } from './common/pipes/sanitize-input.pipe';
 
-const DEFAULT_CORS_ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-];
+const DEVELOPMENT_CORS_ALLOWED_ORIGINS = ['http://localhost:5173'];
 
-function getAllowedOrigins(): string[] {
-  const configuredOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',')
+function parseAllowedOrigins(rawOrigins: string | undefined): string[] {
+  return String(rawOrigins || '')
+    .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
 
-  if (configuredOrigins && configuredOrigins.length > 0) {
+function getAllowedOrigins(): string[] {
+  const configuredOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
+
+  if (configuredOrigins.length > 0) {
     return configuredOrigins;
   }
 
-  return DEFAULT_CORS_ALLOWED_ORIGINS;
+  if (process.env.NODE_ENV !== 'production') {
+    return DEVELOPMENT_CORS_ALLOWED_ORIGINS;
+  }
+
+  throw new Error(
+    'CORS_ALLOWED_ORIGINS must be configured in production with one or more comma-separated origins.',
+  );
 }
 
 type HttpAdapterApplication = {
@@ -126,17 +132,9 @@ async function bootstrap() {
     }),
   );
 
-  if (
-    process.env.NODE_ENV === 'production' &&
-    allowedOrigins.every((origin) => DEFAULT_CORS_ALLOWED_ORIGINS.includes(origin))
-  ) {
-    logger.warn(
-      'CORS_ALLOWED_ORIGINS is not configured for production. Default localhost origins are active.',
-    );
-  }
-
   await app.listen(port, '0.0.0.0');
   logger.log(`Backend running on port ${port}`);
+  logger.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap().catch((error: unknown) => {
