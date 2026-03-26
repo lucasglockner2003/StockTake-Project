@@ -77,6 +77,12 @@ function validateProductionServiceUrl(value: string, fieldName: string) {
       `${fieldName} cannot point to localhost in production. Configure a reachable service URL.`,
     );
   }
+
+  if (url.protocol !== 'https:') {
+    throw new Error(
+      `${fieldName} must use https in production. Configure the bot-service URL with an https endpoint.`,
+    );
+  }
 }
 
 class EnvironmentVariables {

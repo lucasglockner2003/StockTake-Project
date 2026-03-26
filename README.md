@@ -129,6 +129,41 @@ Example initial credentials from `backend/.env.example`:
 
 Invoice intake now queues the invoice first and runs automation explicitly from the Invoice Queue page. This keeps login and draft creation independent from bot-service availability.
 
+## Production Alignment
+
+Use these values together when validating the real invoice execution flow in production:
+
+Frontend:
+
+- `VITE_API_BASE_URL=https://stocktake-project.onrender.com/api`
+
+Backend:
+
+- `NODE_ENV=production`
+- `DATABASE_URL=...`
+- `JWT_ACCESS_SECRET=...` with at least 32 characters
+- `JWT_REFRESH_SECRET=...` with at least 32 characters
+- `CORS_ALLOWED_ORIGINS=https://smartops-frontend.onrender.com`
+- `BOT_SERVICE_BASE_URL=https://your-ngrok-or-bot-service-url`
+- `BOT_SERVICE_SHARED_SECRET=...` with at least 32 characters
+- `BOT_SERVICE_TIMEOUT_MS=30000`
+- `ADMIN_SEED_EMAIL=admin@smartops.com`
+- `ADMIN_SEED_PASSWORD=12345678`
+
+Bot-service:
+
+- `NODE_ENV=production`
+- `BOT_SERVICE_SHARED_SECRET=...` exactly equal to the backend value
+- `MOCK_PORTAL_URL=https://your-real-portal-url`
+
+Production guarantees expected from the current code:
+
+- Missing or invalid `BOT_SERVICE_SHARED_SECRET` on mutating bot routes returns `401`
+- Missing `MOCK_PORTAL_URL` in production returns an explicit failure instead of silent simulation
+- Silent `internal-simulation` fallback is development-only
+
+If you use ngrok for the bot-service, treat the ngrok URL as ephemeral and update `BOT_SERVICE_BASE_URL` on the backend whenever the tunnel changes.
+
 ## Full Run From Zero
 
 Execute these commands in order from the project root:

@@ -206,7 +206,16 @@ function requirePortalConfiguration(res) {
   return true;
 }
 
+function isPublicHealthRequest(req) {
+  return req.method === "GET" && req.path === "/health";
+}
+
 function requireBotServiceSecret(req, res, next) {
+  if (isPublicHealthRequest(req)) {
+    next();
+    return;
+  }
+
   if (!REQUIRE_BOT_SERVICE_SHARED_SECRET) {
     next();
     return;
