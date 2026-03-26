@@ -80,6 +80,31 @@ export interface DailyOrderMutationResponse {
   phase: string;
 }
 
+export interface DailyOrdersBotCurrentExecutionResponse {
+  executionId: string;
+  type: string;
+  supplier: string;
+  phase: string;
+  startedAt: string;
+}
+
+export interface DailyOrdersBotServiceStatusResponse {
+  ok: boolean;
+  online: boolean;
+  running: boolean;
+  type: string;
+  phase: string;
+  supplier: string;
+  status: string;
+  message: string;
+  errorCode: string;
+  executionId: string;
+  lastCheckedAt: string;
+  portalConfigured: boolean;
+  mockPortalUrl: string;
+  currentExecution: DailyOrdersBotCurrentExecutionResponse | null;
+}
+
 export interface DailyOrdersResetResponse {
   ok: boolean;
   deletedCount: number;

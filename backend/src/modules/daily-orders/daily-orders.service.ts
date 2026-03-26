@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { DailyOrderSource, DailyOrderStatus } from '../../generated/prisma/client';
 import { SupplierHistoryService } from '../supplier-orders/supplier-history.service';
@@ -18,6 +23,7 @@ import {
   DAILY_ORDER_STATUS_VALUES,
   DailyOrderBotPayload,
   DailyOrderCreateInput,
+  DailyOrdersBotServiceStatusResponse,
   DailyOrderMutationResponse,
   DailyOrderResponse,
   DailyOrdersCreateResponse,
@@ -137,6 +143,8 @@ function mapSummaryCountsToResponse(
 
 @Injectable()
 export class DailyOrdersService {
+  private readonly logger = new Logger(DailyOrdersService.name);
+
   constructor(
     private readonly dailyOrdersRepository: DailyOrdersRepository,
     private readonly dailyOrdersBotClient: DailyOrdersBotClient,
@@ -150,6 +158,85 @@ export class DailyOrdersService {
 
   async getDailyOrdersSummary(): Promise<DailyOrdersSummaryResponse> {
     return this.buildSummary();
+  }
+
+  async getBotServiceStatus(): Promise<DailyOrdersBotServiceStatusResponse> {
+    const checkedAt = new Date().toISOString();
+    const health = await this.dailyOrdersBotClient.getHealthStatus();
+
+    if (!health.ok) {
+      const offlineResponse: DailyOrdersBotServiceStatusResponse = {
+        ok: false,
+        online: false,
+        running: false,
+        type: '',
+        phase: health.phase || 'offline',
+        supplier: '',
+        status: 'offline',
+        message: health.message || 'Bot service is offline.',
+        errorCode: health.errorCode || 'BOT_SERVICE_UNREACHABLE',
+        executionId: health.executionId || '',
+        lastCheckedAt: checkedAt,
+        portalConfigured: Boolean(health.portalConfigured),
+        mockPortalUrl: health.mockPortalUrl || '',
+        currentExecution: null,
+      };
+
+      this.logger.log(
+        `Bot service status returned to frontend -> ${JSON.stringify(offlineResponse)}`,
+      );
+
+      return offlineResponse;
+    }
+
+    const executionStatus = await this.dailyOrdersBotClient.getExecutionStatus();
+    const currentExecution =
+      executionStatus.currentExecution || health.currentExecution || null;
+
+    const onlineResponse: DailyOrdersBotServiceStatusResponse = {
+      ok: true,
+      online: true,
+      running: executionStatus.ok && executionStatus.status === 'running',
+      type: currentExecution?.type || '',
+      phase:
+        executionStatus.phase || currentExecution?.phase || health.phase || 'idle',
+      supplier: currentExecution?.supplier || '',
+      status:
+        executionStatus.ok
+          ? executionStatus.status || health.status || 'ok'
+          : health.status || 'ok',
+      message:
+        executionStatus.ok
+          ? executionStatus.message || health.message || 'Bot service online.'
+          : health.message || 'Bot service online.',
+      errorCode:
+        executionStatus.ok
+          ? executionStatus.errorCode || ''
+          : executionStatus.errorCode || '',
+      executionId:
+        currentExecution?.executionId ||
+        executionStatus.executionId ||
+        health.executionId ||
+        '',
+      lastCheckedAt: checkedAt,
+      portalConfigured: Boolean(health.portalConfigured),
+      mockPortalUrl: health.mockPortalUrl || '',
+      currentExecution: currentExecution
+        ? {
+            executionId: currentExecution.executionId,
+            type: currentExecution.type,
+            supplier: currentExecution.supplier,
+            phase: currentExecution.phase,
+            startedAt: currentExecution.startedAt,
+          }
+        : null,
+    };
+
+    this.logger.log(
+      `Bot service status returned to frontend -> ${JSON.stringify(onlineResponse)}`,
+    );
+
+    return onlineResponse;
   }
 
   async createDailyOrdersFromPhoto(

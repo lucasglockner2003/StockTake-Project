@@ -74,6 +74,28 @@ export interface DailyOrdersBotResponse {
   finalExecutionNotes: string;
 }
 
+export interface DailyOrdersBotCurrentExecution {
+  executionId: string;
+  type: string;
+  supplier: string;
+  phase: string;
+  startedAt: string;
+}
+
+export interface DailyOrdersBotStatusResponse {
+  ok: boolean;
+  status: string;
+  executionId: string;
+  phase: string;
+  errorCode: string;
+  message: string;
+  service: string;
+  port: number;
+  mockPortalUrl: string;
+  portalConfigured: boolean;
+  currentExecution: DailyOrdersBotCurrentExecution | null;
+}
+
 @Injectable()
 export class DailyOrdersBotClient implements OnModuleInit {
   private readonly logger = new Logger(DailyOrdersBotClient.name);
@@ -133,6 +155,14 @@ export class DailyOrdersBotClient implements OnModuleInit {
       method: 'POST',
       body: payload,
     });
+  }
+
+  getHealthStatus() {
+    return this.requestStatus('/health');
+  }
+
+  getExecutionStatus() {
+    return this.requestStatus('/execution-status');
   }
 
   private normalizeResponse(
@@ -205,25 +235,61 @@ export class DailyOrdersBotClient implements OnModuleInit {
     };
   }
 
+  private normalizeCurrentExecution(
+    value: unknown,
+  ): DailyOrdersBotCurrentExecution | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const data = value as Record<string, unknown>;
+
+    return {
+      executionId: normalizeString(data.executionId),
+      type: normalizeString(data.type),
+      supplier: normalizeString(data.supplier),
+      phase: normalizeString(data.phase),
+      startedAt: normalizeString(data.startedAt),
+    };
+  }
+
+  private normalizeStatusResponse(
+    payload: unknown,
+    fallback: Partial<DailyOrdersBotStatusResponse> = {},
+  ): DailyOrdersBotStatusResponse {
+    const data =
+      payload && typeof payload === 'object'
+        ? (payload as Record<string, unknown>)
+        : {};
+
+    return {
+      ok: Boolean(data.ok ?? fallback.ok),
+      status: normalizeString(data.status, fallback.status || 'failed'),
+      executionId: normalizeString(data.executionId, fallback.executionId || ''),
+      phase: normalizeString(data.phase, fallback.phase || ''),
+      errorCode: normalizeString(data.errorCode, fallback.errorCode || ''),
+      message: normalizeString(data.message, fallback.message || ''),
+      service: normalizeString(data.service, fallback.service || ''),
+      port: normalizeNumber(data.port, fallback.port || 0),
+      mockPortalUrl: normalizeString(
+        data.mockPortalUrl,
+        fallback.mockPortalUrl || '',
+      ),
+      portalConfigured: Boolean(
+        data.portalConfigured ?? fallback.portalConfigured,
+      ),
+      currentExecution: this.normalizeCurrentExecution(
+        data.currentExecution ?? fallback.currentExecution,
+      ),
+    };
+  }
+
   private async logHealthCheck() {
     if (!this.isConfigured) {
       return;
     }
 
-    const pathname = '/health';
-    const url = `${this.baseUrl}${pathname}`;
-
-    this.logger.log(`Bot service request -> GET ${url}`);
-
-    try {
-      const response = await this.httpClient.get(pathname);
-
-      this.logger.log(
-        `Bot service response <- GET ${url} status=${response.status} payload=${safeJsonStringify(response.data)}`,
-      );
-    } catch (error) {
-      this.logRequestError(url, error);
-    }
+    await this.requestStatus('/health');
   }
 
   private logRequestError(url: string, error: unknown) {
@@ -320,6 +386,75 @@ export class DailyOrdersBotClient implements OnModuleInit {
       }
 
       return this.normalizeResponse(null, {
+        ok: false,
+        status: 'failed',
+        phase: 'transport-error',
+        errorCode: 'BOT_SERVICE_UNREACHABLE',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to reach bot service.',
+      });
+    }
+  }
+
+  private async requestStatus(
+    pathname: string,
+  ): Promise<DailyOrdersBotStatusResponse> {
+    if (!this.isConfigured) {
+      return this.normalizeStatusResponse(null, {
+        ok: false,
+        status: 'failed',
+        phase: 'not-configured',
+        errorCode: 'BOT_SERVICE_NOT_CONFIGURED',
+        message: 'Bot service base URL is not configured.',
+      });
+    }
+
+    const url = `${this.baseUrl}${pathname}`;
+
+    this.logger.log(`Bot service request -> GET ${url}`);
+
+    try {
+      const response = await this.httpClient.get(pathname);
+      const payload = response.data;
+
+      this.logger.log(
+        `Bot service response <- GET ${url} status=${response.status} payload=${safeJsonStringify(payload)}`,
+      );
+
+      return this.normalizeStatusResponse(payload, {
+        ok: true,
+        status: 'ok',
+      });
+    } catch (error) {
+      this.logRequestError(url, error);
+
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+
+        if (axiosError.code === 'ECONNABORTED') {
+          return this.normalizeStatusResponse(null, {
+            ok: false,
+            status: 'failed',
+            phase: 'transport-timeout',
+            errorCode: 'BOT_SERVICE_TIMEOUT',
+            message: 'Bot service request timed out.',
+          });
+        }
+
+        if (axiosError.response) {
+          return this.normalizeStatusResponse(axiosError.response.data, {
+            ok: false,
+            status: 'failed',
+            phase: 'http-error',
+            errorCode: 'BOT_SERVICE_HTTP_ERROR',
+            message: `Bot service returned HTTP ${axiosError.response.status}.`,
+          });
+        }
+      }
+
+      return this.normalizeStatusResponse(null, {
         ok: false,
         status: 'failed',
         phase: 'transport-error',

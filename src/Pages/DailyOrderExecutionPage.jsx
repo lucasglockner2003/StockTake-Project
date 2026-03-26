@@ -18,10 +18,7 @@ import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
 import StatusBadge from "../components/StatusBadge";
-import {
-  getBotServiceExecutionStatus,
-  getBotServiceHealth,
-} from "../utils/botServiceClient";
+import { getDailyOrdersBotServiceStatus } from "../services/daily-orders-service";
 import { runtimeConfig } from "../services/runtime-config";
 
 const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
@@ -252,48 +249,36 @@ function DailyOrderExecutionPage() {
     let isActive = true;
 
     async function pollBotServiceStatus() {
-      const health = await getBotServiceHealth();
-      if (!isActive) return;
+      try {
+        const status = await getDailyOrdersBotServiceStatus();
+        if (!isActive) return;
 
-      if (!health.ok) {
+        setBotServiceState({
+          online: Boolean(status?.online),
+          running: Boolean(status?.running),
+          type: status?.type || "",
+          phase: status?.phase || (status?.online ? "idle" : "offline"),
+          supplier: status?.supplier || "",
+          status: status?.status || (status?.online ? "ok" : "offline"),
+          message:
+            status?.message ||
+            (status?.online ? "Bot service online." : "Bot service is offline."),
+          lastCheckedAt: status?.lastCheckedAt || new Date().toISOString(),
+        });
+      } catch (error) {
+        if (!isActive) return;
+
         setBotServiceState({
           online: false,
           running: false,
           type: "",
-          phase: health.phase || "offline",
+          phase: "offline",
           supplier: "",
           status: "offline",
-          message: health.message || "Bot service is offline.",
+          message: error?.message || "Bot service is offline.",
           lastCheckedAt: new Date().toISOString(),
         });
-        return;
       }
-
-      const executionStatus = await getBotServiceExecutionStatus();
-      if (!isActive) return;
-
-      const currentExecution =
-        executionStatus.currentExecution || health.currentExecution || null;
-      const running =
-        executionStatus.ok && executionStatus.status === "running";
-
-      setBotServiceState({
-        online: true,
-        running,
-        type: currentExecution?.type || "",
-        phase:
-          executionStatus.phase ||
-          currentExecution?.phase ||
-          health.phase ||
-          "idle",
-        supplier: currentExecution?.supplier || "",
-        status: executionStatus.status || health.status || "ok",
-        message:
-          executionStatus.message ||
-          health.message ||
-          "Bot service online.",
-        lastCheckedAt: new Date().toISOString(),
-      });
     }
 
     pollBotServiceStatus();

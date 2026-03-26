@@ -8,6 +8,10 @@ export function getDailyOrdersSummary() {
   return httpClient.get("/daily-orders/summary");
 }
 
+export function getDailyOrdersBotServiceStatus() {
+  return httpClient.get("/daily-orders/bot-service/status");
+}
+
 export function createDailyOrdersFromPhoto(payload) {
   return httpClient.post("/daily-orders/from-photo", payload);
 }

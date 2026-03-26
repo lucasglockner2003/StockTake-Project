@@ -32,6 +32,12 @@ export class DailyOrdersController {
     return this.dailyOrdersService.getDailyOrdersSummary();
   }
 
+  @Roles(Role.ADMIN, Role.CHEF, Role.MANAGER)
+  @Get('bot-service/status')
+  getBotServiceStatus() {
+    return this.dailyOrdersService.getBotServiceStatus();
+  }
+
   @Roles(Role.ADMIN, Role.CHEF)
   @Post('from-photo')
   createDailyOrdersFromPhoto(
