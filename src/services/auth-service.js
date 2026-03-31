@@ -12,7 +12,7 @@ import {
 
 export function restoreAuthSession() {
   const session = loadAuthSession();
-  setHttpClientToken("");
+  setHttpClientToken(session?.token || "");
   return session;
 }
 

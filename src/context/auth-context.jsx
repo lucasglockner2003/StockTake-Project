@@ -36,8 +36,11 @@ export function AuthProvider({ children }) {
     async function hydrateAuthState() {
       setLoading(true);
       const storedSession = restoreAuthSession();
+      const storedToken =
+        typeof storedSession?.token === "string" ? storedSession.token : "";
 
       if (isMounted) {
+        setToken(storedToken);
         setUser(storedSession.user);
       }
 
@@ -56,6 +59,10 @@ export function AuthProvider({ children }) {
         setUser(nextSession?.user || null);
       } catch {
         if (!isMounted) {
+          return;
+        }
+
+        if (storedToken) {
           return;
         }
 
