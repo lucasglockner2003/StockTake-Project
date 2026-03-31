@@ -3,6 +3,15 @@ import { styles } from "../utils/uiStyles";
 import PageActionBar from "./PageActionBar";
 import NoticePanel from "./NoticePanel";
 import SectionTableHeader from "./SectionTableHeader";
+import StatusBadge from "./StatusBadge";
+
+function getJobStatusTone(status) {
+  if (status === JOB_STATUSES.RUNNING) return "#3b82f6";
+  if (status === JOB_STATUSES.DONE) return "#22c55e";
+  if (status === JOB_STATUSES.FAILED) return "#ef4444";
+  if (status === JOB_STATUSES.PENDING) return "#f59e0b";
+  return "#cbd5e1";
+}
 
 function AutomationJobCard({
   job,
@@ -21,11 +30,8 @@ function AutomationJobCard({
   return (
     <div
       style={{
-        border: "1px solid #555",
-        borderRadius: "10px",
-        padding: "14px",
+        ...styles.darkPanel,
         marginBottom: "16px",
-        backgroundColor: "#1a1a1a",
       }}
     >
       <div
@@ -33,27 +39,29 @@ function AutomationJobCard({
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr 1fr",
           gap: "10px",
-          marginBottom: "12px",
+          marginBottom: "14px",
         }}
       >
         <div>
-          <strong>Job ID</strong>
-          <div>{job.jobId}</div>
+          <strong style={{ color: "#cbd5e1" }}>Job ID</strong>
+          <div style={{ marginTop: "4px", color: "#f8fafc" }}>{job.jobId}</div>
         </div>
 
         <div>
-          <strong>Status</strong>
-          <div>{job.status}</div>
+          <strong style={{ color: "#cbd5e1" }}>Status</strong>
+          <div style={{ marginTop: "6px" }}>
+            <StatusBadge label="Job" value={job.status} textColor={getJobStatusTone(job.status)} />
+          </div>
         </div>
 
         <div>
-          <strong>Total Items</strong>
-          <div>{job.totalItems}</div>
+          <strong style={{ color: "#cbd5e1" }}>Total Items</strong>
+          <div style={{ marginTop: "4px", color: "#f8fafc" }}>{job.totalItems}</div>
         </div>
 
         <div>
-          <strong>Attempts</strong>
-          <div>{job.attemptCount || 0}</div>
+          <strong style={{ color: "#cbd5e1" }}>Attempts</strong>
+          <div style={{ marginTop: "4px", color: "#f8fafc" }}>{job.attemptCount || 0}</div>
         </div>
       </div>
 
@@ -66,30 +74,34 @@ function AutomationJobCard({
         }}
       >
         <div>
-          <strong>Created At</strong>
-          <div>{new Date(job.createdAt).toLocaleString()}</div>
+          <strong style={{ color: "#cbd5e1" }}>Created At</strong>
+          <div style={{ marginTop: "4px", color: "#94a3b8" }}>
+            {new Date(job.createdAt).toLocaleString()}
+          </div>
         </div>
 
         <div>
-          <strong>Updated At</strong>
-          <div>{new Date(job.updatedAt).toLocaleString()}</div>
+          <strong style={{ color: "#cbd5e1" }}>Updated At</strong>
+          <div style={{ marginTop: "4px", color: "#94a3b8" }}>
+            {new Date(job.updatedAt).toLocaleString()}
+          </div>
         </div>
       </div>
 
       <div style={{ marginBottom: "12px" }}>
-        <strong>Session ID</strong>
-        <div>{job.sessionId}</div>
+        <strong style={{ color: "#cbd5e1" }}>Session ID</strong>
+        <div style={{ marginTop: "4px", color: "#94a3b8" }}>{job.sessionId}</div>
       </div>
 
       <div style={{ marginBottom: "12px" }}>
-        <strong>Notes</strong>
+        <strong style={{ color: "#cbd5e1" }}>Notes</strong>
         <NoticePanel
-          backgroundColor="#111"
-          border="1px solid #444"
-          color="white"
+          backgroundColor="rgba(15, 23, 42, 0.76)"
+          border="1px solid #1f2937"
+          color="#e5e7eb"
           fontWeight="normal"
           marginBottom="0"
-          padding="10px"
+          padding="12px"
           style={{ whiteSpace: "pre-wrap" }}
         >
           {job.notes || "No notes yet."}
@@ -97,14 +109,14 @@ function AutomationJobCard({
       </div>
 
       <div style={{ marginBottom: "12px" }}>
-        <strong>Last Error</strong>
+        <strong style={{ color: "#cbd5e1" }}>Last Error</strong>
         <NoticePanel
-          backgroundColor="#111"
-          border="1px solid #444"
-          color={job.lastError ? "#ffb3b3" : "#aaa"}
+          backgroundColor={job.lastError ? "rgba(127, 29, 29, 0.18)" : "rgba(15, 23, 42, 0.76)"}
+          border={job.lastError ? "1px solid rgba(239, 68, 68, 0.24)" : "1px solid #1f2937"}
+          color={job.lastError ? "#fca5a5" : "#94a3b8"}
           fontWeight="normal"
           marginBottom="0"
-          padding="10px"
+          padding="12px"
           style={{ whiteSpace: "pre-wrap" }}
         >
           {job.lastError || "No errors."}
@@ -116,8 +128,8 @@ function AutomationJobCard({
         <div
           style={{
             marginTop: "8px",
-            border: "1px solid #444",
-            borderRadius: "8px",
+            border: "1px solid #1f2937",
+            borderRadius: "12px",
             overflow: "hidden",
           }}
         >
@@ -133,8 +145,9 @@ function AutomationJobCard({
                 display: "grid",
                 gridTemplateColumns: "70px 1.4fr 0.8fr",
                 gap: "8px",
-                padding: "10px",
-                borderBottom: "1px solid #333",
+                padding: "10px 12px",
+                borderBottom: "1px solid #1f2937",
+                backgroundColor: "rgba(15, 23, 42, 0.76)",
               }}
             >
               <div>{item.sequence}</div>
@@ -153,7 +166,7 @@ function AutomationJobCard({
             ...styles.primaryButton,
             backgroundColor:
               !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
-                ? "#888"
+                ? "#64748b"
                 : "#00b894",
             cursor:
               !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
@@ -161,7 +174,7 @@ function AutomationJobCard({
                 : "pointer",
           }}
         >
-          {isRunning ? "Running..." : "Run Job"}
+          {isRunning ? "Running bot..." : "Run Job"}
         </button>
 
         <button
@@ -171,8 +184,8 @@ function AutomationJobCard({
             ...styles.primaryButton,
             backgroundColor:
               !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
-                ? "#888"
-                : "#c0392b",
+                ? "#64748b"
+                : "#ef4444",
             cursor:
               !canManage || hasRunningJob || job.status === JOB_STATUSES.RUNNING
                 ? "not-allowed"
@@ -187,7 +200,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#ff9800",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#f59e0b",
           }}
         >
           Mark Pending
@@ -198,7 +211,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#2196F3",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#3b82f6",
           }}
         >
           Mark Running
@@ -209,7 +222,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#4CAF50",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#22c55e",
           }}
         >
           Mark Done
@@ -220,7 +233,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#d9534f",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#ef4444",
           }}
         >
           Set Error
@@ -231,7 +244,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#6f42c1",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#8b5cf6",
           }}
         >
           Add Attempt
@@ -242,7 +255,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#666",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#334155",
           }}
         >
           Edit Notes
@@ -253,7 +266,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#795548",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#0f766e",
           }}
         >
           Reset Job
@@ -264,7 +277,7 @@ function AutomationJobCard({
           disabled={!canManage || hasRunningJob}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !canManage || hasRunningJob ? "#888" : "#444",
+            backgroundColor: !canManage || hasRunningJob ? "#64748b" : "#1f2937",
           }}
         >
           Delete Job

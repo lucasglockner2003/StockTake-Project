@@ -42,6 +42,18 @@ class FakeDailyOrdersRepository {
     return structuredClone(this.order);
   }
 
+  async findStaleFillingOrders(cutoff: Date) {
+    if (
+      this.order.status !== DailyOrderStatus.FILLING_ORDER ||
+      !this.order.executionStartedAt ||
+      this.order.executionStartedAt.getTime() >= cutoff.getTime()
+    ) {
+      return [];
+    }
+
+    return [structuredClone(this.order)];
+  }
+
   async updateDailyOrder(orderId: string, data: Record<string, unknown>) {
     assert.equal(orderId, this.order.id);
 
@@ -55,6 +67,24 @@ class FakeDailyOrdersRepository {
     this.order = nextOrder as DailyOrderRecord;
 
     return structuredClone(this.order);
+  }
+
+  async markFillingOrderAsTimedOut(
+    orderId: string,
+    cutoff: Date,
+    data: Record<string, unknown>,
+  ) {
+    if (
+      orderId !== this.order.id ||
+      this.order.status !== DailyOrderStatus.FILLING_ORDER ||
+      !this.order.executionStartedAt ||
+      this.order.executionStartedAt.getTime() >= cutoff.getTime()
+    ) {
+      return { count: 0 };
+    }
+
+    await this.updateDailyOrder(orderId, data);
+    return { count: 1 };
   }
 
   async getSummaryCounts() {
@@ -262,7 +292,7 @@ async function reusesDailyOrderFillByIdempotencyKey() {
       filledAt: '2026-03-31T00:00:02.000Z',
       readyForReviewAt: '2026-03-31T00:00:02.000Z',
       executionNotes: 'Fill completed.',
-      reviewScreenshot: 'https://example.com/review-1.png',
+      reviewScreenshot: '/artifacts/review-1.png',
       orderNumber: '',
       finalScreenshot: '',
       submitStartedAt: '',
@@ -294,7 +324,7 @@ async function reusesDailyOrderFinalSubmitByIdempotencyKey() {
       attempts: 1,
       filledAt: new Date('2026-03-31T00:00:02.000Z'),
       readyForReviewAt: new Date('2026-03-31T00:00:02.000Z'),
-      reviewScreenshotPath: 'https://example.com/review-1.png',
+      reviewScreenshotPath: '/artifacts/review-1.png',
       lastExecutionId: 'fill-exec-1',
       lastExecutionPhase: 'fill-completed',
       executionNotes: 'Fill completed.',
@@ -316,7 +346,7 @@ async function reusesDailyOrderFinalSubmitByIdempotencyKey() {
       executionNotes: '',
       reviewScreenshot: '',
       orderNumber: 'PO-1001',
-      finalScreenshot: 'https://example.com/final-1.png',
+      finalScreenshot: '/artifacts/final-1.png',
       submitStartedAt: '2026-03-31T00:00:05.000Z',
       submittedAt: '2026-03-31T00:00:08.000Z',
       submitFinishedAt: '2026-03-31T00:00:08.000Z',
@@ -339,6 +369,39 @@ async function reusesDailyOrderFinalSubmitByIdempotencyKey() {
   assert.deepEqual(secondResponse, firstResponse);
 }
 
+async function recoversStaleDailyOrderExecutionAsFailed() {
+  const repository = new FakeDailyOrdersRepository(
+    createDailyOrderRecord({
+      status: DailyOrderStatus.FILLING_ORDER,
+      executionStartedAt: new Date('2026-03-31T00:00:00.000Z'),
+      executionNotes: 'Bot service started fill on supplier portal.',
+      lastExecutionPhase: 'fill-started',
+    }),
+  );
+  const botClient = new FakeDailyOrdersBotClient({});
+  const service = createService(repository, botClient);
+
+  const originalDateNow = Date.now;
+  Date.now = () => new Date('2026-03-31T00:06:00.000Z').getTime();
+
+  try {
+    await (
+      service as unknown as {
+        recoverStaleFillingOrders: () => Promise<void>;
+      }
+    ).recoverStaleFillingOrders();
+  } finally {
+    Date.now = originalDateNow;
+  }
+
+  const recoveredOrder = await repository.findDailyOrderById('daily-order-1');
+
+  assert.equal(recoveredOrder?.status, DailyOrderStatus.FAILED);
+  assert.equal(recoveredOrder?.lastErrorCode, 'TIMEOUT');
+  assert.equal(recoveredOrder?.lastErrorMessage, 'Execution timeout exceeded');
+  assert.equal(recoveredOrder?.executionNotes, 'Execution timeout exceeded');
+}
+
 export async function runDailyOrdersServiceIdempotencyTests() {
   const testCases = [
     {
@@ -348,6 +411,10 @@ export async function runDailyOrdersServiceIdempotencyTests() {
     {
       name: 'reuses daily-order final submit by idempotency key',
       run: reusesDailyOrderFinalSubmitByIdempotencyKey,
+    },
+    {
+      name: 'recovers stale daily-order execution as failed',
+      run: recoversStaleDailyOrderExecutionAsFailed,
     },
   ];
 

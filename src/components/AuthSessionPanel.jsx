@@ -38,11 +38,12 @@ function AuthSessionPanel({ user, notice, onLogout }) {
       <div
         style={{
           borderRadius: "12px",
-          border: "1px solid rgba(67, 108, 130, 0.55)",
-          backgroundColor: "rgba(6, 18, 32, 0.58)",
-          padding: "12px",
+          border: "1px solid rgba(31, 41, 55, 0.94)",
+          backgroundColor: "rgba(15, 23, 42, 0.7)",
+          padding: "14px",
           display: "grid",
           gap: "10px",
+          boxShadow: "0 12px 24px rgba(2, 6, 23, 0.18)",
         }}
       >
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
@@ -57,7 +58,7 @@ function AuthSessionPanel({ user, notice, onLogout }) {
               display: "grid",
               placeItems: "center",
               fontSize: "15px",
-              fontWeight: 700,
+              fontWeight: 600,
               flexShrink: 0,
             }}
           >
@@ -71,7 +72,7 @@ function AuthSessionPanel({ user, notice, onLogout }) {
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
                 color: "#8ad9d0",
-                fontWeight: 700,
+                fontWeight: 600,
               }}
             >
               Signed In
@@ -81,7 +82,7 @@ function AuthSessionPanel({ user, notice, onLogout }) {
               style={{
                 fontSize: "15px",
                 lineHeight: 1.35,
-                fontWeight: 700,
+                fontWeight: 600,
                 color: "#f8fafc",
                 wordBreak: "break-word",
               }}
@@ -117,7 +118,7 @@ function AuthSessionPanel({ user, notice, onLogout }) {
               backgroundColor: roleTheme.badgeBackground,
               color: roleTheme.badgeText,
               fontSize: "11px",
-              fontWeight: 700,
+              fontWeight: 600,
               padding: "4px 8px",
               letterSpacing: "0.04em",
             }}
@@ -147,7 +148,7 @@ function AuthSessionPanel({ user, notice, onLogout }) {
             color: "#fecaca",
             padding: "10px 12px",
             fontSize: "13px",
-            fontWeight: 700,
+            fontWeight: 600,
             cursor: "pointer",
           }}
         >

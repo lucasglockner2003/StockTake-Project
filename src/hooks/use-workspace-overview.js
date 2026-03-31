@@ -20,6 +20,13 @@ import {
   subscribeSupplierOrderHistory,
 } from "../utils/supplierHistory";
 
+function logWorkspaceOverviewLoadFailure(resourceLabel, error) {
+  console.warn(
+    `[workspace-overview] Failed to load ${resourceLabel}.`,
+    error
+  );
+}
+
 export function useWorkspaceOverview({
   role,
   stockState,
@@ -65,10 +72,22 @@ export function useWorkspaceOverview({
       setInvoiceRevision((value) => value + 1);
     });
 
-    ensureAutomationQueueLoaded().catch(() => undefined);
-    ensureSupplierOrderHistoryLoaded().catch(() => undefined);
-    ensureDailyOrderQueueLoaded().catch(() => undefined);
-    ensureInvoiceQueueLoaded().catch(() => undefined);
+    ensureAutomationQueueLoaded().catch((error) => {
+      logWorkspaceOverviewLoadFailure("automation queue", error);
+      return undefined;
+    });
+    ensureSupplierOrderHistoryLoaded().catch((error) => {
+      logWorkspaceOverviewLoadFailure("supplier order history", error);
+      return undefined;
+    });
+    ensureDailyOrderQueueLoaded().catch((error) => {
+      logWorkspaceOverviewLoadFailure("daily-order queue", error);
+      return undefined;
+    });
+    ensureInvoiceQueueLoaded().catch((error) => {
+      logWorkspaceOverviewLoadFailure("invoice queue", error);
+      return undefined;
+    });
 
     return () => {
       isMounted = false;

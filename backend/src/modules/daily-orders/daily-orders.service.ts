@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 
 import {
@@ -94,6 +96,10 @@ const BOT_SERVICE_BASE_URL = resolveBotServiceBaseUrl(
   process.env.BOT_SERVICE_BASE_URL,
   process.env.NODE_ENV,
 );
+const DAILY_ORDER_RECOVERY_INTERVAL_MS = 60_000;
+const DAILY_ORDER_PROCESSING_TIMEOUT_MS = 5 * 60_000;
+const DAILY_ORDER_RECOVERY_ERROR_CODE = 'TIMEOUT';
+const DAILY_ORDER_RECOVERY_ERROR_MESSAGE = 'Execution timeout exceeded';
 const IDEMPOTENCY_WAIT_INTERVAL_MS = 250;
 const IDEMPOTENCY_WAIT_TIMEOUT_MS = 35_000;
 
@@ -169,8 +175,10 @@ function mapSummaryCountsToResponse(
 }
 
 @Injectable()
-export class DailyOrdersService {
+export class DailyOrdersService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DailyOrdersService.name);
+  private recoveryIntervalHandle: NodeJS.Timeout | null = null;
+  private isRecoveryRunning = false;
 
   constructor(
     private readonly dailyOrdersRepository: DailyOrdersRepository,
@@ -178,6 +186,29 @@ export class DailyOrdersService {
     private readonly supplierHistoryService: SupplierHistoryService,
     private readonly executionIdempotencyRepository: ExecutionIdempotencyRepository,
   ) {}
+
+  onModuleInit() {
+    if (this.recoveryIntervalHandle) {
+      return;
+    }
+
+    this.recoveryIntervalHandle = setInterval(() => {
+      void this.recoverStaleFillingOrders();
+    }, DAILY_ORDER_RECOVERY_INTERVAL_MS);
+
+    if (typeof this.recoveryIntervalHandle.unref === 'function') {
+      this.recoveryIntervalHandle.unref();
+    }
+  }
+
+  onModuleDestroy() {
+    if (!this.recoveryIntervalHandle) {
+      return;
+    }
+
+    clearInterval(this.recoveryIntervalHandle);
+    this.recoveryIntervalHandle = null;
+  }
 
   async listDailyOrders(): Promise<DailyOrderResponse[]> {
     const dailyOrders = await this.dailyOrdersRepository.listDailyOrders();
@@ -888,6 +919,60 @@ export class DailyOrdersService {
       errorCode: '',
       errorMessage: '',
     };
+  }
+
+  private async recoverStaleFillingOrders() {
+    if (this.isRecoveryRunning) {
+      return;
+    }
+
+    this.isRecoveryRunning = true;
+
+    try {
+      const cutoff = new Date(Date.now() - DAILY_ORDER_PROCESSING_TIMEOUT_MS);
+      const staleOrders = await this.dailyOrdersRepository.findStaleFillingOrders(cutoff);
+
+      for (const order of staleOrders) {
+        const isFinalSubmitPhase =
+          order.lastExecutionPhase.includes('submit') ||
+          Boolean(order.submitStartedAt && !order.submittedAt);
+        const timedOutAt = new Date();
+        const startedAt = order.executionStartedAt || timedOutAt;
+        const durationMs = Math.max(timedOutAt.getTime() - startedAt.getTime(), 0);
+        const updateResult =
+          await this.dailyOrdersRepository.markFillingOrderAsTimedOut(
+            order.id,
+            cutoff,
+            {
+              status: DailyOrderStatus.FAILED,
+              lastExecutionPhase: 'execution-timeout',
+              lastErrorCode: DAILY_ORDER_RECOVERY_ERROR_CODE,
+              lastErrorMessage: DAILY_ORDER_RECOVERY_ERROR_MESSAGE,
+              ...(isFinalSubmitPhase
+                ? {
+                    submitFinishedAt: timedOutAt,
+                    submitDurationMs: durationMs,
+                    finalExecutionNotes: DAILY_ORDER_RECOVERY_ERROR_MESSAGE,
+                  }
+                : {
+                    executionFinishedAt: timedOutAt,
+                    executionDurationMs: durationMs,
+                    executionNotes: DAILY_ORDER_RECOVERY_ERROR_MESSAGE,
+                  }),
+            },
+          );
+
+        if (updateResult.count === 0) {
+          continue;
+        }
+
+        this.logger.warn(
+          `[recovery] daily-order ${order.id} moved from FILLING_ORDER → FAILED`,
+        );
+      }
+    } finally {
+      this.isRecoveryRunning = false;
+    }
   }
 
   private async getOrderOrThrow(orderId: string) {

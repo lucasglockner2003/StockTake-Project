@@ -1,5 +1,7 @@
 import { SOURCES } from "../constants/app";
 
+export const VOICE_RECOGNITION_LANGUAGE = "en-US";
+
 const numberWords = {
   zero: 0,
   oh: 0,
@@ -100,42 +102,100 @@ export function parseVoiceLine(line) {
   return null;
 }
 
-export function createSpeechRecognition(onResult, onEnd) {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    alert("Browser does not support Speech Recognition. Use Chrome.");
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  const recognition = new SpeechRecognition();
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
 
-  recognition.lang = "en-NZ";
-  recognition.continuous = true;
-  recognition.interimResults = false;
+function isLocalhostHostname(hostname) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+export function isSpeechRecognitionSupported() {
+  return Boolean(getSpeechRecognitionConstructor());
+}
+
+export function isSpeechRecognitionSecureContext() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.isSecureContext || isLocalhostHostname(window.location.hostname);
+}
+
+export function createSpeechRecognition({
+  recognition: existingRecognition = null,
+  onStart,
+  onInterimResult,
+  onResult,
+  onError,
+  onEnd,
+  lang = VOICE_RECOGNITION_LANGUAGE,
+} = {}) {
+  const SpeechRecognition =
+    getSpeechRecognitionConstructor();
+
+  if (!SpeechRecognition) {
+    console.error("[voice] SpeechRecognition API is not supported in this browser.");
+    return null;
+  }
+
+  const recognition = existingRecognition || new SpeechRecognition();
+
+  recognition.lang = lang;
+  recognition.continuous = false;
+  recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
+  recognition.onstart = (event) => {
+    console.info("[voice] started", event);
+    onStart?.(event);
+  };
+
   recognition.onresult = (event) => {
-    const latestResult = event.results[event.results.length - 1];
+    console.info("[voice] result:", event);
 
-    if (!latestResult || !latestResult[0]) return;
+    let interimTranscript = "";
+    let finalTranscript = "";
 
-    const text = String(latestResult[0].transcript || "")
-      .trim()
-      .toLowerCase();
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const result = event.results[index];
+      const transcript = String(result?.[0]?.transcript || "").trim();
 
-    if (!text) return;
+      if (!transcript) {
+        continue;
+      }
 
-    onResult(text);
+      if (result.isFinal) {
+        finalTranscript += `${transcript} `;
+      } else {
+        interimTranscript += `${transcript} `;
+      }
+    }
+
+    const normalizedInterimTranscript = interimTranscript.trim();
+    const normalizedFinalTranscript = finalTranscript.trim().toLowerCase();
+
+    if (normalizedInterimTranscript) {
+      onInterimResult?.(normalizedInterimTranscript, event);
+    }
+
+    if (normalizedFinalTranscript) {
+      onResult?.(normalizedFinalTranscript, event);
+    }
   };
 
-  recognition.onend = () => {
-    if (onEnd) onEnd();
+  recognition.onerror = (event) => {
+    console.error("[voice] error:", event?.error, event);
+    onError?.(event);
   };
 
-  recognition.onerror = () => {
-    if (onEnd) onEnd();
+  recognition.onend = (event) => {
+    console.info("[voice] ended", event);
+    onEnd?.(event);
   };
 
   return recognition;

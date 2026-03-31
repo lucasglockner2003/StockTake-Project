@@ -613,7 +613,7 @@ async function drainsQueuedInvoicesInCreationOrderAfterOneManualExecution() {
       errorCode: '',
       message: '',
       duration: 50,
-      screenshot: `https://example.com/${payload.invoiceId}.png`,
+      screenshot: `/artifacts/${payload.invoiceId}.png`,
       filledItems: payload.items,
       notes: `Executed ${payload.invoiceId}.`,
     };
@@ -713,7 +713,7 @@ async function reusesInvoiceExecutionByIdempotencyKey() {
     errorCode: '',
     message: '',
     duration: 140,
-    screenshot: 'https://example.com/invoice-idempotent-1.png',
+    screenshot: '/artifacts/invoice-idempotent-1.png',
     filledItems: [{ itemName: 'Tomatoes', quantity: 1 }],
     notes: 'Invoice execution completed successfully.',
   }));

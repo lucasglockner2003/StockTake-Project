@@ -4,29 +4,28 @@ import PageActionBar from "./PageActionBar";
 
 function ProgressBar({ progress }) {
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: "100%", maxWidth: "520px" }}>
       <div
         style={{
           display: "flex",
-          
-          gap:"320px",
+          alignItems: "center",
+          justifyContent: "space-between",
           marginBottom: "8px",
           fontSize: "12px",
-          color: "#bfdbfe",
+          color: "#cbd5e1",
         }}
       >
         <span>Stock Take Completion</span>
-        <span style={{ fontWeight: 1000 }}>{progress}%</span>
+        <span style={{ fontWeight: 700 }}>{progress}%</span>
       </div>
       <div
         style={{
           width: "100%",
-          maxWidth: "470px",
           height: "10px",
-          backgroundColor: "#111c30",
+          backgroundColor: "#0b1220",
           borderRadius: "999px",
           overflow: "hidden",
-          border: "1px solid #2f4265",
+          border: "1px solid #1f2937",
         }}
       >
         <div
@@ -58,9 +57,9 @@ function InlineMetricPill({
         border: `1px solid ${borderColor}`,
         backgroundColor,
         color: textColor,
-        padding: "4px 10px",
+        padding: "5px 11px",
         fontSize: "12px",
-        fontWeight: 700,
+        fontWeight: 600,
       }}
     >
       <span style={{ opacity: 0.9 }}>{label}</span>
@@ -99,12 +98,13 @@ function TopSummary({
     <div style={{ marginBottom: "18px" }}>
       <div
         style={{
-          borderRadius: "12px",
-          border: "1px solid #23314f",
+          borderRadius: "16px",
+          border: "1px solid #1f2937",
           background:
-            "linear-gradient(90deg, rgba(13,26,46,0.96) 0%, rgba(15,37,52,0.96) 100%)",
-          padding: "16px",
-          marginBottom: "12px",
+            "linear-gradient(135deg, rgba(17,24,39,0.98) 0%, rgba(15,23,42,0.98) 100%)",
+          padding: "20px",
+          marginBottom: "14px",
+          boxShadow: "0 12px 26px rgba(2, 6, 23, 0.2)",
         }}
       >
         <div
@@ -122,8 +122,9 @@ function TopSummary({
                 fontSize: "11px",
                 textTransform: "uppercase",
                 letterSpacing: "0.14em",
-                color: "#a7f3d0",
+                color: "#7dd3fc",
                 marginBottom: "8px",
+                fontWeight: 600,
               }}
             >
               Operations Dashboard
@@ -172,23 +173,23 @@ function TopSummary({
               
               <ProgressBar progress={progress} />
               {errorMessage ? (
-                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#fca5a5" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#fca5a5" }}>
                   {errorMessage}
                 </p>
               ) : isLoading ? (
-                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#93c5fd" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#93c5fd" }}>
                   Loading live stock take...
                 </p>
               ) : isSaving ? (
-                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#a7f3d0" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#86efac" }}>
                   Saving changes to the backend...
                 </p>
               ) : lastSaved ? (
-                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#94a3b8" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#94a3b8" }}>
                   Last saved: {lastSaved.toLocaleTimeString()}
                 </p>
               ) : (
-                <p style={{ margin: "1px 0 0", fontSize: "11px", color: "#94a3b8" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#94a3b8" }}>
                   Connected to today&apos;s live stock take.
                 </p>
               )}
@@ -209,10 +210,8 @@ function TopSummary({
 
       <div
         style={{
-          borderRadius: "10px",
-          border: "1px solid #273447",
-          backgroundColor: "#0f172a",
-          padding: "12px",
+          ...styles.darkPanel,
+          padding: "16px",
         }}
       >
         <div
@@ -222,6 +221,7 @@ function TopSummary({
             textTransform: "uppercase",
             letterSpacing: "0.12em",
             marginBottom: "10px",
+            fontWeight: 600,
           }}
         >
           Actions & Search
@@ -277,14 +277,9 @@ function TopSummary({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
-                padding: "10px 12px",
+                ...styles.input,
                 width: "260px",
                 maxWidth: "100%",
-                borderRadius: "8px",
-                border: "1px solid #334155",
-                backgroundColor: "#020617",
-                color: "#f8fafc",
-                outline: "none",
               }}
             />
 

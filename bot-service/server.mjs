@@ -9,6 +9,7 @@ import {
   BOT_SERVICE_SHARED_SECRET_HEADER,
   MINIMUM_BOT_SERVICE_SHARED_SECRET_LENGTH,
   getNodeEnv,
+  isBrowserAutomationEnabled,
   normalizeBotServiceSharedSecret,
   resolveMockPortalBaseUrl,
 } from "./config.mjs";
@@ -20,6 +21,7 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || process.env.BOT_SERVICE_PORT || 4190);
 const NODE_ENV = getNodeEnv();
 const BOT_BASE_URL = resolveMockPortalBaseUrl(process.env.MOCK_PORTAL_URL, NODE_ENV);
+const BROWSER_AUTOMATION_ENABLED = isBrowserAutomationEnabled(NODE_ENV);
 const BOT_SERVICE_SHARED_SECRET = normalizeBotServiceSharedSecret(
   process.env.BOT_SERVICE_SHARED_SECRET
 );
@@ -264,6 +266,7 @@ app.get("/health", (_req, res) => {
       port: PORT,
       mockPortalUrl: BOT_BASE_URL,
       portalConfigured: Boolean(BOT_BASE_URL),
+      browserAutomationEnabled: BROWSER_AUTOMATION_ENABLED,
       currentExecution,
     })
   );
@@ -280,6 +283,7 @@ app.get("/execution-status", (_req, res) => {
       message: isRunning
         ? `Running ${currentExecution.type} for ${currentExecution.supplier}.`
         : "No active execution.",
+      browserAutomationEnabled: BROWSER_AUTOMATION_ENABLED,
       currentExecution,
     })
   );

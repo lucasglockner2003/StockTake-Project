@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -16,6 +16,8 @@ type HealthStatusResponse = {
 
 @Injectable()
 export class HealthService {
+  private readonly logger = new Logger(HealthService.name);
+
   constructor(private readonly prismaService: PrismaService) {}
 
   async getStatus(): Promise<HealthStatusResponse> {
@@ -25,8 +27,11 @@ export class HealthService {
     try {
       await this.prismaService.$queryRaw`SELECT 1`;
       databaseConnected = true;
-    } catch {
+    } catch (error) {
       databaseConnected = false;
+      const message =
+        error instanceof Error ? error.message : 'Unknown database health-check error.';
+      this.logger.warn(`Database health check failed: ${message}`);
     }
 
     return {

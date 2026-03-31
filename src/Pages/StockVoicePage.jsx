@@ -27,7 +27,6 @@ function StockVoicePage({
   setVoiceToast,
 }) {
   const isAreaSelected = !!selectedArea;
-  const voiceButtonLabel = isListening ? "Stop Listening" : "Start Listening";
 
   const {
     openSearchKey,
@@ -38,6 +37,12 @@ function StockVoicePage({
     handleConfirmAndApply,
     handleVoiceToggle,
     handleDeleteEntry,
+    liveTranscript,
+    voiceError,
+    voiceStatusMessage,
+    isInitializingRecognition,
+    isSpeechSupported,
+    isSecureVoiceContext,
   } = useVoiceSession({
     selectedArea,
     isListening,
@@ -55,18 +60,80 @@ function StockVoicePage({
     setVoiceToast,
   });
 
+  const voiceButtonLabel = isInitializingRecognition
+    ? "Starting..."
+    : isListening
+    ? "Stop Listening"
+    : "Start Listening";
+
   return (
     <div>
-      <h1>Stock Voice</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Stock Voice</h1>
+
+      {!isSpeechSupported && (
+        <NoticePanel
+          backgroundColor="rgba(127, 29, 29, 0.18)"
+          border="1px solid rgba(239, 68, 68, 0.24)"
+          color="#fca5a5"
+        >
+          SpeechRecognition is not available in this browser. Use Chrome on localhost or HTTPS.
+        </NoticePanel>
+      )}
+
+      {isSpeechSupported && !isSecureVoiceContext && (
+        <NoticePanel
+          backgroundColor="rgba(245, 158, 11, 0.14)"
+          border="1px solid rgba(245, 158, 11, 0.24)"
+          color="#fcd34d"
+        >
+          Voice capture requires HTTPS or localhost. Open the frontend on `localhost:5173`
+          or another secure origin.
+        </NoticePanel>
+      )}
 
       {voiceToast && (
         <NoticePanel
-          backgroundColor="#4CAF50"
-          border="1px solid #4CAF50"
+          backgroundColor="rgba(34, 197, 94, 0.16)"
+          border="1px solid rgba(34, 197, 94, 0.24)"
+          color="#86efac"
           marginBottom="16px"
           padding="10px 14px"
         >
           {voiceToast}
+        </NoticePanel>
+      )}
+
+      {voiceError && (
+        <NoticePanel
+          backgroundColor="rgba(127, 29, 29, 0.18)"
+          border="1px solid rgba(239, 68, 68, 0.24)"
+          color="#fca5a5"
+          marginBottom="16px"
+        >
+          {voiceError}
+        </NoticePanel>
+      )}
+
+      {voiceStatusMessage && (
+        <NoticePanel
+          backgroundColor="rgba(37, 99, 235, 0.12)"
+          border="1px solid rgba(59, 130, 246, 0.22)"
+          color="#bfdbfe"
+          marginBottom="16px"
+        >
+          {isListening || isInitializingRecognition ? (
+            <span className="saas-running-indicator">
+              <span className="saas-spinner" />
+              <span>{voiceStatusMessage}</span>
+            </span>
+          ) : (
+            voiceStatusMessage
+          )}
+          {liveTranscript ? (
+            <div style={{ marginTop: "10px", color: "#e5e7eb", fontWeight: 500 }}>
+              Interim transcript: {liveTranscript}
+            </div>
+          ) : null}
         </NoticePanel>
       )}
 
@@ -84,17 +151,13 @@ function StockVoicePage({
 
         <select
           value={selectedArea}
-          disabled={isListening}
+          disabled={isListening || isInitializingRecognition}
           onChange={(e) => setSelectedArea(e.target.value)}
           style={{
-            padding: "10px 12px",
+            ...styles.input,
             width: "260px",
-            borderRadius: "8px",
-            border: "1px solid #cccccc",
-            fontSize: "14px",
-            backgroundColor: isListening ? "#e0e0e0" : "white",
-            color: "#111",
-            cursor: isListening ? "not-allowed" : "pointer",
+            cursor: isListening || isInitializingRecognition ? "not-allowed" : "pointer",
+            opacity: isListening || isInitializingRecognition ? 0.72 : 1,
           }}
         >
           <option value="" disabled>
@@ -115,15 +178,15 @@ function StockVoicePage({
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            color: "white",
-            fontWeight: "bold",
+            color: "#e5e7eb",
+            fontWeight: 600,
           }}
         >
           <input
             type="checkbox"
             checked={autoApplyMode}
             onChange={(e) => setAutoApplyMode(e.target.checked)}
-            disabled={isListening}
+            disabled={isListening || isInitializingRecognition}
           />
           Auto Apply Mode
         </label>
@@ -131,16 +194,17 @@ function StockVoicePage({
 
       <div style={{ marginBottom: "24px" }}>
         <button
-          disabled={!isAreaSelected}
+          disabled={!isAreaSelected || isInitializingRecognition}
           onClick={handleVoiceToggle}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !isAreaSelected
-              ? "#999"
+            backgroundColor: !isAreaSelected || isInitializingRecognition
+              ? "#64748b"
               : isListening
-              ? "#d9534f"
-              : "#2196F3",
-            cursor: !isAreaSelected ? "not-allowed" : "pointer",
+              ? "#ef4444"
+              : "#2563eb",
+            cursor:
+              !isAreaSelected || isInitializingRecognition ? "not-allowed" : "pointer",
             marginRight: "10px",
           }}
         >
@@ -148,8 +212,8 @@ function StockVoicePage({
         </button>
 
         {selectedArea && (
-          <span style={{ color: "#aaa", fontSize: "14px" }}>
-            Current area: <strong style={{ color: "white" }}>{selectedArea}</strong>
+          <span style={{ color: "#94a3b8", fontSize: "14px" }}>
+            Current area: <strong style={{ color: "#f8fafc" }}>{selectedArea}</strong>
           </span>
         )}
       </div>
@@ -164,7 +228,7 @@ function StockVoicePage({
           }}
         >
           {transcriptLines.length === 0 ? (
-            <p style={{ color: "#999", margin: 0 }}>
+            <p style={{ color: "#94a3b8", margin: 0 }}>
               No voice input captured yet.
             </p>
           ) : (
@@ -173,7 +237,7 @@ function StockVoicePage({
                 key={`${line}-${index}`}
                 style={{
                   margin: "0 0 8px 0",
-                  color: "white",
+                  color: "#e5e7eb",
                 }}
               >
                 {line}
@@ -224,7 +288,7 @@ function StockVoicePage({
         onClick={handleConfirmAndApply}
         style={{
           ...styles.primaryButton,
-          backgroundColor: "#4CAF50",
+          backgroundColor: "#16a34a",
         }}
       >
         Confirm and Apply

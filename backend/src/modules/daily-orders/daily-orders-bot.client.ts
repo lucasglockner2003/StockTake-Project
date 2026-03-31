@@ -118,7 +118,7 @@ export class DailyOrdersBotClient implements OnModuleInit {
       return;
     }
 
-    await this.logHealthCheck();
+    void this.logHealthCheck();
   }
 
   executeFill(payload: DailyOrderBotPayload) {

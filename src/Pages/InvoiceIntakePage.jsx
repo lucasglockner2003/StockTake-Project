@@ -61,7 +61,19 @@ function InvoiceIntakePage() {
 
         setInvoiceQueue(getInvoiceQueue());
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        console.warn("[invoice-intake] Failed to load initial invoice queue.", error);
+        setPageNotice({
+          tone: "warning",
+          message:
+            error?.message ||
+            "Invoice queue could not be loaded. You can still prepare a draft.",
+        });
+      });
 
     return () => {
       isMounted = false;
@@ -235,14 +247,14 @@ function InvoiceIntakePage() {
 
   return (
     <div>
-      <h1>Invoice Intake</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Invoice Intake</h1>
 
       <PageActionBar>
         <button
           onClick={handleStartNewInvoice}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#607d8b",
+            backgroundColor: "#334155",
           }}
         >
           New Invoice Draft
@@ -310,20 +322,23 @@ function InvoiceIntakePage() {
         </NoticePanel>
       )}
 
-      <div style={{ marginBottom: "18px" }}>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <div style={{ marginBottom: "14px", fontSize: "13px", color: "#94a3b8" }}>
+          Upload and review invoice data before sending it to the bot queue.
+        </div>
         <input type="file" accept="image/*" onChange={handleImageChange} />
       </div>
 
       {selectedImage && (
-        <div style={{ marginBottom: "18px" }}>
+        <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
           <img
             src={selectedImage}
             alt="Selected invoice"
             style={{
               maxWidth: "100%",
               maxHeight: "320px",
-              borderRadius: "8px",
-              border: "1px solid #444",
+              borderRadius: "12px",
+              border: "1px solid #1f2937",
             }}
           />
         </div>
@@ -336,7 +351,7 @@ function InvoiceIntakePage() {
           style={{
             ...styles.primaryButton,
             backgroundColor:
-              !selectedFile || isProcessingImage ? "#888" : "#7b3ff2",
+              !selectedFile || isProcessingImage ? "#64748b" : "#2563eb",
             cursor:
               !selectedFile || isProcessingImage ? "not-allowed" : "pointer",
           }}
@@ -349,7 +364,7 @@ function InvoiceIntakePage() {
           disabled={isProcessingImage}
           style={{
             ...styles.primaryButton,
-            backgroundColor: isProcessingImage ? "#888" : "#2196F3",
+            backgroundColor: isProcessingImage ? "#64748b" : "#0ea5e9",
             cursor: isProcessingImage ? "not-allowed" : "pointer",
           }}
         >
@@ -357,8 +372,8 @@ function InvoiceIntakePage() {
         </button>
       </PageActionBar>
 
-      <div style={{ marginBottom: "20px" }}>
-        <h2>OCR Raw Text</h2>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "12px", fontWeight: 600 }}>OCR Raw Text</h2>
         <textarea
           value={rawExtractedText}
           onChange={(event) => setRawExtractedText(event.target.value)}
@@ -368,14 +383,9 @@ Invoice Date: 2026-03-19
 Item A 12 2.5 30
 Item B 5 8.4 42`}
           style={{
-            width: "100%",
+            ...styles.input,
             minHeight: "150px",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #555",
-            backgroundColor: "#1f1f1f",
-            color: "white",
-            boxSizing: "border-box",
+            resize: "vertical",
           }}
         />
       </div>
@@ -415,8 +425,8 @@ Item B 5 8.4 42`}
 
         <div
           style={{
-            border: "1px solid #444",
-            borderRadius: "8px",
+            border: "1px solid #1f2937",
+            borderRadius: "12px",
             overflow: "hidden",
             marginBottom: "12px",
           }}
@@ -434,8 +444,9 @@ Item B 5 8.4 42`}
                 gridTemplateColumns: "1.4fr 0.7fr 0.8fr 0.9fr 90px",
                 gap: "8px",
                 alignItems: "center",
-                padding: "10px",
-                borderBottom: "1px solid #333",
+                padding: "10px 12px",
+                borderBottom: "1px solid #1f2937",
+                backgroundColor: "rgba(15, 23, 42, 0.76)",
               }}
             >
               <input
@@ -491,7 +502,7 @@ Item B 5 8.4 42`}
             onClick={handleAddItemRow}
             style={{
               ...styles.primaryButton,
-              backgroundColor: "#607d8b",
+              backgroundColor: "#334155",
             }}
           >
             Add Item Row
@@ -502,7 +513,7 @@ Item B 5 8.4 42`}
             disabled={isSendingInvoice}
             style={{
               ...styles.primaryButton,
-              backgroundColor: isSendingInvoice ? "#888" : "#00b894",
+              backgroundColor: isSendingInvoice ? "#64748b" : "#00b894",
               cursor: isSendingInvoice ? "not-allowed" : "pointer",
             }}
           >
@@ -530,20 +541,17 @@ Item B 5 8.4 42`}
         </PageActionBar>
       </div>
 
-      <div style={{ marginBottom: "18px" }}>
-        <h2 style={{ marginBottom: "10px" }}>Invoice Payload Preview</h2>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "12px", fontWeight: 600 }}>
+          Invoice Payload Preview
+        </h2>
         <textarea
           readOnly
           value={JSON.stringify(invoicePayloadPreview, null, 2)}
           style={{
-            width: "100%",
+            ...styles.input,
             minHeight: "210px",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #555",
-            backgroundColor: "#1f1f1f",
-            color: "white",
-            boxSizing: "border-box",
+            resize: "vertical",
           }}
         />
       </div>

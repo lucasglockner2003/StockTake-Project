@@ -1,28 +1,28 @@
 const TONE_STYLES = {
   default: {
-    border: "1px solid rgba(67, 108, 130, 0.45)",
-    backgroundColor: "rgba(15, 23, 42, 0.88)",
-    accentColor: "#8ad9d0",
+    border: "1px solid rgba(31, 41, 55, 0.95)",
+    backgroundColor: "rgba(17, 24, 39, 0.92)",
+    accentColor: "#94a3b8",
   },
   info: {
-    border: "1px solid rgba(125, 211, 252, 0.32)",
-    backgroundColor: "rgba(8, 47, 73, 0.42)",
-    accentColor: "#bae6fd",
+    border: "1px solid rgba(59, 130, 246, 0.26)",
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    accentColor: "#93c5fd",
   },
   success: {
-    border: "1px solid rgba(110, 231, 183, 0.3)",
-    backgroundColor: "rgba(6, 78, 59, 0.26)",
-    accentColor: "#bbf7d0",
+    border: "1px solid rgba(34, 197, 94, 0.22)",
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    accentColor: "#86efac",
   },
   warning: {
-    border: "1px solid rgba(251, 191, 36, 0.28)",
-    backgroundColor: "rgba(120, 53, 15, 0.24)",
-    accentColor: "#fde68a",
+    border: "1px solid rgba(245, 158, 11, 0.22)",
+    backgroundColor: "rgba(17, 24, 39, 0.92)",
+    accentColor: "#fcd34d",
   },
   danger: {
-    border: "1px solid rgba(248, 113, 113, 0.28)",
-    backgroundColor: "rgba(127, 29, 29, 0.24)",
-    accentColor: "#fecaca",
+    border: "1px solid rgba(239, 68, 68, 0.22)",
+    backgroundColor: "rgba(17, 24, 39, 0.92)",
+    accentColor: "#fca5a5",
   },
 };
 
@@ -33,11 +33,13 @@ function MetricCard({ label, value, detail, tone = "default" }) {
     <div
       style={{
         borderRadius: "14px",
-        padding: "16px",
+        padding: "18px",
         minHeight: "124px",
         display: "grid",
         gap: "10px",
         alignContent: "start",
+        boxShadow: "0 10px 24px rgba(2, 6, 23, 0.2)",
+        transition: "all 0.2s ease",
         ...toneStyles,
       }}
     >
@@ -47,7 +49,7 @@ function MetricCard({ label, value, detail, tone = "default" }) {
           letterSpacing: "0.12em",
           textTransform: "uppercase",
           color: toneStyles.accentColor,
-          fontWeight: 700,
+          fontWeight: 600,
         }}
       >
         {label}
@@ -57,7 +59,7 @@ function MetricCard({ label, value, detail, tone = "default" }) {
         style={{
           fontSize: "30px",
           lineHeight: 1,
-          fontWeight: 700,
+          fontWeight: 600,
           color: "#f8fafc",
         }}
       >

@@ -75,6 +75,19 @@ export class DailyOrdersRepository {
     });
   }
 
+  findStaleFillingOrders(cutoff: Date) {
+    return this.prismaService.dailyOrder.findMany({
+      where: {
+        status: DailyOrderStatus.FILLING_ORDER,
+        executionStartedAt: {
+          lt: cutoff,
+        },
+      },
+      orderBy: [{ executionStartedAt: 'asc' }, { id: 'asc' }],
+      include: dailyOrderInclude,
+    });
+  }
+
   async createDailyOrders(dailyOrders: DailyOrderCreateInput[]) {
     if (dailyOrders.length === 0) {
       return [];
@@ -168,6 +181,23 @@ export class DailyOrdersRepository {
       },
       data,
       include: dailyOrderInclude,
+    });
+  }
+
+  markFillingOrderAsTimedOut(
+    orderId: string,
+    cutoff: Date,
+    data: Prisma.DailyOrderUpdateManyMutationInput,
+  ) {
+    return this.prismaService.dailyOrder.updateMany({
+      where: {
+        id: orderId,
+        status: DailyOrderStatus.FILLING_ORDER,
+        executionStartedAt: {
+          lt: cutoff,
+        },
+      },
+      data,
     });
   }
 

@@ -256,10 +256,10 @@ function App() {
         style={{
           minHeight: "100vh",
           background:
-            "radial-gradient(circle at 10% 0%, #17394f 0%, #0b1220 30%, #070d18 100%)",
+            "radial-gradient(circle at 10% 0%, rgba(20, 184, 166, 0.12) 0%, #0b1220 28%, #070d18 100%)",
           color: "#e2e8f0",
           padding: "24px",
-          fontFamily: "'Segoe UI', 'Trebuchet MS', sans-serif",
+          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -441,28 +441,28 @@ function App() {
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at 10% 0%, #17394f 0%, #0b1220 30%, #070d18 100%)",
-        color: "#e2e8f0",
-        padding: "16px",
-        fontFamily: "'Segoe UI', 'Trebuchet MS', sans-serif",
-      }}
-    >
-      <div
         style={{
-          display: "flex",
-          gap: "16px",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          minHeight: "calc(100vh - 32px)",
+          minHeight: "100vh",
+          background:
+            "radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 22%), radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 20%), #0b1220",
+          color: "#e2e8f0",
+          padding: "20px",
+          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         }}
       >
         <div
           style={{
-            flex: "0 0 280px",
-            width: "280px",
+            display: "flex",
+            gap: "20px",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            minHeight: "calc(100vh - 40px)",
+          }}
+        >
+          <div
+            style={{
+            flex: "0 0 248px",
+            width: "248px",
             maxWidth: "100%",
           }}
         >
@@ -482,7 +482,7 @@ function App() {
             flex: "1 1 760px",
             minWidth: 0,
             display: "grid",
-            gap: "16px",
+            gap: "20px",
           }}
         >
           <WorkspaceHeader

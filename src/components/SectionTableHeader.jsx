@@ -2,11 +2,11 @@ function SectionTableHeader({
   columns,
   gridTemplateColumns,
   gap = "8px",
-  padding = "8px 10px",
+  padding = "10px 12px",
   marginBottom = "8px",
-  fontSize = "12px",
-  color = "#aaa",
-  borderBottom = "1px solid #444",
+  fontSize = "11px",
+  color = "#94a3b8",
+  borderBottom = "1px solid #1f2937",
 }) {
   return (
     <div
@@ -18,7 +18,9 @@ function SectionTableHeader({
         padding,
         marginBottom,
         fontSize,
-        fontWeight: "bold",
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
         color,
         borderBottom,
       }}

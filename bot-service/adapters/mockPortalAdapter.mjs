@@ -1,5 +1,9 @@
 import { runPortalAutomation } from "../browserRunner.mjs";
-import { getNodeEnv, resolveMockPortalBaseUrl } from "../config.mjs";
+import {
+  getNodeEnv,
+  isBrowserAutomationEnabled,
+  resolveMockPortalBaseUrl,
+} from "../config.mjs";
 
 const NODE_ENV = getNodeEnv();
 
@@ -26,7 +30,7 @@ function normalizePortalBaseUrl(value) {
 }
 
 function shouldUseBrowserAutomation() {
-  return String(process.env.USE_BROWSER || "").trim().toLowerCase() === "true";
+  return isBrowserAutomationEnabled(NODE_ENV);
 }
 
 function buildPublicArtifactPath(filePath) {
@@ -57,12 +61,21 @@ function buildPublicArtifactPath(filePath) {
 }
 
 function buildPortalExecutionError(executionType, error) {
-  const message =
+  const rawMessage =
     error instanceof Error
       ? error.message
       : `Unknown browser automation error for ${executionType}.`;
 
-  return new Error(message);
+  if (
+    rawMessage.includes("spawn EPERM") ||
+    rawMessage.includes("Failed to launch the browser process")
+  ) {
+    return new Error(
+      `Browser launch failed for ${executionType}. Check Puppeteer permissions and browser sandbox settings.`,
+    );
+  }
+
+  return new Error(rawMessage);
 }
 
 function requireBrowserAutomation(executionType, supplier, baseUrl, screenshotPath) {
@@ -91,12 +104,7 @@ function resolveBrowserScreenshot(browserResult, executionType) {
 
   console.log("[mockPortalAdapter] Using screenshot:", browserResult?.screenshot || "");
 
-  if (
-    screenshot.startsWith("http://") ||
-    screenshot.startsWith("https://") ||
-    screenshot.startsWith("data:image/") ||
-    screenshot.startsWith("/artifacts/")
-  ) {
+  if (screenshot.startsWith("/artifacts/")) {
     return screenshot;
   }
 

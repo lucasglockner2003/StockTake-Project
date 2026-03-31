@@ -28,27 +28,43 @@ function buildUrl(pathname) {
   return `${BOT_SERVICE_BASE_URL}${safePath}`;
 }
 
+function normalizeArtifactPath(pathValue) {
+  if (pathValue.startsWith("/artifacts/")) {
+    return pathValue;
+  }
+
+  if (pathValue.startsWith("artifacts/")) {
+    return `/${pathValue}`;
+  }
+
+  return "";
+}
+
+function isAllowedAbsoluteArtifactUrl(pathValue) {
+  try {
+    const artifactUrl = new URL(pathValue);
+    return artifactUrl.pathname.startsWith("/artifacts/");
+  } catch {
+    return false;
+  }
+}
+
 export function buildBotAssetUrl(value) {
   const pathValue = String(value || "").trim();
   if (!pathValue || isLegacyMockAssetPath(pathValue)) return "";
 
-  if (
-    pathValue.startsWith("http://") ||
-    pathValue.startsWith("https://") ||
-    pathValue.startsWith("data:image")
-  ) {
+  if (isAllowedAbsoluteArtifactUrl(pathValue)) {
     return pathValue;
   }
+
+  const artifactPath = normalizeArtifactPath(pathValue);
+  if (!artifactPath) return "";
 
   if (!BOT_ASSET_BASE_URL) {
-    return pathValue;
+    return artifactPath;
   }
 
-  if (pathValue.startsWith("/")) {
-    return `${BOT_ASSET_BASE_URL}${pathValue}`;
-  }
-
-  return `${BOT_ASSET_BASE_URL}/${pathValue}`;
+  return `${BOT_ASSET_BASE_URL}${artifactPath}`;
 }
 
 async function safeParseJson(response) {

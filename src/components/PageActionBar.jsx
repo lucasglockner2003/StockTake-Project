@@ -1,8 +1,8 @@
 function PageActionBar({
   children,
-  marginBottom = "20px",
-  alignItems,
-  gap = "10px",
+  marginBottom = "18px",
+  alignItems = "center",
+  gap = "12px",
 }) {
   return (
     <div

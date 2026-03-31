@@ -49,22 +49,26 @@ function PhotoPage({ items, setCurrentPage }) {
 
   return (
     <div>
-      <h1>Photo Order</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Photo Order</h1>
 
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <div style={{ marginBottom: "14px", fontSize: "13px", color: "#94a3b8" }}>
+          Upload a supplier order image and extract entries for review.
+        </div>
+
         <input type="file" accept="image/*" onChange={handleImageChange} />
       </div>
 
       {selectedImage && (
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
           <img
             src={selectedImage}
             alt="Selected order"
             style={{
               maxWidth: "100%",
               maxHeight: "300px",
-              borderRadius: "8px",
-              border: "1px solid #444",
+              borderRadius: "12px",
+              border: "1px solid #1f2937",
             }}
           />
         </div>
@@ -76,7 +80,7 @@ function PhotoPage({ items, setCurrentPage }) {
           disabled={isProcessingImage}
           style={{
             ...styles.primaryButton,
-            backgroundColor: isProcessingImage ? "#888" : "#8e44ad",
+            backgroundColor: isProcessingImage ? "#64748b" : "#7c3aed",
             cursor: isProcessingImage ? "not-allowed" : "pointer",
           }}
         >
@@ -88,7 +92,8 @@ function PhotoPage({ items, setCurrentPage }) {
           disabled={!selectedFile || isProcessingImage}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !selectedFile || isProcessingImage ? "#888" : "#7b3ff2",
+            backgroundColor:
+              !selectedFile || isProcessingImage ? "#64748b" : "#2563eb",
             cursor:
               !selectedFile || isProcessingImage ? "not-allowed" : "pointer",
           }}
@@ -101,7 +106,7 @@ function PhotoPage({ items, setCurrentPage }) {
           disabled={isProcessingImage}
           style={{
             ...styles.primaryButton,
-            backgroundColor: isProcessingImage ? "#888" : "#2196F3",
+            backgroundColor: isProcessingImage ? "#64748b" : "#0ea5e9",
             cursor: isProcessingImage ? "not-allowed" : "pointer",
           }}
         >
@@ -111,7 +116,13 @@ function PhotoPage({ items, setCurrentPage }) {
       </PageActionBar>
 
       {isProcessingImage && (
-        <NoticePanel backgroundColor="#1f1f1f">Sending image to OpenAI...</NoticePanel>
+        <NoticePanel backgroundColor="rgba(37, 99, 235, 0.12)" border="1px solid rgba(59, 130, 246, 0.22)" color="#bfdbfe">
+          <span className="saas-running-indicator">
+            <span className="saas-spinner" />
+            <span>Running bot...</span>
+          </span>
+          <span style={{ marginLeft: "10px" }}>Sending image to OpenAI...</span>
+        </NoticePanel>
       )}
 
       {ocrError && (
@@ -124,8 +135,8 @@ function PhotoPage({ items, setCurrentPage }) {
         </NoticePanel>
       )}
 
-      <div style={{ marginBottom: "20px" }}>
-        <h2>OCR Raw Text</h2>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "12px", fontWeight: 600 }}>OCR Raw Text</h2>
         <textarea
           value={rawExtractedText}
           onChange={(e) => setRawExtractedTextIfUnlocked(e.target.value)}
@@ -135,20 +146,17 @@ function PhotoPage({ items, setCurrentPage }) {
 Example:
 ${examplePhotoText}`}
           style={{
-            width: "100%",
+            ...styles.input,
             minHeight: "160px",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #555",
-            backgroundColor: "#1f1f1f",
-            color: "white",
-            boxSizing: "border-box",
+            resize: "vertical",
           }}
         />
       </div>
 
-      <div style={{ marginBottom: "12px" }}>
-        <h2 style={{ marginBottom: "10px" }}>Detected Entries</h2>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
+        <h2 style={{ marginTop: 0, marginBottom: "12px", fontWeight: 600 }}>
+          Detected Entries
+        </h2>
 
         <EditableEntrySection
           entries={photoEntries}
@@ -180,8 +188,8 @@ ${examplePhotoText}`}
             ...styles.primaryButton,
             backgroundColor:
               liveValidEntriesCount === 0 || isOutputLocked || isCreatingDailyOrders
-                ? "#888"
-                : "#4CAF50",
+                ? "#64748b"
+                : "#16a34a",
             cursor:
               liveValidEntriesCount === 0 || isOutputLocked || isCreatingDailyOrders
                 ? "not-allowed"
@@ -200,7 +208,7 @@ ${examplePhotoText}`}
           disabled={!isOutputLocked}
           style={{
             ...styles.primaryButton,
-            backgroundColor: !isOutputLocked ? "#888" : "#d9534f",
+            backgroundColor: !isOutputLocked ? "#64748b" : "#ef4444",
             cursor: !isOutputLocked ? "not-allowed" : "pointer",
           }}
         >
@@ -208,7 +216,7 @@ ${examplePhotoText}`}
         </button>
       </PageActionBar>
 
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
         <h2 style={{ marginBottom: "10px" }}>
           Confirmed Output ({confirmedEntries.length})
         </h2>
@@ -218,8 +226,8 @@ ${examplePhotoText}`}
         ) : (
           <div
             style={{
-              border: "1px solid #555",
-              borderRadius: "8px",
+              border: "1px solid #1f2937",
+              borderRadius: "12px",
               overflow: "hidden",
             }}
           >
@@ -236,8 +244,9 @@ ${examplePhotoText}`}
                   gridTemplateColumns: "70px 1.4fr 0.8fr 0.8fr",
                   gap: "8px",
                   alignItems: "center",
-                  padding: "10px",
-                  borderBottom: "1px solid #333",
+                  padding: "10px 12px",
+                  borderBottom: "1px solid #1f2937",
+                  backgroundColor: "rgba(15, 23, 42, 0.76)",
                 }}
               >
                 <div>{entry.sequence}</div>
@@ -250,7 +259,7 @@ ${examplePhotoText}`}
         )}
       </div>
 
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ ...styles.darkPanel, marginBottom: "18px" }}>
         <h2 style={{ marginBottom: "10px" }}>
           Automation Payload Preview ({automationPayload.length})
         </h2>
@@ -264,14 +273,9 @@ ${examplePhotoText}`}
           }
           placeholder="Automation payload will appear here."
           style={{
-            width: "100%",
+            ...styles.input,
             minHeight: "220px",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #555",
-            backgroundColor: "#1f1f1f",
-            color: "white",
-            boxSizing: "border-box",
+            resize: "vertical",
           }}
         />
       </div>
@@ -282,7 +286,7 @@ ${examplePhotoText}`}
           disabled={confirmedEntries.length === 0}
           style={{
             ...styles.primaryButton,
-            backgroundColor: confirmedEntries.length === 0 ? "#888" : "#4CAF50",
+            backgroundColor: confirmedEntries.length === 0 ? "#64748b" : "#16a34a",
             cursor: confirmedEntries.length === 0 ? "not-allowed" : "pointer",
           }}
         >
@@ -294,7 +298,7 @@ ${examplePhotoText}`}
           disabled={automationPayload.length === 0}
           style={{
             ...styles.primaryButton,
-            backgroundColor: automationPayload.length === 0 ? "#888" : "#6f42c1",
+            backgroundColor: automationPayload.length === 0 ? "#64748b" : "#7c3aed",
             cursor: automationPayload.length === 0 ? "not-allowed" : "pointer",
           }}
         >
@@ -307,7 +311,7 @@ ${examplePhotoText}`}
           onClick={handleSendDailyOrderToBot}
           style={{
             ...styles.primaryButton,
-            backgroundColor: readyDailyOrdersCount > 0 ? "#00b894" : "#607d8b",
+            backgroundColor: readyDailyOrdersCount > 0 ? "#00b894" : "#64748b",
           }}
         >
           Send Daily Order To Bot (Ready: {readyDailyOrdersCount})

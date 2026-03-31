@@ -177,7 +177,17 @@ function InvoiceQueuePage() {
 
         setInvoiceQueue(getInvoiceQueue());
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        console.warn("[invoice-queue] Failed to load initial invoice queue.", error);
+        setNotice(
+          "error",
+          error?.message || "Failed to load invoices from backend."
+        );
+      });
 
     return () => {
       isMounted = false;
@@ -599,14 +609,14 @@ function InvoiceQueuePage() {
 
   return (
     <div>
-      <h1>Invoice Queue</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Invoice Queue</h1>
 
       <PageActionBar>
         <button
           onClick={refreshInvoiceQueue}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#2196F3",
+            backgroundColor: "#2563eb",
           }}
         >
           Refresh Queue
@@ -627,8 +637,8 @@ function InvoiceQueuePage() {
               isRetryingAllFailed ||
               !!activeRetryInvoiceId ||
               !!activeExecuteInvoiceId
-                ? "#888"
-                : "#d9534f",
+                ? "#64748b"
+                : "#ef4444",
             cursor:
               allCounts.failed === 0 ||
               isRetryingAllFailed ||
@@ -715,9 +725,8 @@ function InvoiceQueuePage() {
           value={monthFilter}
           onChange={(event) => setMonthFilter(event.target.value)}
           style={{
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            ...styles.input,
+            width: "auto",
             minWidth: "180px",
           }}
         >
@@ -732,9 +741,8 @@ function InvoiceQueuePage() {
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
           style={{
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            ...styles.input,
+            width: "auto",
             minWidth: "180px",
           }}
         >
@@ -751,9 +759,8 @@ function InvoiceQueuePage() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search supplier or invoice number..."
           style={{
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            ...styles.input,
+            width: "auto",
             minWidth: "280px",
           }}
         />
@@ -948,7 +955,7 @@ function InvoiceQueuePage() {
                 </div>
                 <div>
                   <strong>{invoice.invoiceNumber || "-"}</strong>
-                  <div style={{ color: "#aaa", fontSize: "12px" }}>
+                  <div style={{ color: "#94a3b8", fontSize: "12px" }}>
                     {invoice.invoiceDate || "-"}
                   </div>
                 </div>
@@ -964,7 +971,7 @@ function InvoiceQueuePage() {
                 <div>{invoice.attempts || 0}</div>
               </div>
 
-              <div style={{ color: "#aaa", fontSize: "13px", marginBottom: "10px" }}>
+              <div style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "12px" }}>
                 Execution ID: {invoice.executionMetadata?.executionId || "-"}
                 {" | "}Duration: {invoice.executionMetadata?.duration || 0} ms
                 {" | "}Queued:{" "}
@@ -986,15 +993,16 @@ function InvoiceQueuePage() {
               )}
 
               {hasScreenshot && (
-                <div style={{ marginBottom: "10px" }}>
+                <div className="saas-screenshot-frame" style={{ marginBottom: "12px" }}>
+                  <div className="saas-screenshot-title">Bot Execution Screenshot</div>
                   <img
                     src={screenshotUrl}
                     alt={`Invoice ${invoice.invoiceNumber || invoice.id}`}
                     style={{
-                      maxWidth: "360px",
+                      maxWidth: "100%",
                       width: "100%",
-                      borderRadius: "8px",
-                      border: "1px solid #444",
+                      borderRadius: "10px",
+                      border: "1px solid #1f2937",
                     }}
                   />
                 </div>
@@ -1005,15 +1013,10 @@ function InvoiceQueuePage() {
                   <textarea
                     readOnly
                     value={JSON.stringify(payload, null, 2)}
-                    style={{
-                      width: "100%",
+                  style={{
+                      ...styles.input,
                       minHeight: "180px",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      border: "1px solid #555",
-                      backgroundColor: "#111",
-                      color: "white",
-                      boxSizing: "border-box",
+                      resize: "vertical",
                     }}
                   />
                 </div>
@@ -1026,11 +1029,11 @@ function InvoiceQueuePage() {
                     disabled={!canExecute}
                     style={{
                       ...styles.primaryButton,
-                      backgroundColor: canExecute ? "#0288d1" : "#888",
+                      backgroundColor: canExecute ? "#2563eb" : "#64748b",
                       cursor: canExecute ? "pointer" : "not-allowed",
                     }}
                   >
-                    {isExecutingThis ? "Running Bot..." : "Run Bot"}
+                    {isExecutingThis ? "Running bot..." : "Run Bot"}
                   </button>
                 )}
 
@@ -1040,7 +1043,7 @@ function InvoiceQueuePage() {
                     disabled={!canRetry}
                     style={{
                       ...styles.primaryButton,
-                      backgroundColor: canRetry ? "#d9534f" : "#888",
+                      backgroundColor: canRetry ? "#ef4444" : "#64748b",
                       cursor: canRetry ? "pointer" : "not-allowed",
                     }}
                   >
@@ -1056,7 +1059,7 @@ function InvoiceQueuePage() {
                   }
                   style={{
                     ...styles.primaryButton,
-                    backgroundColor: "#6f42c1",
+                    backgroundColor: "#7c3aed",
                   }}
                 >
                   {openPayloadInvoiceId === invoice.id ? "Hide Payload" : "View Payload"}
@@ -1075,8 +1078,8 @@ function InvoiceQueuePage() {
                       isRetryingAllFailed ||
                       !!activeRetryInvoiceId ||
                       !!activeExecuteInvoiceId
-                        ? "#888"
-                        : "#d9534f",
+                        ? "#64748b"
+                        : "#ef4444",
                     cursor:
                       isRetryingAllFailed ||
                       !!activeRetryInvoiceId ||
@@ -1092,7 +1095,7 @@ function InvoiceQueuePage() {
                   onClick={handleOpenSupplierPortal}
                   style={{
                     ...styles.primaryButton,
-                    backgroundColor: "#795548",
+                    backgroundColor: "#1f2937",
                   }}
                 >
                   Open Supplier Portal
@@ -1103,7 +1106,7 @@ function InvoiceQueuePage() {
                   disabled={!hasScreenshot}
                   style={{
                     ...styles.primaryButton,
-                    backgroundColor: hasScreenshot ? "#607d8b" : "#888",
+                    backgroundColor: hasScreenshot ? "#334155" : "#64748b",
                     cursor: hasScreenshot ? "pointer" : "not-allowed",
                   }}
                 >

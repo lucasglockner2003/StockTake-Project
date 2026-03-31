@@ -105,7 +105,7 @@ export class InvoicesBotClient implements OnModuleInit {
       return;
     }
 
-    await this.logHealthCheck();
+    void this.logHealthCheck();
   }
 
   executeInvoiceIntake(payload: InvoiceBotPayload) {

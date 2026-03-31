@@ -64,11 +64,12 @@ export function usePhotoOrder(
         }
 
         setReadyDailyOrdersCount(summary.ready);
-      } catch {
+      } catch (error) {
         if (!isMounted) {
           return;
         }
 
+        console.warn("[photo-order] Failed to refresh daily-order summary.", error);
         setReadyDailyOrdersCount(getReadyOrdersCount());
       }
     }

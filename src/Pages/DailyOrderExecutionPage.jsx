@@ -753,7 +753,9 @@ function DailyOrderExecutionPage() {
 
   return (
     <div>
-      <h1>Daily Order Execution</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>
+        Daily Order Execution
+      </h1>
 
       <PageActionBar marginBottom="14px">
         <button
@@ -761,7 +763,7 @@ function DailyOrderExecutionPage() {
           disabled={isLoadingOrders}
           style={{
             ...styles.primaryButton,
-            backgroundColor: isLoadingOrders ? "#888" : "#2196F3",
+            backgroundColor: isLoadingOrders ? "#64748b" : "#2563eb",
           }}
         >
           {isLoadingOrders ? "Refreshing..." : "Refresh"}
@@ -786,7 +788,7 @@ function DailyOrderExecutionPage() {
               runningBotFillSupplier !== null ||
               runningFinalSubmitOrderId !== null ||
               hasOrderFilling
-                ? "#888"
+                ? "#64748b"
                 : "#00b894",
             cursor:
               counts.ready === 0 ||
@@ -800,7 +802,7 @@ function DailyOrderExecutionPage() {
           }}
         >
           {isExecutingAllReady
-            ? "Running Bot Fill For All Ready..."
+            ? "Running bot..."
             : `Run Bot Fill For All Ready (${counts.ready})`}
         </button>
 
@@ -823,8 +825,8 @@ function DailyOrderExecutionPage() {
               runningBotFillSupplier !== null ||
               runningFinalSubmitOrderId !== null ||
               hasOrderFilling
-                ? "#888"
-                : "#d9534f",
+                ? "#64748b"
+                : "#ef4444",
             cursor:
               counts.failed === 0 ||
               isRetryingAllFailed ||
@@ -845,7 +847,7 @@ function DailyOrderExecutionPage() {
           onClick={handleResetExecution}
           style={{
             ...styles.primaryButton,
-            backgroundColor: "#dc2626",
+            backgroundColor: "#ef4444",
           }}
         >
           Delete All Orders
@@ -894,14 +896,20 @@ function DailyOrderExecutionPage() {
 
       {botServiceState.online && botServiceState.running && (
         <NoticePanel
-          backgroundColor="#1f1f1f"
-          border="1px solid #555"
-          color="#8de0ea"
+          backgroundColor="rgba(37, 99, 235, 0.12)"
+          border="1px solid rgba(59, 130, 246, 0.22)"
+          color="#bfdbfe"
           marginBottom="12px"
           padding="10px"
         >
-          Bot execution in progress: {botServiceState.type || "-"} for{" "}
-          {botServiceState.supplier || "unknown supplier"} ({botServiceState.phase || "-"}).
+          <span className="saas-running-indicator">
+            <span className="saas-spinner" />
+            <span>Running bot...</span>
+          </span>
+          <span style={{ marginLeft: "10px" }}>
+            {botServiceState.type || "-"} for {botServiceState.supplier || "unknown supplier"} (
+            {botServiceState.phase || "-"}).
+          </span>
         </NoticePanel>
       )}
 
@@ -983,11 +991,9 @@ function DailyOrderExecutionPage() {
             <div
               key={order.id}
               style={{
-                border: "1px solid #555",
-                borderRadius: "10px",
-                padding: "14px",
+                ...styles.darkPanel,
+                padding: "16px",
                 marginBottom: "14px",
-                backgroundColor: "#1a1a1a",
               }}
             >
               <PageActionBar marginBottom="10px" alignItems="center">
@@ -995,18 +1001,11 @@ function DailyOrderExecutionPage() {
                   {order.supplier}
                   {isRunningForSupplier ? (
                     <span
-                      style={{
-                        marginLeft: "10px",
-                        fontSize: "11px",
-                        padding: "2px 8px",
-                        borderRadius: "999px",
-                        backgroundColor: "#e3f2fd",
-                        color: "#2196F3",
-                        border: "1px solid #2196F3",
-                        verticalAlign: "middle",
-                      }}
+                      className="saas-running-indicator"
+                      style={{ marginLeft: "10px", verticalAlign: "middle" }}
                     >
-                      BOT RUNNING...
+                      <span className="saas-spinner" />
+                      <span>Running bot...</span>
                     </span>
                   ) : null}
                 </h3>
@@ -1060,17 +1059,17 @@ function DailyOrderExecutionPage() {
                 </NoticePanel>
               )}
 
-              <div style={{ color: "#aaa", fontSize: "13px", marginBottom: "10px" }}>
+              <div style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "12px" }}>
                 Created: {formatDateTime(order.createdAt)} | Total Qty: {order.totalQuantity}
                 {" | "}Attempts: {order.attempts || 0}
               </div>
 
               <div
                 style={{
-                  border: "1px solid #444",
-                  borderRadius: "8px",
+                  border: "1px solid #1f2937",
+                  borderRadius: "12px",
                   overflow: "hidden",
-                  marginBottom: "10px",
+                  marginBottom: "12px",
                 }}
               >
                 <SectionTableHeader columns={["Item", "Qty", "Unit"]} gridTemplateColumns="1.4fr 0.7fr 0.7fr" />
@@ -1083,8 +1082,9 @@ function DailyOrderExecutionPage() {
                       gridTemplateColumns: "1.4fr 0.7fr 0.7fr",
                       gap: "8px",
                       alignItems: "center",
-                      padding: "10px",
-                      borderBottom: "1px solid #333",
+                      padding: "10px 12px",
+                      borderBottom: "1px solid #1f2937",
+                      backgroundColor: "rgba(15, 23, 42, 0.76)",
                     }}
                   >
                     <div>{item.itemName}</div>
@@ -1103,13 +1103,8 @@ function DailyOrderExecutionPage() {
                             )
                           }
                           style={{
-                            width: "100%",
-                            padding: "5px 8px",
-                            borderRadius: "6px",
-                            border: "1px solid #555",
-                            backgroundColor: "#1f1f1f",
-                            color: "white",
-                            boxSizing: "border-box",
+                            ...styles.input,
+                            padding: "8px 10px",
                           }}
                         />
                       ) : (
@@ -1122,17 +1117,15 @@ function DailyOrderExecutionPage() {
               </div>
 
               {reviewScreenshotUrl && (
-                <div style={{ marginBottom: "10px" }}>
-                  <div style={{ marginBottom: "6px", color: "#aaa", fontSize: "13px" }}>
-                    Review Screenshot
-                  </div>
+                <div className="saas-screenshot-frame" style={{ marginBottom: "12px" }}>
+                  <div className="saas-screenshot-title">Bot Execution Screenshot</div>
                   <img
                     src={reviewScreenshotUrl}
                     alt={`Review screenshot ${order.supplier}`}
                     style={{
                       maxWidth: "100%",
-                      borderRadius: "8px",
-                      border: "1px solid #444",
+                      borderRadius: "10px",
+                      border: "1px solid #1f2937",
                     }}
                   />
                 </div>
@@ -1151,29 +1144,27 @@ function DailyOrderExecutionPage() {
               )}
 
               {finalScreenshotUrl && order.status === DAILY_ORDER_STATUSES.EXECUTED && (
-                <div style={{ marginBottom: "10px" }}>
-                  <div style={{ marginBottom: "6px", color: "#aaa", fontSize: "13px" }}>
-                    Final Submit Screenshot
-                  </div>
+                <div className="saas-screenshot-frame" style={{ marginBottom: "12px" }}>
+                  <div className="saas-screenshot-title">Bot Execution Screenshot</div>
                   <img
                     src={finalScreenshotUrl}
                     alt={`Final submit screenshot ${order.supplier}`}
                     style={{
                       maxWidth: "100%",
-                      borderRadius: "8px",
-                      border: "1px solid #444",
+                      borderRadius: "10px",
+                      border: "1px solid #1f2937",
                     }}
                   />
                 </div>
               )}
 
               <NoticePanel
-                backgroundColor="#111"
-                border="1px solid #444"
-                color="#ccc"
+                backgroundColor="rgba(15, 23, 42, 0.76)"
+                border="1px solid #1f2937"
+                color="#cbd5e1"
                 fontWeight="normal"
                 marginBottom="10px"
-                padding="10px"
+                padding="12px"
               >
                 Started: {formatDateTime(order.executionStartedAt)}
                 <br />
@@ -1230,10 +1221,10 @@ function DailyOrderExecutionPage() {
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillSupplier !== null ||
-                      runningFinalSubmitOrderId !== null
-                        ? "#888"
-                        : "#ff9800",
+                        runningBotFillSupplier !== null ||
+                        runningFinalSubmitOrderId !== null
+                        ? "#64748b"
+                        : "#f59e0b",
                   }}
                 >
                   Mark Ready
@@ -1256,10 +1247,10 @@ function DailyOrderExecutionPage() {
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
                       isRunningFinalSubmitThis ||
-                      runningBotFillSupplier !== null ||
-                      runningFinalSubmitOrderId !== null
-                        ? "#888"
-                        : "#607d8b",
+                        runningBotFillSupplier !== null ||
+                        runningFinalSubmitOrderId !== null
+                        ? "#64748b"
+                        : "#334155",
                   }}
                 >
                   Unlock Order
@@ -1286,11 +1277,11 @@ function DailyOrderExecutionPage() {
                       isRunningFinalSubmitThis ||
                       runningFinalSubmitOrderId !== null ||
                       (isExecutionRunning && isRunningForSupplier)
-                        ? "#888"
-                        : "#0288d1",
+                        ? "#64748b"
+                        : "#2563eb",
                   }}
                 >
-                  {isRunningBotFillThis ? "Running Bot Fill..." : "Run Bot Fill"}
+                  {isRunningBotFillThis ? "Running bot..." : "Run Bot Fill"}
                 </button>
 
                 <button
@@ -1314,13 +1305,13 @@ function DailyOrderExecutionPage() {
                       isRunningFinalSubmitThis ||
                       runningFinalSubmitOrderId !== null ||
                       (isExecutionRunning && isRunningForSupplier)
-                        ? "#888"
-                        : "#d9534f",
+                        ? "#64748b"
+                        : "#ef4444",
                   }}
                 >
                   {isRunningBotFillThis && canRetryBotFill
-                    ? "Retrying Bot Fill..."
-                    : "Retry Bot Fill"}
+                        ? "Retrying Bot Fill..."
+                        : "Retry Bot Fill"}
                 </button>
 
                 <button
@@ -1339,11 +1330,11 @@ function DailyOrderExecutionPage() {
                       !canFinalSubmit ||
                       isExecutingAllReady ||
                       isRunningBotFillThis ||
-                      isRunningFinalSubmitThis ||
-                      runningBotFillSupplier !== null ||
-                      runningFinalSubmitOrderId !== null
-                        ? "#888"
-                        : "#4CAF50",
+                        isRunningFinalSubmitThis ||
+                        runningBotFillSupplier !== null ||
+                        runningFinalSubmitOrderId !== null
+                        ? "#64748b"
+                        : "#16a34a",
                   }}
                 >
                   {isRunningFinalSubmitThis
@@ -1356,7 +1347,7 @@ function DailyOrderExecutionPage() {
                   disabled={!canOpenSupplierReview}
                   style={{
                     ...styles.primaryButton,
-                    backgroundColor: canOpenSupplierReview ? "#795548" : "#888",
+                    backgroundColor: canOpenSupplierReview ? "#1f2937" : "#64748b",
                   }}
                 >
                   Open Supplier Review

@@ -9,6 +9,39 @@ function normalizeStringValue(value: unknown) {
   return String(value || '').trim();
 }
 
+function normalizeArtifactPath(pathValue: string) {
+  if (pathValue.startsWith('/artifacts/')) {
+    return pathValue;
+  }
+
+  if (pathValue.startsWith('artifacts/')) {
+    return `/${pathValue}`;
+  }
+
+  return '';
+}
+
+function isAllowedAbsoluteArtifactUrl(
+  normalizedBaseUrl: string,
+  pathValue: string,
+) {
+  try {
+    const artifactUrl = new URL(pathValue);
+
+    if (!artifactUrl.pathname.startsWith('/artifacts/')) {
+      return false;
+    }
+
+    if (!normalizedBaseUrl) {
+      return true;
+    }
+
+    return artifactUrl.origin === new URL(normalizedBaseUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 export function isLegacyMockArtifactUrl(value: unknown) {
   const normalizedValue = normalizeStringValue(value).toLowerCase();
 
@@ -26,28 +59,25 @@ export function normalizePublicBotArtifactUrl(
   value: unknown,
 ) {
   const pathValue = normalizeStringValue(value);
+  const normalizedBaseUrl = normalizeStringValue(baseUrl).replace(/\/+$/, '');
 
   if (!pathValue || isLegacyMockArtifactUrl(pathValue)) {
     return '';
   }
 
-  if (
-    pathValue.startsWith('http://') ||
-    pathValue.startsWith('https://') ||
-    pathValue.startsWith('data:image/')
-  ) {
+  if (isAllowedAbsoluteArtifactUrl(normalizedBaseUrl, pathValue)) {
     return pathValue;
   }
 
-  const normalizedBaseUrl = normalizeStringValue(baseUrl).replace(/\/+$/, '');
+  const artifactPath = normalizeArtifactPath(pathValue);
+
+  if (!artifactPath) {
+    return '';
+  }
 
   if (!normalizedBaseUrl) {
-    return pathValue;
+    return artifactPath;
   }
 
-  if (pathValue.startsWith('/')) {
-    return `${normalizedBaseUrl}${pathValue}`;
-  }
-
-  return `${normalizedBaseUrl}/${pathValue}`;
+  return `${normalizedBaseUrl}${artifactPath}`;
 }

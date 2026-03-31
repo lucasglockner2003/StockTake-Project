@@ -34,13 +34,14 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
   return (
     <header
       style={{
-        borderRadius: "16px",
-        border: "1px solid #24344d",
+        borderRadius: "18px",
+        border: "1px solid #1f2937",
         background:
-          "linear-gradient(135deg, rgba(12, 20, 36, 0.96) 0%, rgba(9, 30, 45, 0.96) 100%)",
-        padding: "18px",
+          "linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.98) 100%)",
+        padding: "20px",
         display: "grid",
-        gap: "16px",
+        gap: "18px",
+        boxShadow: "0 14px 30px rgba(2, 6, 23, 0.22)",
       }}
     >
       <div
@@ -58,7 +59,7 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
               letterSpacing: "0.16em",
               textTransform: "uppercase",
               color: roleTheme.accentColor,
-              fontWeight: 700,
+              fontWeight: 600,
             }}
           >
             Secure Workspace
@@ -68,7 +69,7 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
             style={{
               fontSize: "30px",
               lineHeight: 1.05,
-              fontWeight: 700,
+              fontWeight: 600,
               color: "#f8fafc",
             }}
           >
@@ -89,10 +90,10 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
 
         <div
           style={{
-            borderRadius: "14px",
-            border: "1px solid rgba(67, 108, 130, 0.45)",
-            backgroundColor: "rgba(7, 18, 32, 0.62)",
-            padding: "14px",
+            borderRadius: "16px",
+            border: "1px solid rgba(51, 65, 85, 0.92)",
+            backgroundColor: "rgba(15, 23, 42, 0.82)",
+            padding: "16px",
             display: "grid",
             gap: "12px",
           }}
@@ -118,11 +119,11 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: "16px",
-                  fontWeight: 700,
-                  color: "#f8fafc",
-                  lineHeight: 1.3,
-                }}
+                fontSize: "16px",
+                fontWeight: 600,
+                color: "#f8fafc",
+                lineHeight: 1.3,
+              }}
               >
                 {getUserDisplayName(user)}
               </div>
@@ -149,7 +150,7 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
               backgroundColor: roleTheme.badgeBackground,
               color: roleTheme.badgeText,
               fontSize: "11px",
-              fontWeight: 700,
+              fontWeight: 600,
               padding: "5px 10px",
               letterSpacing: "0.05em",
             }}
@@ -181,11 +182,12 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
             key={item.label}
             style={{
               borderRadius: "12px",
-              border: "1px solid rgba(67, 108, 130, 0.45)",
-              backgroundColor: "rgba(15, 23, 42, 0.72)",
-              padding: "12px 14px",
+              border: "1px solid rgba(31, 41, 55, 0.95)",
+              backgroundColor: "rgba(17, 24, 39, 0.86)",
+              padding: "14px 16px",
               display: "grid",
               gap: "6px",
+              boxShadow: "0 8px 18px rgba(2, 6, 23, 0.16)",
             }}
           >
             <div
@@ -194,7 +196,7 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
                 color: "#8ad9d0",
-                fontWeight: 700,
+                fontWeight: 600,
               }}
             >
               {item.label}
@@ -203,7 +205,7 @@ function WorkspaceHeader({ currentPage, snapshot, user }) {
             <div
               style={{
                 fontSize: "22px",
-                fontWeight: 700,
+                fontWeight: 600,
                 color: "#f8fafc",
               }}
             >

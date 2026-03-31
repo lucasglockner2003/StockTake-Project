@@ -32,7 +32,7 @@ function AutomationJobsPage() {
 
   return (
     <div>
-      <h1>Automation Jobs</h1>
+      <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Automation Jobs</h1>
 
       {!canManageJobs ? (
         <NoticePanel
@@ -60,7 +60,7 @@ function AutomationJobsPage() {
           disabled={loading}
           style={{
             ...styles.primaryButton,
-            backgroundColor: loading ? "#888" : "#2196F3",
+            backgroundColor: loading ? "#64748b" : "#2563eb",
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
@@ -74,8 +74,8 @@ function AutomationJobsPage() {
             ...styles.primaryButton,
             backgroundColor:
               !canManageJobs || counts.total === 0 || runningJobId !== null
-                ? "#888"
-                : "#d9534f",
+                ? "#64748b"
+                : "#ef4444",
             cursor:
               !canManageJobs || counts.total === 0 || runningJobId !== null
                 ? "not-allowed"
@@ -99,9 +99,8 @@ function AutomationJobsPage() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            ...styles.input,
+            width: "auto",
             minWidth: "180px",
           }}
         >
@@ -118,9 +117,8 @@ function AutomationJobsPage() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search job, session or item..."
           style={{
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            ...styles.input,
+            width: "auto",
             minWidth: "260px",
           }}
         />

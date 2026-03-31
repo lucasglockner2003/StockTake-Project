@@ -23,8 +23,8 @@ function StockTakeTable({
         <div
           style={{
             borderRadius: "12px",
-            border: "1px solid #243043",
-            backgroundColor: "#0f172a",
+            border: "1px dashed #334155",
+            backgroundColor: "rgba(15, 23, 42, 0.82)",
             padding: "18px",
             color: "#94a3b8",
             marginBottom: "14px",
@@ -46,10 +46,12 @@ function StockTakeTable({
             key={area}
             style={{
               marginBottom: "14px",
-              borderRadius: "12px",
-              border: "1px solid #273447",
-              backgroundColor: "#0f172a",
-              padding: "12px",
+              borderRadius: "14px",
+              border: "1px solid #1f2937",
+              background:
+                "linear-gradient(180deg, rgba(17, 24, 39, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%)",
+              padding: "14px",
+              boxShadow: "0 10px 24px rgba(2, 6, 23, 0.18)",
             }}
           >
             <div
@@ -67,7 +69,9 @@ function StockTakeTable({
                   color: "#93c5fd",
                   border: "1px solid #334155",
                   borderRadius: "999px",
-                  padding: "4px 10px",
+                  padding: "5px 11px",
+                  backgroundColor: "rgba(30, 41, 59, 0.7)",
+                  fontWeight: 600,
                 }}
               >
                 {filteredItems.length} items
@@ -100,13 +104,14 @@ function StockTakeTable({
                     gridTemplateColumns: tableColumns,
                     gap: "7px",
                     alignItems: "center",
-                    border: `1px solid ${statusColor}88`,
+                    border: `1px solid ${statusColor}55`,
                     borderLeft: `4px solid ${statusColor}`,
-                    borderRadius: "8px",
-                    backgroundColor: "#0b1220",
-                    padding: "8px 10px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(11, 18, 32, 0.94)",
+                    padding: "10px 12px",
                     marginBottom: "6px",
-                    minHeight: "46px",
+                    minHeight: "48px",
+                    boxShadow: "0 8px 16px rgba(2, 6, 23, 0.16)",
                   }}
                 >
                   {/* ITEM + VOICE TAG */}
@@ -157,15 +162,15 @@ function StockTakeTable({
                       }
                     }}
                     style={{
-                      padding: "5px 6px",
+                      padding: "7px 8px",
                       width: "100%",
-                      height: "30px",
-                      borderRadius: "5px",
+                      height: "34px",
+                      borderRadius: "8px",
                       border: "1px solid #334155",
-                      backgroundColor: "#020617",
+                      backgroundColor: "#0b1220",
                       color: "#f8fafc",
                       boxSizing: "border-box",
-                      fontSize: "12px",
+                      fontSize: "13px",
                     }}
                   />
 
@@ -173,11 +178,11 @@ function StockTakeTable({
                   <button
                     onClick={() => handleQuantityChange(item.id, 0)}
                     style={{
-                      padding: "5px 10px",
-                      minHeight: "30px",
-                      borderRadius: "6px",
-                      border: "1px solid #475569",
-                      backgroundColor: "#0b1220",
+                      padding: "7px 10px",
+                      minHeight: "34px",
+                      borderRadius: "8px",
+                      border: "1px solid #374151",
+                      backgroundColor: "#111827",
                       color: "#e2e8f0",
                       cursor: "pointer",
                       fontWeight: 600,
@@ -191,7 +196,7 @@ function StockTakeTable({
                     style={{
                       color: statusColor,
                       fontSize: "12px",
-                      fontWeight: "bold",
+                      fontWeight: 600,
                     }}
                   >
                     {status}

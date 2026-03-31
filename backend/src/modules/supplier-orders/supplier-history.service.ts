@@ -88,7 +88,7 @@ export class SupplierHistoryService {
 
   async listHistory(): Promise<SupplierHistoryResponse[]> {
     const history = await this.supplierHistoryRepository.listHistory();
-    return history.map((entry) => this.mapHistoryRecord(entry));
+    return history.map((entry: SupplierHistoryRecord) => this.mapHistoryRecord(entry));
   }
 
   async getHistoryById(
@@ -115,7 +115,7 @@ export class SupplierHistoryService {
       supplierName,
     );
 
-    return history.map((entry) => this.mapHistoryRecord(entry));
+    return history.map((entry: SupplierHistoryRecord) => this.mapHistoryRecord(entry));
   }
 
   async clearHistory(): Promise<SupplierHistoryResetResponse> {
