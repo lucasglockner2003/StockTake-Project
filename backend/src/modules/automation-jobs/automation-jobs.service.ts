@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
+import { normalizePublicBotArtifactUrl } from '../../common/utils/bot-artifact-url';
+import { resolveBotServiceBaseUrl } from '../../config/bot-service.config';
 import {
   AutomationJobSource,
   AutomationJobStatus,
@@ -54,6 +56,10 @@ import {
 const AUTOMATION_JOB_TYPE_UNKNOWN = 'unknown';
 const AUTOMATION_JOB_TYPE_DAILY_ORDER = 'daily-order';
 const AUTOMATION_JOB_TYPE_INVOICE_INTAKE = 'invoice-intake';
+const BOT_SERVICE_BASE_URL = resolveBotServiceBaseUrl(
+  process.env.BOT_SERVICE_BASE_URL,
+  process.env.NODE_ENV,
+);
 
 type NormalizedAutomationJobItem = {
   sequence: number;
@@ -1258,8 +1264,9 @@ export class AutomationJobsService {
       executionFinishedAt: normalizeString(botResponse.executionFinishedAt),
       filledAt: normalizeString(botResponse.filledAt),
       readyForReviewAt: normalizeString(botResponse.readyForReviewAt),
-      reviewScreenshot: normalizeString(
-        botResponse.reviewScreenshot || botResponse.screenshotPath,
+      reviewScreenshot: normalizePublicBotArtifactUrl(
+        BOT_SERVICE_BASE_URL,
+        botResponse.reviewScreenshot,
       ),
       executionNotes: normalizeString(botResponse.executionNotes),
       totalItems: batch.items.length,

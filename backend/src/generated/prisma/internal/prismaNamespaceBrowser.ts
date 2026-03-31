@@ -59,6 +59,7 @@ export const ModelName = {
   DailyOrder: 'DailyOrder',
   DailyOrderItem: 'DailyOrderItem',
   Invoice: 'Invoice',
+  ExecutionIdempotency: 'ExecutionIdempotency',
   InvoiceItem: 'InvoiceItem',
   AutomationJob: 'AutomationJob',
   AutomationJobItem: 'AutomationJobItem',
@@ -215,6 +216,7 @@ export const InvoiceScalarFieldEnum = {
   executionId: 'executionId',
   executionDurationMs: 'executionDurationMs',
   queuedAt: 'queuedAt',
+  executionStartedAt: 'executionStartedAt',
   executedAt: 'executedAt',
   lastErrorCode: 'lastErrorCode',
   lastErrorMessage: 'lastErrorMessage',
@@ -224,6 +226,27 @@ export const InvoiceScalarFieldEnum = {
 } as const
 
 export type InvoiceScalarFieldEnum = (typeof InvoiceScalarFieldEnum)[keyof typeof InvoiceScalarFieldEnum]
+
+
+export const ExecutionIdempotencyScalarFieldEnum = {
+  id: 'id',
+  operation: 'operation',
+  entityId: 'entityId',
+  idempotencyKey: 'idempotencyKey',
+  isFinal: 'isFinal',
+  status: 'status',
+  executionId: 'executionId',
+  screenshotPath: 'screenshotPath',
+  reviewScreenshotPath: 'reviewScreenshotPath',
+  finalScreenshotPath: 'finalScreenshotPath',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  responseSnapshot: 'responseSnapshot',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExecutionIdempotencyScalarFieldEnum = (typeof ExecutionIdempotencyScalarFieldEnum)[keyof typeof ExecutionIdempotencyScalarFieldEnum]
 
 
 export const InvoiceItemScalarFieldEnum = {

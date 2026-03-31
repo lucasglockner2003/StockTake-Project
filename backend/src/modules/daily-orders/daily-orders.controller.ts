@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { Roles } from '../../common/auth/roles.decorator';
+import { IdempotencyKeyDto } from '../../common/http/idempotency-key.dto';
 import { Role } from '../../generated/prisma/client';
 import { CreateDailyOrdersFromPhotoDto } from './dto/create-daily-orders-from-photo.dto';
 import { CreateDailyOrdersFromSuggestedOrderDto } from './dto/create-daily-orders-from-suggested-order.dto';
@@ -87,14 +88,26 @@ export class DailyOrdersController {
 
   @Roles(Role.ADMIN, Role.CHEF)
   @Post(':id/run-bot-fill')
-  runDailyOrderBotFill(@Param('id') id: string) {
-    return this.dailyOrdersService.runDailyOrderBotFill(id);
+  runDailyOrderBotFill(
+    @Param('id') id: string,
+    @Body() idempotencyKeyDto: IdempotencyKeyDto,
+  ) {
+    return this.dailyOrdersService.runDailyOrderBotFill(
+      id,
+      idempotencyKeyDto?.idempotencyKey,
+    );
   }
 
   @Roles(Role.ADMIN, Role.CHEF)
   @Post(':id/final-submit')
-  finalSubmitDailyOrder(@Param('id') id: string) {
-    return this.dailyOrdersService.finalSubmitDailyOrder(id);
+  finalSubmitDailyOrder(
+    @Param('id') id: string,
+    @Body() idempotencyKeyDto: IdempotencyKeyDto,
+  ) {
+    return this.dailyOrdersService.finalSubmitDailyOrder(
+      id,
+      idempotencyKeyDto?.idempotencyKey,
+    );
   }
 
   @Roles(Role.ADMIN, Role.CHEF)

@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 
 import { Roles } from '../../common/auth/roles.decorator';
+import { IdempotencyKeyDto } from '../../common/http/idempotency-key.dto';
 import { Role } from '../../generated/prisma/client';
 import { CreateInvoiceIntakeDto } from './dto/create-invoice-intake.dto';
 import { InvoicesService } from './invoices.service';
@@ -35,8 +36,11 @@ export class InvoicesController {
 
   @Roles(Role.ADMIN, Role.MANAGER)
   @Post(':id/execute')
-  executeInvoice(@Param('id') id: string) {
-    return this.invoicesService.executeInvoice(id);
+  executeInvoice(
+    @Param('id') id: string,
+    @Body() idempotencyKeyDto: IdempotencyKeyDto,
+  ) {
+    return this.invoicesService.executeInvoice(id, idempotencyKeyDto?.idempotencyKey);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)

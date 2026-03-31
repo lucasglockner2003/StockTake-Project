@@ -1,7 +1,25 @@
 import { runtimeConfig } from "../services/runtime-config";
 
 const BOT_SERVICE_BASE_URL = runtimeConfig.botServiceBaseUrl;
+const API_BASE_URL = runtimeConfig.apiBaseUrl;
 const BOT_SERVICE_TIMEOUT_MS = runtimeConfig.botServiceTimeoutMs;
+const BOT_ASSET_BASE_URL =
+  BOT_SERVICE_BASE_URL || String(API_BASE_URL || "").replace(/\/api$/, "");
+
+function isLegacyMockAssetPath(value) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+
+  if (!normalizedValue) {
+    return false;
+  }
+
+  return (
+    normalizedValue.includes("mock://image") ||
+    normalizedValue.includes("mock.png") ||
+    normalizedValue.includes("/public/mock.png") ||
+    normalizedValue.includes("via.placeholder.com")
+  );
+}
 
 function buildUrl(pathname) {
   const safePath = String(pathname || "").startsWith("/")
@@ -10,9 +28,9 @@ function buildUrl(pathname) {
   return `${BOT_SERVICE_BASE_URL}${safePath}`;
 }
 
-function toAbsoluteAssetPath(value) {
+export function buildBotAssetUrl(value) {
   const pathValue = String(value || "").trim();
-  if (!pathValue) return "";
+  if (!pathValue || isLegacyMockAssetPath(pathValue)) return "";
 
   if (
     pathValue.startsWith("http://") ||
@@ -22,11 +40,15 @@ function toAbsoluteAssetPath(value) {
     return pathValue;
   }
 
-  if (pathValue.startsWith("/")) {
-    return `${BOT_SERVICE_BASE_URL}${pathValue}`;
+  if (!BOT_ASSET_BASE_URL) {
+    return pathValue;
   }
 
-  return `${BOT_SERVICE_BASE_URL}/${pathValue}`;
+  if (pathValue.startsWith("/")) {
+    return `${BOT_ASSET_BASE_URL}${pathValue}`;
+  }
+
+  return `${BOT_ASSET_BASE_URL}/${pathValue}`;
 }
 
 async function safeParseJson(response) {
@@ -48,10 +70,10 @@ function normalizeStructuredResponse(data, fallback = {}) {
     errorCode: payload.errorCode || fallback.errorCode || "",
     message: payload.message || fallback.message || "",
     ...payload,
-    screenshotPath: toAbsoluteAssetPath(payload.screenshotPath),
-    screenshot: toAbsoluteAssetPath(payload.screenshot),
-    reviewScreenshot: toAbsoluteAssetPath(payload.reviewScreenshot),
-    finalScreenshot: toAbsoluteAssetPath(payload.finalScreenshot),
+    screenshotPath: buildBotAssetUrl(payload.screenshotPath),
+    screenshot: buildBotAssetUrl(payload.screenshot),
+    reviewScreenshot: buildBotAssetUrl(payload.reviewScreenshot),
+    finalScreenshot: buildBotAssetUrl(payload.finalScreenshot),
   };
 }
 

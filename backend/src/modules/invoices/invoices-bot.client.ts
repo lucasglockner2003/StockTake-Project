@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { normalizePublicBotArtifactUrl } from '../../common/utils/bot-artifact-url';
 import {
   BOT_SERVICE_SHARED_SECRET_HEADER,
   normalizeBotServiceSharedSecret,
@@ -17,28 +18,6 @@ function normalizeString(value: unknown, fallback = '') {
 function normalizeNumber(value: unknown, fallback = 0) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
-}
-
-function normalizePublicAssetUrl(baseUrl: string, value: unknown) {
-  const pathValue = String(value || '').trim();
-
-  if (!pathValue) {
-    return '';
-  }
-
-  if (
-    pathValue.startsWith('http://') ||
-    pathValue.startsWith('https://') ||
-    pathValue.startsWith('data:image')
-  ) {
-    return pathValue;
-  }
-
-  if (pathValue.startsWith('/')) {
-    return `${baseUrl}${pathValue}`;
-  }
-
-  return `${baseUrl}/${pathValue}`;
 }
 
 function safeJsonStringify(value: unknown) {
@@ -150,7 +129,7 @@ export class InvoicesBotClient implements OnModuleInit {
       errorCode: normalizeString(data.errorCode, fallback.errorCode || ''),
       message: normalizeString(data.message, fallback.message || ''),
       duration: normalizeNumber(data.duration, fallback.duration || 0),
-      screenshot: normalizePublicAssetUrl(
+      screenshot: normalizePublicBotArtifactUrl(
         this.baseUrl,
         data.screenshot ?? fallback.screenshot,
       ),

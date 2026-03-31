@@ -331,16 +331,15 @@ app.post("/execute-daily-order", async (req, res) => {
           executionId: execution.executionId,
           phase: "fill-failed",
           errorCode: "BOT_FILL_FAILED",
-          message: result.executionNotes || "Bot fill failed.",
-          executionDuration: result.executionDuration,
-          executionStartedAt: result.executionStartedAt,
-          executionFinishedAt: result.executionFinishedAt,
-          filledAt: null,
-          readyForReviewAt: null,
-          screenshotPath: "",
-          reviewScreenshot: "",
-          executionNotes: result.executionNotes || "Bot fill failed.",
-        })
+        message: result.executionNotes || "Bot fill failed.",
+        executionDuration: result.executionDuration,
+        executionStartedAt: result.executionStartedAt,
+        executionFinishedAt: result.executionFinishedAt,
+        filledAt: null,
+        readyForReviewAt: null,
+        reviewScreenshot: "",
+        executionNotes: result.executionNotes || "Bot fill failed.",
+      })
       );
     }
 
@@ -360,8 +359,7 @@ app.post("/execute-daily-order", async (req, res) => {
         executionFinishedAt: result.executionFinishedAt,
         filledAt: result.filledAt,
         readyForReviewAt: result.readyForReviewAt,
-        screenshotPath: `/artifacts/${screenshotFileName}`,
-        reviewScreenshot: `/artifacts/${screenshotFileName}`,
+        reviewScreenshot: result.reviewScreenshot || "",
         executionNotes: result.executionNotes,
       })
     );
@@ -380,7 +378,6 @@ app.post("/execute-daily-order", async (req, res) => {
         executionFinishedAt: new Date().toISOString(),
         filledAt: null,
         readyForReviewAt: null,
-        screenshotPath: "",
         reviewScreenshot: "",
         executionNotes: error?.message || "Unexpected bot service error.",
       })
@@ -457,7 +454,7 @@ app.post("/execute-invoice-intake", async (req, res) => {
           result.notes ||
           "Goods received completed and invoice review saved.",
         duration: Number(result.duration || 0),
-        screenshot: `/artifacts/${screenshotFileName}`,
+        screenshot: result.screenshot || "",
         filledItems: result.filledItems || [],
         notes:
           result.notes ||
@@ -554,7 +551,7 @@ app.post("/submit-daily-order", async (req, res) => {
         message:
           result.finalExecutionNotes || "Final submit completed successfully.",
         orderNumber: result.orderNumber,
-        finalScreenshot: `/artifacts/${finalScreenshotFileName}`,
+        finalScreenshot: result.finalScreenshot || "",
         submitStartedAt: result.submitStartedAt,
         submittedAt: result.submittedAt,
         submitFinishedAt: result.submitFinishedAt,

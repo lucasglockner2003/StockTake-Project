@@ -22,6 +22,7 @@ type ErrorResponseBody = {
   timestamp: string;
   path: string;
   requestId: string;
+  [key: string]: unknown;
 };
 
 @Catch()
@@ -96,6 +97,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
           typeof responseRecord.error === 'string'
             ? responseRecord.error
             : String(fallbackError);
+        const extraFields = Object.fromEntries(
+          Object.entries(responseRecord).filter(
+            ([key]) =>
+              key !== 'statusCode' &&
+              key !== 'error' &&
+              key !== 'message' &&
+              key !== 'timestamp' &&
+              key !== 'path' &&
+              key !== 'requestId',
+          ),
+        );
 
         return {
           statusCode,
@@ -104,6 +116,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
           timestamp,
           path,
           requestId,
+          ...extraFields,
         };
       }
     }

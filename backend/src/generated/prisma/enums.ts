@@ -41,11 +41,21 @@ export type DailyOrderSource = (typeof DailyOrderSource)[keyof typeof DailyOrder
 export const InvoiceStatus = {
   DRAFT: 'DRAFT',
   QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
   EXECUTED: 'EXECUTED',
   FAILED: 'FAILED'
 } as const
 
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus]
+
+
+export const ExecutionIdempotencyOperation = {
+  INVOICE_EXECUTE: 'INVOICE_EXECUTE',
+  DAILY_ORDER_FILL: 'DAILY_ORDER_FILL',
+  DAILY_ORDER_FINAL_SUBMIT: 'DAILY_ORDER_FINAL_SUBMIT'
+} as const
+
+export type ExecutionIdempotencyOperation = (typeof ExecutionIdempotencyOperation)[keyof typeof ExecutionIdempotencyOperation]
 
 
 export const AutomationJobStatus = {

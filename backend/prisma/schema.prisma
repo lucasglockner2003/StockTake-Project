@@ -30,8 +30,15 @@ enum DailyOrderSource {
 enum InvoiceStatus {
   DRAFT
   QUEUED
+  PROCESSING
   EXECUTED
   FAILED
+}
+
+enum ExecutionIdempotencyOperation {
+  INVOICE_EXECUTE
+  DAILY_ORDER_FILL
+  DAILY_ORDER_FINAL_SUBMIT
 }
 
 enum AutomationJobStatus {
@@ -203,6 +210,7 @@ model Invoice {
   executionId        String        @default("")
   executionDurationMs Int?
   queuedAt           DateTime?
+  executionStartedAt DateTime?
   executedAt         DateTime?
   lastErrorCode      String        @default("")
   lastErrorMessage   String        @default("")
@@ -216,6 +224,29 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([createdAt])
   @@map("invoices")
+}
+
+model ExecutionIdempotency {
+  id                   String                        @id @default(uuid())
+  operation            ExecutionIdempotencyOperation
+  entityId             String
+  idempotencyKey       String
+  isFinal              Boolean                       @default(false)
+  status               String                        @default("")
+  executionId          String                        @default("")
+  screenshotPath       String                        @default("")
+  reviewScreenshotPath String                        @default("")
+  finalScreenshotPath  String                        @default("")
+  errorCode            String                        @default("")
+  errorMessage         String                        @default("")
+  responseSnapshot     Json?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@unique([operation, entityId, idempotencyKey])
+  @@index([entityId, idempotencyKey])
+  @@index([operation, entityId])
+  @@map("execution_idempotency")
 }
 
 model InvoiceItem {

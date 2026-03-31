@@ -5,7 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { DailyOrderSource, DailyOrderStatus } from '../../generated/prisma/client';
+import {
+  ExecutionIdempotencyRecord,
+  ExecutionIdempotencyRepository,
+} from '../../common/idempotency/execution-idempotency.repository';
+import { normalizePublicBotArtifactUrl } from '../../common/utils/bot-artifact-url';
+import { resolveBotServiceBaseUrl } from '../../config/bot-service.config';
+import {
+  DailyOrderSource,
+  DailyOrderStatus,
+  ExecutionIdempotencyOperation,
+  Prisma,
+} from '../../generated/prisma/client';
 import { SupplierHistoryService } from '../supplier-orders/supplier-history.service';
 import { CreateDailyOrdersFromPhotoDto } from './dto/create-daily-orders-from-photo.dto';
 import { CreateDailyOrdersFromSuggestedOrderDto } from './dto/create-daily-orders-from-suggested-order.dto';
@@ -69,6 +80,22 @@ function toDurationOrNull(value: number | null | undefined) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? Math.max(Math.round(numericValue), 0) : null;
 }
+
+function normalizeIdempotencyKey(value: string | undefined) {
+  const normalizedValue = String(value || '').trim();
+  return normalizedValue || '';
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const BOT_SERVICE_BASE_URL = resolveBotServiceBaseUrl(
+  process.env.BOT_SERVICE_BASE_URL,
+  process.env.NODE_ENV,
+);
+const IDEMPOTENCY_WAIT_INTERVAL_MS = 250;
+const IDEMPOTENCY_WAIT_TIMEOUT_MS = 35_000;
 
 function canExecuteStatus(status: DailyOrderStatus) {
   return (
@@ -149,6 +176,7 @@ export class DailyOrdersService {
     private readonly dailyOrdersRepository: DailyOrdersRepository,
     private readonly dailyOrdersBotClient: DailyOrdersBotClient,
     private readonly supplierHistoryService: SupplierHistoryService,
+    private readonly executionIdempotencyRepository: ExecutionIdempotencyRepository,
   ) {}
 
   async listDailyOrders(): Promise<DailyOrderResponse[]> {
@@ -435,7 +463,21 @@ export class DailyOrdersService {
     });
   }
 
-  async runDailyOrderBotFill(orderId: string): Promise<DailyOrderMutationResponse> {
+  async runDailyOrderBotFill(
+    orderId: string,
+    rawIdempotencyKey?: string,
+  ): Promise<DailyOrderMutationResponse> {
+    const idempotencyKey = normalizeIdempotencyKey(rawIdempotencyKey);
+    const reusedResponse = await this.tryReuseDailyOrderExecution(
+      orderId,
+      idempotencyKey,
+      ExecutionIdempotencyOperation.DAILY_ORDER_FILL,
+    );
+
+    if (reusedResponse) {
+      return reusedResponse;
+    }
+
     const currentOrder = await this.getOrderOrThrow(orderId);
 
     if (currentOrder.status === DailyOrderStatus.EXECUTED) {
@@ -445,17 +487,6 @@ export class DailyOrdersService {
         order: currentOrder,
         errorCode: 'ORDER_ALREADY_EXECUTED',
         errorMessage: 'This order is already executed and cannot run again.',
-      });
-    }
-
-    const fillingOrder = await this.dailyOrdersRepository.findFirstFillingOrder(orderId);
-    if (fillingOrder) {
-      return this.buildMutationResponse({
-        ok: false,
-        reason: 'another-order-filling',
-        order: currentOrder,
-        errorCode: 'EXECUTION_IN_PROGRESS',
-        errorMessage: 'Another order is already being processed.',
       });
     }
 
@@ -480,92 +511,178 @@ export class DailyOrdersService {
       });
     }
 
-    const executionStartedAt = new Date();
-    await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-      status: DailyOrderStatus.FILLING_ORDER,
-      isLocked: true,
-      attempts: currentOrder.attempts + 1,
-      executionStartedAt,
-      executionFinishedAt: null,
-      executionDurationMs: null,
-      executionNotes: 'Bot service started fill on supplier portal.',
-      lastExecutionPhase: 'fill-started',
-      lastErrorCode: '',
-      lastErrorMessage: '',
-    });
+    const pendingIdempotentExecution = await this.claimPendingDailyOrderExecution(
+      orderId,
+      idempotencyKey,
+      ExecutionIdempotencyOperation.DAILY_ORDER_FILL,
+    );
 
-    const botResponse = await this.dailyOrdersBotClient.executeFill(botPayload);
-    if (botResponse.errorCode === 'EXECUTION_IN_PROGRESS') {
-      const restoredOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-        status: currentOrder.status,
-        isLocked: currentOrder.isLocked,
-        attempts: currentOrder.attempts,
-        executionStartedAt: currentOrder.executionStartedAt,
-        executionFinishedAt: currentOrder.executionFinishedAt,
-        executionDurationMs: currentOrder.executionDurationMs,
-        executionNotes: currentOrder.executionNotes,
-        lastExecutionPhase: botResponse.phase || 'execution-locked',
-        lastErrorCode: botResponse.errorCode,
-        lastErrorMessage: botResponse.message,
-      });
+    if (pendingIdempotentExecution && !pendingIdempotentExecution.created) {
+      this.logger.log(
+        `[idempotency] Reusing previous execution for key=${idempotencyKey}`,
+      );
 
-      return this.buildBotFailureResponse(
-        restoredOrder,
-        'another-order-filling',
-        botResponse,
+      return this.awaitDailyOrderIdempotentResponse(
+        orderId,
+        idempotencyKey,
+        ExecutionIdempotencyOperation.DAILY_ORDER_FILL,
+        pendingIdempotentExecution.record,
       );
     }
 
-    const success =
-      botResponse.ok &&
-      botResponse.status === DAILY_ORDER_STATUS_VALUES.READY_FOR_CHEF_REVIEW;
-    const executionFinishedAt =
-      toDateOrNull(botResponse.executionFinishedAt) || new Date();
-    const executionNotes =
-      botResponse.executionNotes ||
-      botResponse.message ||
-      (success
-        ? 'Bot filled order and stopped at review page.'
-        : 'Bot fill failed.');
+    try {
+      const fillingOrder = await this.dailyOrdersRepository.findFirstFillingOrder(orderId);
+      if (fillingOrder) {
+        const response = await this.buildMutationResponse({
+          ok: false,
+          reason: 'another-order-filling',
+          order: currentOrder,
+          errorCode: 'EXECUTION_IN_PROGRESS',
+          errorMessage: 'Another order is already being processed.',
+        });
 
-    const updatedOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-      status: success
-        ? DailyOrderStatus.READY_FOR_CHEF_REVIEW
-        : DailyOrderStatus.FAILED,
-      isLocked: true,
-      executionFinishedAt,
-      executionDurationMs: toDurationOrNull(botResponse.executionDuration),
-      filledAt: success
-        ? toDateOrNull(botResponse.filledAt) || executionFinishedAt
-        : currentOrder.filledAt,
-      readyForReviewAt: success
-        ? toDateOrNull(botResponse.readyForReviewAt) || executionFinishedAt
-        : currentOrder.readyForReviewAt,
-      reviewScreenshotPath: success
-        ? botResponse.reviewScreenshot || botResponse.screenshotPath
-        : currentOrder.reviewScreenshotPath,
-      executionNotes,
-      lastExecutionId: botResponse.executionId || currentOrder.lastExecutionId,
-      lastExecutionPhase: botResponse.phase || currentOrder.lastExecutionPhase,
-      lastErrorCode: success ? '' : botResponse.errorCode || 'BOT_FILL_FAILED',
-      lastErrorMessage: success ? '' : botResponse.message || executionNotes,
-    });
-    await this.syncSupplierHistory(updatedOrder);
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
 
-    if (!success) {
-      return this.buildBotFailureResponse(updatedOrder, 'failed', botResponse);
+        return response;
+      }
+
+      const executionStartedAt = new Date();
+      await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+        status: DailyOrderStatus.FILLING_ORDER,
+        isLocked: true,
+        attempts: currentOrder.attempts + 1,
+        executionStartedAt,
+        executionFinishedAt: null,
+        executionDurationMs: null,
+        executionNotes: 'Bot service started fill on supplier portal.',
+        lastExecutionPhase: 'fill-started',
+        lastErrorCode: '',
+        lastErrorMessage: '',
+      });
+
+      const botResponse = await this.dailyOrdersBotClient.executeFill(botPayload);
+      if (botResponse.errorCode === 'EXECUTION_IN_PROGRESS') {
+        const restoredOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+          status: currentOrder.status,
+          isLocked: currentOrder.isLocked,
+          attempts: currentOrder.attempts,
+          executionStartedAt: currentOrder.executionStartedAt,
+          executionFinishedAt: currentOrder.executionFinishedAt,
+          executionDurationMs: currentOrder.executionDurationMs,
+          executionNotes: currentOrder.executionNotes,
+          lastExecutionPhase: botResponse.phase || 'execution-locked',
+          lastErrorCode: botResponse.errorCode,
+          lastErrorMessage: botResponse.message,
+        });
+
+        const response = await this.buildBotFailureResponse(
+          restoredOrder,
+          'another-order-filling',
+          botResponse,
+        );
+
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
+
+        return response;
+      }
+
+      const success =
+        botResponse.ok &&
+        botResponse.status === DAILY_ORDER_STATUS_VALUES.READY_FOR_CHEF_REVIEW;
+      const executionFinishedAt =
+        toDateOrNull(botResponse.executionFinishedAt) || new Date();
+      const executionNotes =
+        botResponse.executionNotes ||
+        botResponse.message ||
+        (success
+          ? 'Bot filled order and stopped at review page.'
+          : 'Bot fill failed.');
+
+      const updatedOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+        status: success
+          ? DailyOrderStatus.READY_FOR_CHEF_REVIEW
+          : DailyOrderStatus.FAILED,
+        isLocked: true,
+        executionFinishedAt,
+        executionDurationMs: toDurationOrNull(botResponse.executionDuration),
+        filledAt: success
+          ? toDateOrNull(botResponse.filledAt) || executionFinishedAt
+          : currentOrder.filledAt,
+        readyForReviewAt: success
+          ? toDateOrNull(botResponse.readyForReviewAt) || executionFinishedAt
+          : currentOrder.readyForReviewAt,
+        reviewScreenshotPath: success
+          ? normalizePublicBotArtifactUrl(
+              BOT_SERVICE_BASE_URL,
+              botResponse.reviewScreenshot,
+            )
+          : currentOrder.reviewScreenshotPath,
+        executionNotes,
+        lastExecutionId: botResponse.executionId || currentOrder.lastExecutionId,
+        lastExecutionPhase: botResponse.phase || currentOrder.lastExecutionPhase,
+        lastErrorCode: success ? '' : botResponse.errorCode || 'BOT_FILL_FAILED',
+        lastErrorMessage: success ? '' : botResponse.message || executionNotes,
+      });
+      await this.syncSupplierHistory(updatedOrder);
+
+      if (!success) {
+        const response = await this.buildBotFailureResponse(
+          updatedOrder,
+          'failed',
+          botResponse,
+        );
+
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
+
+        return response;
+      }
+
+      const response = await this.buildMutationResponse({
+        ok: true,
+        reason: 'success',
+        order: updatedOrder,
+        executionId: botResponse.executionId,
+        phase: botResponse.phase,
+      });
+
+      await this.persistDailyOrderIdempotentResponse(
+        pendingIdempotentExecution?.record.id || '',
+        response,
+      );
+
+      return response;
+    } catch (error) {
+      await this.safeDeletePendingDailyOrderExecution(
+        pendingIdempotentExecution?.record.id || '',
+      );
+      throw error;
     }
-
-    return this.buildMutationResponse({
-      ok: true,
-      reason: 'success',
-      order: updatedOrder,
-      executionId: botResponse.executionId,
-      phase: botResponse.phase,
-    });
   }
 
-  async finalSubmitDailyOrder(orderId: string): Promise<DailyOrderMutationResponse> {
+  async finalSubmitDailyOrder(
+    orderId: string,
+    rawIdempotencyKey?: string,
+  ): Promise<DailyOrderMutationResponse> {
+    const idempotencyKey = normalizeIdempotencyKey(rawIdempotencyKey);
+    const reusedResponse = await this.tryReuseDailyOrderExecution(
+      orderId,
+      idempotencyKey,
+      ExecutionIdempotencyOperation.DAILY_ORDER_FINAL_SUBMIT,
+    );
+
+    if (reusedResponse) {
+      return reusedResponse;
+    }
+
     const currentOrder = await this.getOrderOrThrow(orderId);
 
     if (currentOrder.status === DailyOrderStatus.EXECUTED) {
@@ -588,17 +705,6 @@ export class DailyOrdersService {
       });
     }
 
-    const fillingOrder = await this.dailyOrdersRepository.findFirstFillingOrder(orderId);
-    if (fillingOrder) {
-      return this.buildMutationResponse({
-        ok: false,
-        reason: 'another-order-filling',
-        order: currentOrder,
-        errorCode: 'EXECUTION_IN_PROGRESS',
-        errorMessage: 'Another order is currently being processed.',
-      });
-    }
-
     const botPayload = buildDailyOrderBotPayload(currentOrder);
     if (botPayload.items.length === 0) {
       return this.buildMutationResponse({
@@ -610,81 +716,153 @@ export class DailyOrdersService {
       });
     }
 
-    const chefApprovedAt = new Date();
-    await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-      status: DailyOrderStatus.FILLING_ORDER,
-      isLocked: true,
-      chefApprovedAt,
-      finalExecutionNotes: 'Chef approved. Submitting final order on supplier portal.',
-      lastExecutionPhase: 'final-submit-started',
-      lastErrorCode: '',
-      lastErrorMessage: '',
-    });
+    const pendingIdempotentExecution = await this.claimPendingDailyOrderExecution(
+      orderId,
+      idempotencyKey,
+      ExecutionIdempotencyOperation.DAILY_ORDER_FINAL_SUBMIT,
+    );
 
-    const botResponse = await this.dailyOrdersBotClient.submitFinal(botPayload);
-    if (botResponse.errorCode === 'EXECUTION_IN_PROGRESS') {
-      const restoredOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-        status: DailyOrderStatus.READY_FOR_CHEF_REVIEW,
-        isLocked: true,
-        chefApprovedAt: currentOrder.chefApprovedAt,
-        finalExecutionNotes: currentOrder.finalExecutionNotes,
-        lastExecutionPhase: botResponse.phase || 'final-submit-locked',
-        lastErrorCode: botResponse.errorCode,
-        lastErrorMessage: botResponse.message,
-      });
+    if (pendingIdempotentExecution && !pendingIdempotentExecution.created) {
+      this.logger.log(
+        `[idempotency] Reusing previous execution for key=${idempotencyKey}`,
+      );
 
-      return this.buildBotFailureResponse(
-        restoredOrder,
-        'another-order-filling',
-        botResponse,
+      return this.awaitDailyOrderIdempotentResponse(
+        orderId,
+        idempotencyKey,
+        ExecutionIdempotencyOperation.DAILY_ORDER_FINAL_SUBMIT,
+        pendingIdempotentExecution.record,
       );
     }
 
-    const success =
-      botResponse.ok && botResponse.status === DAILY_ORDER_STATUS_VALUES.EXECUTED;
-    const finalNotes =
-      botResponse.finalExecutionNotes ||
-      botResponse.message ||
-      (success ? 'Final submit completed.' : 'Final submit failed.');
+    try {
+      const fillingOrder = await this.dailyOrdersRepository.findFirstFillingOrder(orderId);
+      if (fillingOrder) {
+        const response = await this.buildMutationResponse({
+          ok: false,
+          reason: 'another-order-filling',
+          order: currentOrder,
+          errorCode: 'EXECUTION_IN_PROGRESS',
+          errorMessage: 'Another order is currently being processed.',
+        });
 
-    const updatedOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
-      status: success ? DailyOrderStatus.EXECUTED : DailyOrderStatus.FAILED,
-      isLocked: true,
-      chefApprovedAt,
-      submitStartedAt:
-        toDateOrNull(botResponse.submitStartedAt) || currentOrder.submitStartedAt,
-      submittedAt: success
-        ? toDateOrNull(botResponse.submittedAt) || new Date()
-        : currentOrder.submittedAt,
-      submitFinishedAt:
-        toDateOrNull(botResponse.submitFinishedAt) || currentOrder.submitFinishedAt,
-      submitDurationMs: toDurationOrNull(botResponse.submitDuration),
-      orderNumber: success ? botResponse.orderNumber : currentOrder.orderNumber,
-      finalScreenshotPath: success
-        ? botResponse.finalScreenshot
-        : currentOrder.finalScreenshotPath,
-      finalExecutionNotes: finalNotes,
-      executionNotes: success
-        ? 'Final submit completed on supplier portal.'
-        : currentOrder.executionNotes,
-      lastExecutionId: botResponse.executionId || currentOrder.lastExecutionId,
-      lastExecutionPhase: botResponse.phase || currentOrder.lastExecutionPhase,
-      lastErrorCode: success ? '' : botResponse.errorCode || 'FINAL_SUBMIT_FAILED',
-      lastErrorMessage: success ? '' : botResponse.message || finalNotes,
-    });
-    await this.syncSupplierHistory(updatedOrder);
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
 
-    if (!success) {
-      return this.buildBotFailureResponse(updatedOrder, 'failed', botResponse);
+        return response;
+      }
+
+      const chefApprovedAt = new Date();
+      await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+        status: DailyOrderStatus.FILLING_ORDER,
+        isLocked: true,
+        chefApprovedAt,
+        finalExecutionNotes: 'Chef approved. Submitting final order on supplier portal.',
+        lastExecutionPhase: 'final-submit-started',
+        lastErrorCode: '',
+        lastErrorMessage: '',
+      });
+
+      const botResponse = await this.dailyOrdersBotClient.submitFinal(botPayload);
+      if (botResponse.errorCode === 'EXECUTION_IN_PROGRESS') {
+        const restoredOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+          status: DailyOrderStatus.READY_FOR_CHEF_REVIEW,
+          isLocked: true,
+          chefApprovedAt: currentOrder.chefApprovedAt,
+          finalExecutionNotes: currentOrder.finalExecutionNotes,
+          lastExecutionPhase: botResponse.phase || 'final-submit-locked',
+          lastErrorCode: botResponse.errorCode,
+          lastErrorMessage: botResponse.message,
+        });
+
+        const response = await this.buildBotFailureResponse(
+          restoredOrder,
+          'another-order-filling',
+          botResponse,
+        );
+
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
+
+        return response;
+      }
+
+      const success =
+        botResponse.ok && botResponse.status === DAILY_ORDER_STATUS_VALUES.EXECUTED;
+      const finalNotes =
+        botResponse.finalExecutionNotes ||
+        botResponse.message ||
+        (success ? 'Final submit completed.' : 'Final submit failed.');
+
+      const updatedOrder = await this.dailyOrdersRepository.updateDailyOrder(orderId, {
+        status: success ? DailyOrderStatus.EXECUTED : DailyOrderStatus.FAILED,
+        isLocked: true,
+        chefApprovedAt,
+        submitStartedAt:
+          toDateOrNull(botResponse.submitStartedAt) || currentOrder.submitStartedAt,
+        submittedAt: success
+          ? toDateOrNull(botResponse.submittedAt) || new Date()
+          : currentOrder.submittedAt,
+        submitFinishedAt:
+          toDateOrNull(botResponse.submitFinishedAt) || currentOrder.submitFinishedAt,
+        submitDurationMs: toDurationOrNull(botResponse.submitDuration),
+        orderNumber: success ? botResponse.orderNumber : currentOrder.orderNumber,
+        finalScreenshotPath: success
+          ? normalizePublicBotArtifactUrl(
+              BOT_SERVICE_BASE_URL,
+              botResponse.finalScreenshot,
+            )
+          : currentOrder.finalScreenshotPath,
+        finalExecutionNotes: finalNotes,
+        executionNotes: success
+          ? 'Final submit completed on supplier portal.'
+          : currentOrder.executionNotes,
+        lastExecutionId: botResponse.executionId || currentOrder.lastExecutionId,
+        lastExecutionPhase: botResponse.phase || currentOrder.lastExecutionPhase,
+        lastErrorCode: success ? '' : botResponse.errorCode || 'FINAL_SUBMIT_FAILED',
+        lastErrorMessage: success ? '' : botResponse.message || finalNotes,
+      });
+      await this.syncSupplierHistory(updatedOrder);
+
+      if (!success) {
+        const response = await this.buildBotFailureResponse(
+          updatedOrder,
+          'failed',
+          botResponse,
+        );
+
+        await this.persistDailyOrderIdempotentResponse(
+          pendingIdempotentExecution?.record.id || '',
+          response,
+        );
+
+        return response;
+      }
+
+      const response = await this.buildMutationResponse({
+        ok: true,
+        reason: 'success',
+        order: updatedOrder,
+        executionId: botResponse.executionId,
+        phase: botResponse.phase,
+      });
+
+      await this.persistDailyOrderIdempotentResponse(
+        pendingIdempotentExecution?.record.id || '',
+        response,
+      );
+
+      return response;
+    } catch (error) {
+      await this.safeDeletePendingDailyOrderExecution(
+        pendingIdempotentExecution?.record.id || '',
+      );
+      throw error;
     }
-
-    return this.buildMutationResponse({
-      ok: true,
-      reason: 'success',
-      order: updatedOrder,
-      executionId: botResponse.executionId,
-      phase: botResponse.phase,
-    });
   }
 
   async resetDailyOrders(): Promise<DailyOrdersResetResponse> {
@@ -720,6 +898,164 @@ export class DailyOrdersService {
     }
 
     return dailyOrder;
+  }
+
+  private async tryReuseDailyOrderExecution(
+    orderId: string,
+    idempotencyKey: string,
+    operation: ExecutionIdempotencyOperation,
+  ): Promise<DailyOrderMutationResponse | null> {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    const existingExecution = await this.executionIdempotencyRepository.findByKey(
+      operation,
+      orderId,
+      idempotencyKey,
+    );
+
+    if (!existingExecution) {
+      return null;
+    }
+
+    this.logger.log(
+      `[idempotency] Reusing previous execution for key=${idempotencyKey}`,
+    );
+
+    return this.awaitDailyOrderIdempotentResponse(
+      orderId,
+      idempotencyKey,
+      operation,
+      existingExecution,
+    );
+  }
+
+  private claimPendingDailyOrderExecution(
+    orderId: string,
+    idempotencyKey: string,
+    operation: ExecutionIdempotencyOperation,
+  ) {
+    if (!idempotencyKey) {
+      return Promise.resolve(null);
+    }
+
+    return this.executionIdempotencyRepository.createPending(
+      operation,
+      orderId,
+      idempotencyKey,
+    );
+  }
+
+  private async awaitDailyOrderIdempotentResponse(
+    orderId: string,
+    idempotencyKey: string,
+    operation: ExecutionIdempotencyOperation,
+    existingExecution: ExecutionIdempotencyRecord,
+  ): Promise<DailyOrderMutationResponse> {
+    let currentExecution = existingExecution;
+    const deadline = Date.now() + IDEMPOTENCY_WAIT_TIMEOUT_MS;
+
+    while (!currentExecution.isFinal && Date.now() < deadline) {
+      await sleep(IDEMPOTENCY_WAIT_INTERVAL_MS);
+
+      const refreshedExecution = await this.executionIdempotencyRepository.findByKey(
+        operation,
+        orderId,
+        idempotencyKey,
+      );
+
+      if (!refreshedExecution) {
+        break;
+      }
+
+      currentExecution = refreshedExecution;
+    }
+
+    const persistedResponse = this.parseDailyOrderIdempotentResponse(
+      currentExecution.responseSnapshot,
+    );
+
+    if (currentExecution.isFinal && persistedResponse) {
+      return persistedResponse;
+    }
+
+    const latestOrder = await this.getOrderOrThrow(orderId);
+
+    return this.buildMutationResponse({
+      ok:
+        latestOrder.status === DailyOrderStatus.EXECUTED ||
+        latestOrder.status === DailyOrderStatus.READY_FOR_CHEF_REVIEW,
+      reason:
+        latestOrder.status === DailyOrderStatus.EXECUTED ||
+        latestOrder.status === DailyOrderStatus.READY_FOR_CHEF_REVIEW
+          ? 'success'
+          : latestOrder.status === DailyOrderStatus.FAILED
+            ? 'failed'
+            : latestOrder.status === DailyOrderStatus.FILLING_ORDER
+              ? 'processing'
+              : 'not-ready',
+      order: latestOrder,
+      errorCode: latestOrder.lastErrorCode,
+      errorMessage: latestOrder.lastErrorMessage,
+      executionId: latestOrder.lastExecutionId,
+      phase: latestOrder.lastExecutionPhase,
+    });
+  }
+
+  private parseDailyOrderIdempotentResponse(
+    value: Prisma.JsonValue | null | undefined,
+  ): DailyOrderMutationResponse | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as unknown as DailyOrderMutationResponse;
+  }
+
+  private async persistDailyOrderIdempotentResponse(
+    idempotentExecutionId: string,
+    response: DailyOrderMutationResponse,
+  ) {
+    if (!idempotentExecutionId) {
+      return;
+    }
+
+    try {
+      await this.executionIdempotencyRepository.updateById(idempotentExecutionId, {
+        isFinal: true,
+        status: response.order?.status || response.reason,
+        executionId: response.executionId || response.order?.lastExecutionId || '',
+        reviewScreenshotPath: response.order?.reviewScreenshot || '',
+        finalScreenshotPath: response.order?.finalScreenshot || '',
+        errorCode: response.errorCode,
+        errorMessage: response.errorMessage,
+        responseSnapshot: response as unknown as Prisma.InputJsonValue,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown idempotency persistence error.';
+      const stack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(
+        `Failed to persist daily-order idempotent response: ${message}`,
+        stack,
+      );
+
+      await this.safeDeletePendingDailyOrderExecution(idempotentExecutionId);
+    }
+  }
+
+  private async safeDeletePendingDailyOrderExecution(idempotentExecutionId: string) {
+    if (!idempotentExecutionId) {
+      return;
+    }
+
+    try {
+      await this.executionIdempotencyRepository.deleteById(idempotentExecutionId);
+    } catch {
+      // Ignore cleanup failures for idempotency placeholders.
+    }
   }
 
   private async buildSummary() {
@@ -815,14 +1151,20 @@ export class DailyOrdersService {
       filledAt: toIsoString(dailyOrder.filledAt),
       readyForReviewAt: toIsoString(dailyOrder.readyForReviewAt),
       executionNotes: dailyOrder.executionNotes,
-      reviewScreenshot: dailyOrder.reviewScreenshotPath,
+      reviewScreenshot: normalizePublicBotArtifactUrl(
+        BOT_SERVICE_BASE_URL,
+        dailyOrder.reviewScreenshotPath,
+      ),
       chefApprovedAt: toIsoString(dailyOrder.chefApprovedAt),
       submittedAt: toIsoString(dailyOrder.submittedAt),
       submitStartedAt: toIsoString(dailyOrder.submitStartedAt),
       submitFinishedAt: toIsoString(dailyOrder.submitFinishedAt),
       submitDuration: dailyOrder.submitDurationMs ?? null,
       finalExecutionNotes: dailyOrder.finalExecutionNotes,
-      finalScreenshot: dailyOrder.finalScreenshotPath,
+      finalScreenshot: normalizePublicBotArtifactUrl(
+        BOT_SERVICE_BASE_URL,
+        dailyOrder.finalScreenshotPath,
+      ),
       orderNumber: dailyOrder.orderNumber,
       lastExecutionId: dailyOrder.lastExecutionId,
       lastExecutionPhase: dailyOrder.lastExecutionPhase,

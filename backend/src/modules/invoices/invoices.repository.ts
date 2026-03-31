@@ -15,6 +15,8 @@ export type InvoiceRecord = Prisma.InvoiceGetPayload<{
   include: typeof invoiceInclude;
 }>;
 
+const executableInvoiceStatuses = [InvoiceStatus.QUEUED, InvoiceStatus.FAILED];
+
 @Injectable()
 export class InvoicesRepository {
   constructor(private readonly prismaService: PrismaService) {}
@@ -35,6 +37,29 @@ export class InvoicesRepository {
     });
   }
 
+  findNextQueuedInvoiceForExecution() {
+    return this.prismaService.invoice.findFirst({
+      where: {
+        status: InvoiceStatus.QUEUED,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: invoiceInclude,
+    });
+  }
+
+  findStaleProcessingInvoices(cutoff: Date) {
+    return this.prismaService.invoice.findMany({
+      where: {
+        status: InvoiceStatus.PROCESSING,
+        executionStartedAt: {
+          lt: cutoff,
+        },
+      },
+      orderBy: [{ executionStartedAt: 'asc' }, { id: 'asc' }],
+      include: invoiceInclude,
+    });
+  }
+
   createInvoice(data: Prisma.InvoiceCreateInput) {
     return this.prismaService.invoice.create({
       data,
@@ -49,6 +74,51 @@ export class InvoicesRepository {
       },
       data,
       include: invoiceInclude,
+    });
+  }
+
+  acquireInvoiceExecutionLock(
+    invoiceId: string,
+    data: Prisma.InvoiceUpdateManyMutationInput,
+  ) {
+    return this.prismaService.$transaction(async (transaction) => {
+      const result = await transaction.invoice.updateMany({
+        where: {
+          id: invoiceId,
+          status: {
+            in: executableInvoiceStatuses,
+          },
+        },
+        data,
+      });
+
+      if (result.count === 0) {
+        return null;
+      }
+
+      return transaction.invoice.findUnique({
+        where: {
+          id: invoiceId,
+        },
+        include: invoiceInclude,
+      });
+    });
+  }
+
+  markProcessingInvoiceAsTimedOut(
+    invoiceId: string,
+    cutoff: Date,
+    data: Prisma.InvoiceUpdateManyMutationInput,
+  ) {
+    return this.prismaService.invoice.updateMany({
+      where: {
+        id: invoiceId,
+        status: InvoiceStatus.PROCESSING,
+        executionStartedAt: {
+          lt: cutoff,
+        },
+      },
+      data,
     });
   }
 

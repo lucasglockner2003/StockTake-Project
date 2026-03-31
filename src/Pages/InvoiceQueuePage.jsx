@@ -17,6 +17,7 @@ import {
 } from "../utils/invoiceQueue";
 import { buildInvoiceAutomationPayload } from "../utils/invoiceParsing";
 import { runtimeConfig } from "../services/runtime-config";
+import { buildBotAssetUrl } from "../utils/botServiceClient";
 
 const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
 
@@ -587,7 +588,7 @@ function InvoiceQueuePage() {
   }
 
   function handleViewScreenshot(invoice) {
-    const screenshot = invoice?.executionMetadata?.screenshot;
+    const screenshot = buildBotAssetUrl(invoice?.executionMetadata?.screenshot);
     if (!screenshot) {
       setNotice("warning", "No screenshot available for this invoice.");
       return;
@@ -910,7 +911,8 @@ function InvoiceQueuePage() {
         filteredInvoices.map((invoice) => {
           const statusColors = getStatusColors(invoice.status);
           const payload = getInvoicePayload(invoice);
-          const hasScreenshot = Boolean(invoice?.executionMetadata?.screenshot);
+          const screenshotUrl = buildBotAssetUrl(invoice?.executionMetadata?.screenshot);
+          const hasScreenshot = Boolean(screenshotUrl);
           const isRetryingThis = activeRetryInvoiceId === invoice.id;
           const isExecutingThis = activeExecuteInvoiceId === invoice.id;
           const canExecute =
@@ -986,7 +988,7 @@ function InvoiceQueuePage() {
               {hasScreenshot && (
                 <div style={{ marginBottom: "10px" }}>
                   <img
-                    src={invoice.executionMetadata.screenshot}
+                    src={screenshotUrl}
                     alt={`Invoice ${invoice.invoiceNumber || invoice.id}`}
                     style={{
                       maxWidth: "360px",

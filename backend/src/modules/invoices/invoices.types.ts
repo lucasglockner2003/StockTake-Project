@@ -3,6 +3,7 @@ import { InvoiceStatus } from '../../generated/prisma/client';
 export const INVOICE_STATUS_VALUES = {
   DRAFT: 'draft',
   QUEUED: 'queued-to-bot',
+  PROCESSING: 'processing',
   EXECUTED: 'executed',
   FAILED: 'failed',
 } as const;
@@ -31,6 +32,7 @@ export interface InvoiceResponse {
   updatedAt: string;
   executionMetadata: {
     lastQueuedAt: string;
+    startedAt: string;
     executionId: string;
     lastExecutionId: string;
     screenshot: string;
@@ -48,6 +50,7 @@ export interface InvoiceSummaryResponse {
   total: number;
   draft: number;
   queued: number;
+  processing: number;
   executed: number;
   failed: number;
 }
@@ -75,6 +78,7 @@ export function createEmptyInvoiceSummary(): InvoiceSummaryResponse {
     total: 0,
     draft: 0,
     queued: 0,
+    processing: 0,
     executed: 0,
     failed: 0,
   };
@@ -83,6 +87,10 @@ export function createEmptyInvoiceSummary(): InvoiceSummaryResponse {
 export function mapInvoiceStatusToApi(status: InvoiceStatus): InvoiceStatusValue {
   if (status === InvoiceStatus.QUEUED) {
     return INVOICE_STATUS_VALUES.QUEUED;
+  }
+
+  if (status === InvoiceStatus.PROCESSING) {
+    return INVOICE_STATUS_VALUES.PROCESSING;
   }
 
   if (status === InvoiceStatus.EXECUTED) {

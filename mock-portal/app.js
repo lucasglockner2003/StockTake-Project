@@ -14,6 +14,7 @@ const catalogItems = [
   { name: "Red Onion", unit: "kg" },
   { name: "Fries", unit: "unit" },
   { name: "Tender", unit: "kg" },
+  { name: "Chicken Breast", unit: "kg" },
   { name: "Tender Prep", unit: "kg" },
 ];
 

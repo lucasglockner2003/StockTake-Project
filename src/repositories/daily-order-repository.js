@@ -10,6 +10,7 @@ import {
   unlockDailyOrder as unlockDailyOrderRequest,
   updateDailyOrderItemQuantity as updateDailyOrderItemQuantityRequest,
 } from "../services/daily-orders-service";
+import { buildBotAssetUrl } from "../utils/botServiceClient";
 
 const EMPTY_SUMMARY = Object.freeze({
   total: 0,
@@ -89,14 +90,14 @@ function normalizeDailyOrder(order) {
     filledAt: normalizeNullableString(order?.filledAt),
     readyForReviewAt: normalizeNullableString(order?.readyForReviewAt),
     executionNotes: normalizeString(order?.executionNotes),
-    reviewScreenshot: normalizeString(order?.reviewScreenshot),
+    reviewScreenshot: buildBotAssetUrl(order?.reviewScreenshot),
     chefApprovedAt: normalizeNullableString(order?.chefApprovedAt),
     submittedAt: normalizeNullableString(order?.submittedAt),
     submitStartedAt: normalizeNullableString(order?.submitStartedAt),
     submitFinishedAt: normalizeNullableString(order?.submitFinishedAt),
     submitDuration: normalizeNullableNumber(order?.submitDuration),
     finalExecutionNotes: normalizeString(order?.finalExecutionNotes),
-    finalScreenshot: normalizeString(order?.finalScreenshot),
+    finalScreenshot: buildBotAssetUrl(order?.finalScreenshot),
     orderNumber: normalizeString(order?.orderNumber),
     lastExecutionId: normalizeString(order?.lastExecutionId),
     lastExecutionPhase: normalizeString(order?.lastExecutionPhase),

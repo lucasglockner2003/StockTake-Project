@@ -348,6 +348,23 @@ export type EnumInvoiceStatusWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumInvoiceStatusFilter<$PrismaModel>
 }
 
+export type EnumExecutionIdempotencyOperationFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExecutionIdempotencyOperation | Prisma.EnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  in?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel> | $Enums.ExecutionIdempotencyOperation
+}
+
+export type EnumExecutionIdempotencyOperationWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExecutionIdempotencyOperation | Prisma.EnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  in?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExecutionIdempotencyOperationWithAggregatesFilter<$PrismaModel> | $Enums.ExecutionIdempotencyOperation
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel>
+}
+
 export type JsonFilter<$PrismaModel = never> =
 | Prisma.PatchUndefined<
     Prisma.Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
@@ -784,6 +801,23 @@ export type NestedEnumInvoiceStatusWithAggregatesFilter<$PrismaModel = never> = 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumInvoiceStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumInvoiceStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExecutionIdempotencyOperation | Prisma.EnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  in?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel> | $Enums.ExecutionIdempotencyOperation
+}
+
+export type NestedEnumExecutionIdempotencyOperationWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExecutionIdempotencyOperation | Prisma.EnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  in?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExecutionIdempotencyOperation[] | Prisma.ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExecutionIdempotencyOperationWithAggregatesFilter<$PrismaModel> | $Enums.ExecutionIdempotencyOperation
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExecutionIdempotencyOperationFilter<$PrismaModel>
 }
 
 export type NestedEnumAutomationJobSourceFilter<$PrismaModel = never> = {

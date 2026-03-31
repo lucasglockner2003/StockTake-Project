@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const publicDirectory = path.join(__dirname, "public");
 
 const app = express();
 const PORT = process.env.MOCK_PORT || 4177;
@@ -36,6 +37,7 @@ function normalizeItems(value) {
     .filter((item) => item.itemName && item.quantity > 0);
 }
 
+app.use("/public", express.static(publicDirectory));
 app.use(express.static(__dirname));
 app.use(express.json({ limit: "1mb" }));
 
@@ -77,7 +79,7 @@ app.post("/execute", async (req, res) => {
     success: true,
     supplier,
     processedItems: items,
-    screenshot: "mock://image",
+    screenshot: "",
   });
 });
 

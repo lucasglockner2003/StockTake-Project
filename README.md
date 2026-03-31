@@ -160,7 +160,7 @@ Production guarantees expected from the current code:
 
 - Missing or invalid `BOT_SERVICE_SHARED_SECRET` on mutating bot routes returns `401`
 - Missing `MOCK_PORTAL_URL` in production returns an explicit failure instead of silent simulation
-- Silent `internal-simulation` fallback is development-only
+- Browser automation is the only supported screenshot path for bot executions
 
 If you use ngrok for the bot-service, treat the ngrok URL as ephemeral and update `BOT_SERVICE_BASE_URL` on the backend whenever the tunnel changes.
 

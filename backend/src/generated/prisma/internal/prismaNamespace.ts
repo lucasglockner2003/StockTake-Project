@@ -392,6 +392,7 @@ export const ModelName = {
   DailyOrder: 'DailyOrder',
   DailyOrderItem: 'DailyOrderItem',
   Invoice: 'Invoice',
+  ExecutionIdempotency: 'ExecutionIdempotency',
   InvoiceItem: 'InvoiceItem',
   AutomationJob: 'AutomationJob',
   AutomationJobItem: 'AutomationJobItem',
@@ -412,7 +413,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "authSession" | "stockItem" | "stockTake" | "stockTakeEntry" | "dailyOrder" | "dailyOrderItem" | "invoice" | "invoiceItem" | "automationJob" | "automationJobItem" | "supplierOrderHistoryRevision" | "supplierOrderHistory"
+    modelProps: "user" | "authSession" | "stockItem" | "stockTake" | "stockTakeEntry" | "dailyOrder" | "dailyOrderItem" | "invoice" | "executionIdempotency" | "invoiceItem" | "automationJob" | "automationJobItem" | "supplierOrderHistoryRevision" | "supplierOrderHistory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1008,6 +1009,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ExecutionIdempotency: {
+      payload: Prisma.$ExecutionIdempotencyPayload<ExtArgs>
+      fields: Prisma.ExecutionIdempotencyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ExecutionIdempotencyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ExecutionIdempotencyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        findFirst: {
+          args: Prisma.ExecutionIdempotencyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ExecutionIdempotencyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        findMany: {
+          args: Prisma.ExecutionIdempotencyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>[]
+        }
+        create: {
+          args: Prisma.ExecutionIdempotencyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        createMany: {
+          args: Prisma.ExecutionIdempotencyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ExecutionIdempotencyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>[]
+        }
+        delete: {
+          args: Prisma.ExecutionIdempotencyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        update: {
+          args: Prisma.ExecutionIdempotencyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        deleteMany: {
+          args: Prisma.ExecutionIdempotencyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ExecutionIdempotencyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ExecutionIdempotencyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>[]
+        }
+        upsert: {
+          args: Prisma.ExecutionIdempotencyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExecutionIdempotencyPayload>
+        }
+        aggregate: {
+          args: Prisma.ExecutionIdempotencyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateExecutionIdempotency>
+        }
+        groupBy: {
+          args: Prisma.ExecutionIdempotencyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExecutionIdempotencyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ExecutionIdempotencyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExecutionIdempotencyCountAggregateOutputType> | number
+        }
+      }
+    }
     InvoiceItem: {
       payload: Prisma.$InvoiceItemPayload<ExtArgs>
       fields: Prisma.InvoiceItemFieldRefs
@@ -1550,6 +1625,7 @@ export const InvoiceScalarFieldEnum = {
   executionId: 'executionId',
   executionDurationMs: 'executionDurationMs',
   queuedAt: 'queuedAt',
+  executionStartedAt: 'executionStartedAt',
   executedAt: 'executedAt',
   lastErrorCode: 'lastErrorCode',
   lastErrorMessage: 'lastErrorMessage',
@@ -1559,6 +1635,27 @@ export const InvoiceScalarFieldEnum = {
 } as const
 
 export type InvoiceScalarFieldEnum = (typeof InvoiceScalarFieldEnum)[keyof typeof InvoiceScalarFieldEnum]
+
+
+export const ExecutionIdempotencyScalarFieldEnum = {
+  id: 'id',
+  operation: 'operation',
+  entityId: 'entityId',
+  idempotencyKey: 'idempotencyKey',
+  isFinal: 'isFinal',
+  status: 'status',
+  executionId: 'executionId',
+  screenshotPath: 'screenshotPath',
+  reviewScreenshotPath: 'reviewScreenshotPath',
+  finalScreenshotPath: 'finalScreenshotPath',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  responseSnapshot: 'responseSnapshot',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExecutionIdempotencyScalarFieldEnum = (typeof ExecutionIdempotencyScalarFieldEnum)[keyof typeof ExecutionIdempotencyScalarFieldEnum]
 
 
 export const InvoiceItemScalarFieldEnum = {
@@ -1846,6 +1943,20 @@ export type ListEnumInvoiceStatusFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'ExecutionIdempotencyOperation'
+ */
+export type EnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExecutionIdempotencyOperation'>
+    
+
+
+/**
+ * Reference to a field of type 'ExecutionIdempotencyOperation[]'
+ */
+export type ListEnumExecutionIdempotencyOperationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExecutionIdempotencyOperation[]'>
+    
+
+
+/**
  * Reference to a field of type 'AutomationJobSource'
  */
 export type EnumAutomationJobSourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AutomationJobSource'>
@@ -1989,6 +2100,7 @@ export type GlobalOmitConfig = {
   dailyOrder?: Prisma.DailyOrderOmit
   dailyOrderItem?: Prisma.DailyOrderItemOmit
   invoice?: Prisma.InvoiceOmit
+  executionIdempotency?: Prisma.ExecutionIdempotencyOmit
   invoiceItem?: Prisma.InvoiceItemOmit
   automationJob?: Prisma.AutomationJobOmit
   automationJobItem?: Prisma.AutomationJobItemOmit

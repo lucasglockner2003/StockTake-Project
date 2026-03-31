@@ -81,7 +81,7 @@ export async function runDailyOrderBot({
       readyForReviewAt: null,
       executionFinishedAt: failedAt,
       executionDuration: Date.now() - startedAtMs,
-      executionNotes: error?.message || "Mock bot execution failed.",
+      executionNotes: error?.message || "Supplier portal automation failed.",
     };
   }
 }

@@ -31,7 +31,7 @@ export async function runDailyOrderFinalSubmit({
       submitFinishedAt: failedAt,
       submitDuration: 0,
       finalScreenshot: "",
-      finalExecutionNotes: error?.message || "Final submit failed on mock portal.",
+      finalExecutionNotes: error?.message || "Final submit failed on supplier portal.",
     };
   }
 }

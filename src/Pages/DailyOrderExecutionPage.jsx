@@ -20,6 +20,7 @@ import SectionTableHeader from "../components/SectionTableHeader";
 import StatusBadge from "../components/StatusBadge";
 import { getDailyOrdersBotServiceStatus } from "../services/daily-orders-service";
 import { runtimeConfig } from "../services/runtime-config";
+import { buildBotAssetUrl } from "../utils/botServiceClient";
 
 const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
 
@@ -432,7 +433,7 @@ function DailyOrderExecutionPage() {
       return;
     }
 
-    if (!order.reviewScreenshot) {
+    if (!buildBotAssetUrl(order.reviewScreenshot)) {
       setPageNotice({
         tone: "warning",
         message: "Bot may not have reached review page yet.",
@@ -941,8 +942,8 @@ function DailyOrderExecutionPage() {
                 retryProgress.supplier || "-"
               }...`
             : runningFinalSubmitOrderId !== null
-            ? "Bot service is performing final submit on mock portal."
-            : "Bot service is filling order items on mock portal. Final submit remains manual."}
+            ? "Bot service is performing final submit on supplier portal."
+            : "Bot service is filling order items on supplier portal."}
         </NoticePanel>
       )}
 
@@ -975,6 +976,8 @@ function DailyOrderExecutionPage() {
           const canOpenSupplierReview =
             order.status === DAILY_ORDER_STATUSES.READY_FOR_CHEF_REVIEW ||
             order.status === DAILY_ORDER_STATUSES.EXECUTED;
+          const reviewScreenshotUrl = buildBotAssetUrl(order.reviewScreenshot);
+          const finalScreenshotUrl = buildBotAssetUrl(order.finalScreenshot);
 
           return (
             <div
@@ -1118,13 +1121,13 @@ function DailyOrderExecutionPage() {
                 ))}
               </div>
 
-              {order.reviewScreenshot && (
+              {reviewScreenshotUrl && (
                 <div style={{ marginBottom: "10px" }}>
                   <div style={{ marginBottom: "6px", color: "#aaa", fontSize: "13px" }}>
                     Review Screenshot
                   </div>
                   <img
-                    src={order.reviewScreenshot}
+                    src={reviewScreenshotUrl}
                     alt={`Review screenshot ${order.supplier}`}
                     style={{
                       maxWidth: "100%",
@@ -1147,13 +1150,13 @@ function DailyOrderExecutionPage() {
                 </NoticePanel>
               )}
 
-              {order.finalScreenshot && order.status === DAILY_ORDER_STATUSES.EXECUTED && (
+              {finalScreenshotUrl && order.status === DAILY_ORDER_STATUSES.EXECUTED && (
                 <div style={{ marginBottom: "10px" }}>
                   <div style={{ marginBottom: "6px", color: "#aaa", fontSize: "13px" }}>
                     Final Submit Screenshot
                   </div>
                   <img
-                    src={order.finalScreenshot}
+                    src={finalScreenshotUrl}
                     alt={`Final submit screenshot ${order.supplier}`}
                     style={{
                       maxWidth: "100%",

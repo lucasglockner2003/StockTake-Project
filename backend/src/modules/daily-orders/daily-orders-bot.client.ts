@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { normalizePublicBotArtifactUrl } from '../../common/utils/bot-artifact-url';
 import {
   BOT_SERVICE_SHARED_SECRET_HEADER,
   normalizeBotServiceSharedSecret,
@@ -18,28 +19,6 @@ function normalizeString(value: unknown, fallback = '') {
 function normalizeNumber(value: unknown, fallback = 0) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
-}
-
-function normalizePublicAssetUrl(baseUrl: string, value: unknown) {
-  const pathValue = String(value || '').trim();
-
-  if (!pathValue) {
-    return '';
-  }
-
-  if (
-    pathValue.startsWith('http://') ||
-    pathValue.startsWith('https://') ||
-    pathValue.startsWith('data:image')
-  ) {
-    return pathValue;
-  }
-
-  if (pathValue.startsWith('/')) {
-    return `${baseUrl}${pathValue}`;
-  }
-
-  return `${baseUrl}/${pathValue}`;
 }
 
 function safeJsonStringify(value: unknown) {
@@ -63,7 +42,6 @@ export interface DailyOrdersBotResponse {
   filledAt: string;
   readyForReviewAt: string;
   executionNotes: string;
-  screenshotPath: string;
   reviewScreenshot: string;
   orderNumber: string;
   finalScreenshot: string;
@@ -202,16 +180,12 @@ export class DailyOrdersBotClient implements OnModuleInit {
         data.executionNotes,
         fallback.executionNotes || '',
       ),
-      screenshotPath: normalizePublicAssetUrl(
-        this.baseUrl,
-        data.screenshotPath ?? fallback.screenshotPath,
-      ),
-      reviewScreenshot: normalizePublicAssetUrl(
+      reviewScreenshot: normalizePublicBotArtifactUrl(
         this.baseUrl,
         data.reviewScreenshot ?? fallback.reviewScreenshot,
       ),
       orderNumber: normalizeString(data.orderNumber, fallback.orderNumber || ''),
-      finalScreenshot: normalizePublicAssetUrl(
+      finalScreenshot: normalizePublicBotArtifactUrl(
         this.baseUrl,
         data.finalScreenshot ?? fallback.finalScreenshot,
       ),

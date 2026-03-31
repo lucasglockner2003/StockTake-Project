@@ -1,6 +1,24 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 
-import { InvoiceStatus, Prisma } from '../../generated/prisma/client';
+import {
+  ExecutionIdempotencyRecord,
+  ExecutionIdempotencyRepository,
+} from '../../common/idempotency/execution-idempotency.repository';
+import { normalizePublicBotArtifactUrl } from '../../common/utils/bot-artifact-url';
+import { resolveBotServiceBaseUrl } from '../../config/bot-service.config';
+import {
+  ExecutionIdempotencyOperation,
+  InvoiceStatus,
+  Prisma,
+} from '../../generated/prisma/client';
 import { CreateInvoiceIntakeDto } from './dto/create-invoice-intake.dto';
 import {
   InvoiceBotPayload,
@@ -33,6 +51,17 @@ type NormalizedInvoiceDraft = {
   totalAmount: number;
 };
 
+const BOT_SERVICE_BASE_URL = resolveBotServiceBaseUrl(
+  process.env.BOT_SERVICE_BASE_URL,
+  process.env.NODE_ENV,
+);
+const INVOICE_RECOVERY_INTERVAL_MS = 60_000;
+const INVOICE_PROCESSING_TIMEOUT_MS = 5 * 60_000;
+const INVOICE_RECOVERY_ERROR_CODE = 'TIMEOUT';
+const INVOICE_RECOVERY_ERROR_MESSAGE = 'Execution timeout exceeded';
+const IDEMPOTENCY_WAIT_INTERVAL_MS = 250;
+const IDEMPOTENCY_WAIT_TIMEOUT_MS = 35_000;
+
 function normalizeString(value: string | undefined, fallback = '') {
   const normalizedValue = String(value || '').trim();
   return normalizedValue || fallback;
@@ -51,8 +80,21 @@ function toIsoString(value: Date | null | undefined) {
   return value ? value.toISOString() : '';
 }
 
+function normalizeIdempotencyKey(value: string | undefined) {
+  const normalizedValue = String(value || '').trim();
+  return normalizedValue || '';
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function canExecuteInvoiceStatus(status: InvoiceStatus) {
   return status === InvoiceStatus.QUEUED || status === InvoiceStatus.FAILED;
+}
+
+function isInvoiceExecutionBlockedStatus(status: InvoiceStatus) {
+  return status === InvoiceStatus.EXECUTED || status === InvoiceStatus.PROCESSING;
 }
 
 function buildInvoiceSummary(
@@ -73,6 +115,11 @@ function buildInvoiceSummary(
 
     if (entry.status === InvoiceStatus.QUEUED) {
       summary.queued = entry.count;
+      return;
+    }
+
+    if (entry.status === InvoiceStatus.PROCESSING) {
+      summary.processing = entry.count;
       return;
     }
 
@@ -149,11 +196,40 @@ function buildInvoiceBotPayload(invoice: InvoiceRecord): InvoiceBotPayload {
 }
 
 @Injectable()
-export class InvoicesService {
+export class InvoicesService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(InvoicesService.name);
+  private queueDrainPromise: Promise<void> | null = null;
+  private recoveryIntervalHandle: NodeJS.Timeout | null = null;
+  private isRecoveryRunning = false;
+
   constructor(
     private readonly invoicesRepository: InvoicesRepository,
     private readonly invoicesBotClient: InvoicesBotClient,
+    private readonly executionIdempotencyRepository: ExecutionIdempotencyRepository,
   ) {}
+
+  onModuleInit() {
+    if (this.recoveryIntervalHandle) {
+      return;
+    }
+
+    this.recoveryIntervalHandle = setInterval(() => {
+      void this.recoverStaleProcessingInvoices();
+    }, INVOICE_RECOVERY_INTERVAL_MS);
+
+    if (typeof this.recoveryIntervalHandle.unref === 'function') {
+      this.recoveryIntervalHandle.unref();
+    }
+  }
+
+  onModuleDestroy() {
+    if (!this.recoveryIntervalHandle) {
+      return;
+    }
+
+    clearInterval(this.recoveryIntervalHandle);
+    this.recoveryIntervalHandle = null;
+  }
 
   async intakeInvoice(
     createInvoiceIntakeDto: CreateInvoiceIntakeDto,
@@ -217,6 +293,10 @@ export class InvoicesService {
   async retryInvoice(invoiceId: string): Promise<InvoiceMutationResponse> {
     const invoice = await this.getInvoiceOrThrow(invoiceId);
 
+    if (isInvoiceExecutionBlockedStatus(invoice.status)) {
+      this.throwAlreadyProcessingOrExecutedConflict();
+    }
+
     if (invoice.status !== InvoiceStatus.FAILED) {
       return this.buildMutationResponse({
         ok: false,
@@ -227,24 +307,32 @@ export class InvoicesService {
       });
     }
 
-    return this.executeInvoiceBotRun(invoice, {
-      attempts: invoice.attempts + 1,
+    const processingInvoice = await this.acquireInvoiceExecutionLockOrThrow(invoice);
+
+    return this.executeInvoiceBotRun(processingInvoice, {
       reasonOnSuccess: 'success',
       reasonOnFailure: 'failed',
     });
   }
 
-  async executeInvoice(invoiceId: string): Promise<InvoiceMutationResponse> {
+  async executeInvoice(
+    invoiceId: string,
+    rawIdempotencyKey?: string,
+  ): Promise<InvoiceMutationResponse> {
+    const idempotencyKey = normalizeIdempotencyKey(rawIdempotencyKey);
+    const reusedResponse = await this.tryReuseInvoiceExecution(
+      invoiceId,
+      idempotencyKey,
+    );
+
+    if (reusedResponse) {
+      return reusedResponse;
+    }
+
     const invoice = await this.getInvoiceOrThrow(invoiceId);
 
-    if (invoice.status === InvoiceStatus.EXECUTED) {
-      return this.buildMutationResponse({
-        ok: false,
-        reason: 'already-executed',
-        invoice,
-        errorCode: 'INVOICE_ALREADY_EXECUTED',
-        errorMessage: 'This invoice was already executed.',
-      });
+    if (isInvoiceExecutionBlockedStatus(invoice.status)) {
+      this.throwAlreadyProcessingOrExecutedConflict();
     }
 
     if (!canExecuteInvoiceStatus(invoice.status)) {
@@ -257,12 +345,42 @@ export class InvoicesService {
       });
     }
 
-    return this.executeInvoiceBotRun(invoice, {
-      attempts: invoice.attempts + 1,
-      reasonOnSuccess: 'success',
-      reasonOnFailure:
-        invoice.status === InvoiceStatus.QUEUED ? 'queued' : 'failed',
-    });
+    const pendingIdempotentExecution = await this.claimPendingInvoiceExecution(
+      invoiceId,
+      idempotencyKey,
+    );
+
+    if (pendingIdempotentExecution && !pendingIdempotentExecution.created) {
+      this.logger.log(
+        `[idempotency] Reusing previous execution for key=${idempotencyKey}`,
+      );
+
+      return this.awaitInvoiceIdempotentResponse(
+        invoiceId,
+        idempotencyKey,
+        pendingIdempotentExecution.record,
+      );
+    }
+
+    try {
+      const processingInvoice = await this.acquireInvoiceExecutionLockOrThrow(invoice);
+      const response = await this.executeInvoiceBotRun(processingInvoice, {
+        reasonOnSuccess: 'success',
+        reasonOnFailure: 'failed',
+      });
+
+      await this.persistInvoiceIdempotentResponse(
+        pendingIdempotentExecution?.record.id || '',
+        response,
+      );
+
+      return response;
+    } catch (error) {
+      await this.safeDeletePendingIdempotentExecution(
+        pendingIdempotentExecution?.record.id || '',
+      );
+      throw error;
+    }
   }
 
   async deleteInvoice(invoiceId: string): Promise<InvoiceDeleteResponse> {
@@ -287,71 +405,293 @@ export class InvoicesService {
   private async executeInvoiceBotRun(
     invoice: InvoiceRecord,
     options: {
-      attempts: number;
       reasonOnSuccess: string;
       reasonOnFailure: string;
     },
   ) {
-    const queuedInvoice = await this.queueInvoiceForExecution(invoice, {
-      attempts: options.attempts,
-      notes: 'Invoice dispatch requested for bot execution.',
-    });
-    const payload = buildInvoiceBotPayload(queuedInvoice);
+    const payload = buildInvoiceBotPayload(invoice);
 
     const botResponse = await this.invoicesBotClient.executeInvoiceIntake(payload);
-    const updatedInvoice = await this.applyBotResponse(
-      queuedInvoice,
-      botResponse,
-    );
+    const updatedInvoice = await this.applyBotResponse(invoice, botResponse);
     const success =
       botResponse.ok &&
       botResponse.status === INVOICE_STATUS_VALUES.EXECUTED;
-    const remainsQueued =
-      updatedInvoice.status === InvoiceStatus.QUEUED &&
-      !success;
+    this.scheduleQueueDrain();
 
     return this.buildMutationResponse({
-      ok: success || remainsQueued,
-      reason: success
-        ? options.reasonOnSuccess
-        : remainsQueued
-          ? 'queued'
-          : options.reasonOnFailure,
+      ok: success,
+      reason: success ? options.reasonOnSuccess : options.reasonOnFailure,
       invoice: updatedInvoice,
-      errorCode:
-        success || remainsQueued
-          ? ''
-          : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
+      errorCode: success ? '' : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
       errorMessage: success
         ? ''
-        : remainsQueued
-          ? ''
         : botResponse.message || botResponse.notes || 'Invoice execution failed.',
     });
+  }
+
+  private scheduleQueueDrain() {
+    if (this.queueDrainPromise) {
+      return;
+    }
+
+    this.queueDrainPromise = this.drainQueuedInvoices()
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Unexpected invoice queue drain error.';
+        const stack = error instanceof Error ? error.stack : undefined;
+
+        this.logger.error(`Invoice queue drain failed: ${message}`, stack);
+      })
+      .finally(() => {
+        this.queueDrainPromise = null;
+        void this.resumeQueueDrainIfNeeded();
+      });
+  }
+
+  private async resumeQueueDrainIfNeeded() {
+    if (this.queueDrainPromise) {
+      return;
+    }
+
+    const nextQueuedInvoice =
+      await this.invoicesRepository.findNextQueuedInvoiceForExecution();
+
+    if (!nextQueuedInvoice) {
+      return;
+    }
+
+    this.scheduleQueueDrain();
+  }
+
+  private async drainQueuedInvoices() {
+    while (true) {
+      const nextQueuedInvoice =
+        await this.invoicesRepository.findNextQueuedInvoiceForExecution();
+
+      if (!nextQueuedInvoice) {
+        return;
+      }
+
+      const processingInvoice = await this.tryAcquireInvoiceExecutionLock(
+        nextQueuedInvoice,
+      );
+
+      if (!processingInvoice) {
+        continue;
+      }
+
+      await this.executeInvoiceBotRun(processingInvoice, {
+        reasonOnSuccess: 'success',
+        reasonOnFailure: 'failed',
+      });
+    }
+  }
+
+  private async recoverStaleProcessingInvoices() {
+    if (this.isRecoveryRunning) {
+      return;
+    }
+
+    this.isRecoveryRunning = true;
+
+    try {
+      const cutoff = new Date(Date.now() - INVOICE_PROCESSING_TIMEOUT_MS);
+      const staleInvoices =
+        await this.invoicesRepository.findStaleProcessingInvoices(cutoff);
+
+      for (const invoice of staleInvoices) {
+        const updateResult =
+          await this.invoicesRepository.markProcessingInvoiceAsTimedOut(
+            invoice.id,
+            cutoff,
+            {
+              status: InvoiceStatus.FAILED,
+              lastErrorCode: INVOICE_RECOVERY_ERROR_CODE,
+              lastErrorMessage: INVOICE_RECOVERY_ERROR_MESSAGE,
+              notes: INVOICE_RECOVERY_ERROR_MESSAGE,
+            },
+          );
+
+        if (updateResult.count === 0) {
+          continue;
+        }
+
+        this.logger.warn(
+          `[recovery] invoice ${invoice.id} moved from PROCESSING → FAILED`,
+        );
+      }
+    } finally {
+      this.isRecoveryRunning = false;
+    }
+  }
+
+  private async tryReuseInvoiceExecution(
+    invoiceId: string,
+    idempotencyKey: string,
+  ): Promise<InvoiceMutationResponse | null> {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    const existingExecution = await this.executionIdempotencyRepository.findByKey(
+      ExecutionIdempotencyOperation.INVOICE_EXECUTE,
+      invoiceId,
+      idempotencyKey,
+    );
+
+    if (!existingExecution) {
+      return null;
+    }
+
+    this.logger.log(
+      `[idempotency] Reusing previous execution for key=${idempotencyKey}`,
+    );
+
+    return this.awaitInvoiceIdempotentResponse(
+      invoiceId,
+      idempotencyKey,
+      existingExecution,
+    );
+  }
+
+  private claimPendingInvoiceExecution(
+    invoiceId: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      return Promise.resolve(null);
+    }
+
+    return this.executionIdempotencyRepository.createPending(
+      ExecutionIdempotencyOperation.INVOICE_EXECUTE,
+      invoiceId,
+      idempotencyKey,
+    );
+  }
+
+  private async awaitInvoiceIdempotentResponse(
+    invoiceId: string,
+    idempotencyKey: string,
+    existingExecution: ExecutionIdempotencyRecord,
+  ): Promise<InvoiceMutationResponse> {
+    let currentExecution = existingExecution;
+    const deadline = Date.now() + IDEMPOTENCY_WAIT_TIMEOUT_MS;
+
+    while (!currentExecution.isFinal && Date.now() < deadline) {
+      await sleep(IDEMPOTENCY_WAIT_INTERVAL_MS);
+
+      const refreshedExecution = await this.executionIdempotencyRepository.findByKey(
+        ExecutionIdempotencyOperation.INVOICE_EXECUTE,
+        invoiceId,
+        idempotencyKey,
+      );
+
+      if (!refreshedExecution) {
+        break;
+      }
+
+      currentExecution = refreshedExecution;
+    }
+
+    const persistedResponse = this.parseInvoiceIdempotentResponse(
+      currentExecution.responseSnapshot,
+    );
+
+    if (currentExecution.isFinal && persistedResponse) {
+      return persistedResponse;
+    }
+
+    const latestInvoice = await this.getInvoiceOrThrow(invoiceId);
+    return this.buildMutationResponse({
+      ok: latestInvoice.status === InvoiceStatus.EXECUTED,
+      reason:
+        latestInvoice.status === InvoiceStatus.EXECUTED
+          ? 'success'
+          : latestInvoice.status === InvoiceStatus.FAILED
+            ? 'failed'
+            : latestInvoice.status === InvoiceStatus.PROCESSING
+              ? 'processing'
+              : 'queued',
+      invoice: latestInvoice,
+      errorCode: latestInvoice.lastErrorCode,
+      errorMessage: latestInvoice.lastErrorMessage,
+    });
+  }
+
+  private parseInvoiceIdempotentResponse(
+    value: Prisma.JsonValue | null | undefined,
+  ): InvoiceMutationResponse | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as unknown as InvoiceMutationResponse;
+  }
+
+  private async persistInvoiceIdempotentResponse(
+    idempotentExecutionId: string,
+    response: InvoiceMutationResponse,
+  ) {
+    if (!idempotentExecutionId) {
+      return;
+    }
+
+    try {
+      await this.executionIdempotencyRepository.updateById(idempotentExecutionId, {
+        isFinal: true,
+        status: response.invoice?.status || response.reason,
+        executionId:
+          response.invoice?.executionMetadata.executionId || '',
+        screenshotPath:
+          response.invoice?.executionMetadata.screenshot || '',
+        errorCode: response.errorCode,
+        errorMessage: response.errorMessage,
+        responseSnapshot: response as unknown as Prisma.InputJsonValue,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown idempotency persistence error.';
+      const stack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(
+        `Failed to persist invoice idempotent response: ${message}`,
+        stack,
+      );
+
+      await this.safeDeletePendingIdempotentExecution(idempotentExecutionId);
+    }
+  }
+
+  private async safeDeletePendingIdempotentExecution(idempotentExecutionId: string) {
+    if (!idempotentExecutionId) {
+      return;
+    }
+
+    try {
+      await this.executionIdempotencyRepository.deleteById(idempotentExecutionId);
+    } catch {
+      // Ignore cleanup failures for idempotency placeholders.
+    }
   }
 
   private async applyBotResponse(invoice: InvoiceRecord, botResponse: InvoiceBotResponse) {
     const success =
       botResponse.ok &&
       botResponse.status === INVOICE_STATUS_VALUES.EXECUTED;
-    const shouldRemainQueued =
-      botResponse.errorCode === 'EXECUTION_IN_PROGRESS' ||
-      botResponse.errorCode === 'BOT_SERVICE_NOT_CONFIGURED';
     const executedAt = new Date();
 
     return this.invoicesRepository.updateInvoice(invoice.id, {
-      status: success
-        ? InvoiceStatus.EXECUTED
-        : shouldRemainQueued
-          ? InvoiceStatus.QUEUED
-          : InvoiceStatus.FAILED,
-      executionId: botResponse.executionId,
+      status: success ? InvoiceStatus.EXECUTED : InvoiceStatus.FAILED,
+      executionId: success ? botResponse.executionId : '',
       executionDurationMs: Math.max(Math.round(botResponse.duration || 0), 0),
-      screenshotPath: botResponse.screenshot || '',
+      screenshotPath: normalizePublicBotArtifactUrl(
+        BOT_SERVICE_BASE_URL,
+        botResponse.screenshot,
+      ),
       filledItemsSnapshot: Array.isArray(botResponse.filledItems)
         ? (botResponse.filledItems as Prisma.InputJsonValue)
         : ([] as Prisma.InputJsonValue),
-      executedAt: success ? executedAt : invoice.executedAt,
+      executedAt: success ? executedAt : null,
       lastErrorCode: success
         ? ''
         : botResponse.errorCode || 'INVOICE_EXECUTION_FAILED',
@@ -365,9 +705,47 @@ export class InvoicesService {
         botResponse.message ||
         (success
           ? 'Invoice execution completed successfully.'
-          : shouldRemainQueued
-            ? 'Invoice remains queued for bot execution.'
           : 'Invoice execution failed.'),
+    });
+  }
+
+  private async acquireInvoiceExecutionLockOrThrow(invoice: InvoiceRecord) {
+    const processingInvoice = await this.tryAcquireInvoiceExecutionLock(invoice);
+
+    if (processingInvoice) {
+      return processingInvoice;
+    }
+
+    const latestInvoice = await this.getInvoiceOrThrow(invoice.id);
+
+    if (isInvoiceExecutionBlockedStatus(latestInvoice.status)) {
+      this.throwAlreadyProcessingOrExecutedConflict();
+    }
+
+    throw new ConflictException({
+      error: 'Conflict',
+      message: 'Invoice execution lock could not be acquired.',
+      reason: 'already_processing_or_executed',
+    });
+  }
+
+  private tryAcquireInvoiceExecutionLock(invoice: InvoiceRecord) {
+    const payload = buildInvoiceBotPayload(invoice);
+
+    return this.invoicesRepository.acquireInvoiceExecutionLock(invoice.id, {
+      status: InvoiceStatus.PROCESSING,
+      attempts: invoice.attempts + 1,
+      queuedAt: new Date(),
+      executionStartedAt: new Date(),
+      payloadSnapshot: payload as unknown as Prisma.InputJsonValue,
+      filledItemsSnapshot: [] as Prisma.InputJsonValue,
+      screenshotPath: '',
+      executionId: '',
+      executionDurationMs: null,
+      executedAt: null,
+      lastErrorCode: '',
+      lastErrorMessage: '',
+      notes: 'Invoice execution started.',
     });
   }
 
@@ -388,6 +766,14 @@ export class InvoicesService {
       lastErrorCode: '',
       lastErrorMessage: '',
       notes: options.notes,
+    });
+  }
+
+  private throwAlreadyProcessingOrExecutedConflict(): never {
+    throw new ConflictException({
+      error: 'Conflict',
+      message: 'Invoice is already processing or already executed.',
+      reason: 'already_processing_or_executed',
     });
   }
 
@@ -449,9 +835,13 @@ export class InvoicesService {
       updatedAt: invoice.updatedAt.toISOString(),
       executionMetadata: {
         lastQueuedAt: toIsoString(invoice.queuedAt),
+        startedAt: toIsoString(invoice.executionStartedAt),
         executionId: invoice.executionId,
         lastExecutionId: invoice.executionId,
-        screenshot: invoice.screenshotPath,
+        screenshot: normalizePublicBotArtifactUrl(
+          BOT_SERVICE_BASE_URL,
+          invoice.screenshotPath,
+        ),
         duration: invoice.executionDurationMs || 0,
         filledItems: normalizeFilledItemsSnapshot(invoice.filledItemsSnapshot),
         lastErrorCode: invoice.lastErrorCode,

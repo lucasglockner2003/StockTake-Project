@@ -50,6 +50,7 @@ export type InvoiceMinAggregateOutputType = {
   executionId: string | null
   executionDurationMs: number | null
   queuedAt: Date | null
+  executionStartedAt: Date | null
   executedAt: Date | null
   lastErrorCode: string | null
   lastErrorMessage: string | null
@@ -70,6 +71,7 @@ export type InvoiceMaxAggregateOutputType = {
   executionId: string | null
   executionDurationMs: number | null
   queuedAt: Date | null
+  executionStartedAt: Date | null
   executedAt: Date | null
   lastErrorCode: string | null
   lastErrorMessage: string | null
@@ -92,6 +94,7 @@ export type InvoiceCountAggregateOutputType = {
   executionId: number
   executionDurationMs: number
   queuedAt: number
+  executionStartedAt: number
   executedAt: number
   lastErrorCode: number
   lastErrorMessage: number
@@ -126,6 +129,7 @@ export type InvoiceMinAggregateInputType = {
   executionId?: true
   executionDurationMs?: true
   queuedAt?: true
+  executionStartedAt?: true
   executedAt?: true
   lastErrorCode?: true
   lastErrorMessage?: true
@@ -146,6 +150,7 @@ export type InvoiceMaxAggregateInputType = {
   executionId?: true
   executionDurationMs?: true
   queuedAt?: true
+  executionStartedAt?: true
   executedAt?: true
   lastErrorCode?: true
   lastErrorMessage?: true
@@ -168,6 +173,7 @@ export type InvoiceCountAggregateInputType = {
   executionId?: true
   executionDurationMs?: true
   queuedAt?: true
+  executionStartedAt?: true
   executedAt?: true
   lastErrorCode?: true
   lastErrorMessage?: true
@@ -277,6 +283,7 @@ export type InvoiceGroupByOutputType = {
   executionId: string
   executionDurationMs: number | null
   queuedAt: Date | null
+  executionStartedAt: Date | null
   executedAt: Date | null
   lastErrorCode: string
   lastErrorMessage: string
@@ -322,6 +329,7 @@ export type InvoiceWhereInput = {
   executionId?: Prisma.StringFilter<"Invoice"> | string
   executionDurationMs?: Prisma.IntNullableFilter<"Invoice"> | number | null
   queuedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
+  executionStartedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
   executedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
   lastErrorCode?: Prisma.StringFilter<"Invoice"> | string
   lastErrorMessage?: Prisma.StringFilter<"Invoice"> | string
@@ -345,6 +353,7 @@ export type InvoiceOrderByWithRelationInput = {
   executionId?: Prisma.SortOrder
   executionDurationMs?: Prisma.SortOrderInput | Prisma.SortOrder
   queuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  executionStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   executedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastErrorCode?: Prisma.SortOrder
   lastErrorMessage?: Prisma.SortOrder
@@ -371,6 +380,7 @@ export type InvoiceWhereUniqueInput = Prisma.AtLeast<{
   executionId?: Prisma.StringFilter<"Invoice"> | string
   executionDurationMs?: Prisma.IntNullableFilter<"Invoice"> | number | null
   queuedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
+  executionStartedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
   executedAt?: Prisma.DateTimeNullableFilter<"Invoice"> | Date | string | null
   lastErrorCode?: Prisma.StringFilter<"Invoice"> | string
   lastErrorMessage?: Prisma.StringFilter<"Invoice"> | string
@@ -394,6 +404,7 @@ export type InvoiceOrderByWithAggregationInput = {
   executionId?: Prisma.SortOrder
   executionDurationMs?: Prisma.SortOrderInput | Prisma.SortOrder
   queuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  executionStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   executedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastErrorCode?: Prisma.SortOrder
   lastErrorMessage?: Prisma.SortOrder
@@ -424,6 +435,7 @@ export type InvoiceScalarWhereWithAggregatesInput = {
   executionId?: Prisma.StringWithAggregatesFilter<"Invoice"> | string
   executionDurationMs?: Prisma.IntNullableWithAggregatesFilter<"Invoice"> | number | null
   queuedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Invoice"> | Date | string | null
+  executionStartedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Invoice"> | Date | string | null
   executedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Invoice"> | Date | string | null
   lastErrorCode?: Prisma.StringWithAggregatesFilter<"Invoice"> | string
   lastErrorMessage?: Prisma.StringWithAggregatesFilter<"Invoice"> | string
@@ -446,6 +458,7 @@ export type InvoiceCreateInput = {
   executionId?: string
   executionDurationMs?: number | null
   queuedAt?: Date | string | null
+  executionStartedAt?: Date | string | null
   executedAt?: Date | string | null
   lastErrorCode?: string
   lastErrorMessage?: string
@@ -469,6 +482,7 @@ export type InvoiceUncheckedCreateInput = {
   executionId?: string
   executionDurationMs?: number | null
   queuedAt?: Date | string | null
+  executionStartedAt?: Date | string | null
   executedAt?: Date | string | null
   lastErrorCode?: string
   lastErrorMessage?: string
@@ -492,6 +506,7 @@ export type InvoiceUpdateInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -515,6 +530,7 @@ export type InvoiceUncheckedUpdateInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -538,6 +554,7 @@ export type InvoiceCreateManyInput = {
   executionId?: string
   executionDurationMs?: number | null
   queuedAt?: Date | string | null
+  executionStartedAt?: Date | string | null
   executedAt?: Date | string | null
   lastErrorCode?: string
   lastErrorMessage?: string
@@ -560,6 +577,7 @@ export type InvoiceUpdateManyMutationInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -582,6 +600,7 @@ export type InvoiceUncheckedUpdateManyInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -604,6 +623,7 @@ export type InvoiceCountOrderByAggregateInput = {
   executionId?: Prisma.SortOrder
   executionDurationMs?: Prisma.SortOrder
   queuedAt?: Prisma.SortOrder
+  executionStartedAt?: Prisma.SortOrder
   executedAt?: Prisma.SortOrder
   lastErrorCode?: Prisma.SortOrder
   lastErrorMessage?: Prisma.SortOrder
@@ -630,6 +650,7 @@ export type InvoiceMaxOrderByAggregateInput = {
   executionId?: Prisma.SortOrder
   executionDurationMs?: Prisma.SortOrder
   queuedAt?: Prisma.SortOrder
+  executionStartedAt?: Prisma.SortOrder
   executedAt?: Prisma.SortOrder
   lastErrorCode?: Prisma.SortOrder
   lastErrorMessage?: Prisma.SortOrder
@@ -650,6 +671,7 @@ export type InvoiceMinOrderByAggregateInput = {
   executionId?: Prisma.SortOrder
   executionDurationMs?: Prisma.SortOrder
   queuedAt?: Prisma.SortOrder
+  executionStartedAt?: Prisma.SortOrder
   executedAt?: Prisma.SortOrder
   lastErrorCode?: Prisma.SortOrder
   lastErrorMessage?: Prisma.SortOrder
@@ -701,6 +723,7 @@ export type InvoiceCreateWithoutItemsInput = {
   executionId?: string
   executionDurationMs?: number | null
   queuedAt?: Date | string | null
+  executionStartedAt?: Date | string | null
   executedAt?: Date | string | null
   lastErrorCode?: string
   lastErrorMessage?: string
@@ -723,6 +746,7 @@ export type InvoiceUncheckedCreateWithoutItemsInput = {
   executionId?: string
   executionDurationMs?: number | null
   queuedAt?: Date | string | null
+  executionStartedAt?: Date | string | null
   executedAt?: Date | string | null
   lastErrorCode?: string
   lastErrorMessage?: string
@@ -761,6 +785,7 @@ export type InvoiceUpdateWithoutItemsInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -783,6 +808,7 @@ export type InvoiceUncheckedUpdateWithoutItemsInput = {
   executionId?: Prisma.StringFieldUpdateOperationsInput | string
   executionDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   queuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  executionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastErrorCode?: Prisma.StringFieldUpdateOperationsInput | string
   lastErrorMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -836,6 +862,7 @@ export type InvoiceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   executionId?: boolean
   executionDurationMs?: boolean
   queuedAt?: boolean
+  executionStartedAt?: boolean
   executedAt?: boolean
   lastErrorCode?: boolean
   lastErrorMessage?: boolean
@@ -860,6 +887,7 @@ export type InvoiceSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   executionId?: boolean
   executionDurationMs?: boolean
   queuedAt?: boolean
+  executionStartedAt?: boolean
   executedAt?: boolean
   lastErrorCode?: boolean
   lastErrorMessage?: boolean
@@ -882,6 +910,7 @@ export type InvoiceSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   executionId?: boolean
   executionDurationMs?: boolean
   queuedAt?: boolean
+  executionStartedAt?: boolean
   executedAt?: boolean
   lastErrorCode?: boolean
   lastErrorMessage?: boolean
@@ -904,6 +933,7 @@ export type InvoiceSelectScalar = {
   executionId?: boolean
   executionDurationMs?: boolean
   queuedAt?: boolean
+  executionStartedAt?: boolean
   executedAt?: boolean
   lastErrorCode?: boolean
   lastErrorMessage?: boolean
@@ -912,7 +942,7 @@ export type InvoiceSelectScalar = {
   updatedAt?: boolean
 }
 
-export type InvoiceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "supplier" | "invoiceNumber" | "invoiceDate" | "totalAmount" | "status" | "attempts" | "payloadSnapshot" | "filledItemsSnapshot" | "screenshotPath" | "executionId" | "executionDurationMs" | "queuedAt" | "executedAt" | "lastErrorCode" | "lastErrorMessage" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["invoice"]>
+export type InvoiceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "supplier" | "invoiceNumber" | "invoiceDate" | "totalAmount" | "status" | "attempts" | "payloadSnapshot" | "filledItemsSnapshot" | "screenshotPath" | "executionId" | "executionDurationMs" | "queuedAt" | "executionStartedAt" | "executedAt" | "lastErrorCode" | "lastErrorMessage" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["invoice"]>
 export type InvoiceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.Invoice$itemsArgs<ExtArgs>
   _count?: boolean | Prisma.InvoiceCountOutputTypeDefaultArgs<ExtArgs>
@@ -939,6 +969,7 @@ export type $InvoicePayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     executionId: string
     executionDurationMs: number | null
     queuedAt: Date | null
+    executionStartedAt: Date | null
     executedAt: Date | null
     lastErrorCode: string
     lastErrorMessage: string
@@ -1382,6 +1413,7 @@ export interface InvoiceFieldRefs {
   readonly executionId: Prisma.FieldRef<"Invoice", 'String'>
   readonly executionDurationMs: Prisma.FieldRef<"Invoice", 'Int'>
   readonly queuedAt: Prisma.FieldRef<"Invoice", 'DateTime'>
+  readonly executionStartedAt: Prisma.FieldRef<"Invoice", 'DateTime'>
   readonly executedAt: Prisma.FieldRef<"Invoice", 'DateTime'>
   readonly lastErrorCode: Prisma.FieldRef<"Invoice", 'String'>
   readonly lastErrorMessage: Prisma.FieldRef<"Invoice", 'String'>

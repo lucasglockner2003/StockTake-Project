@@ -80,6 +80,11 @@ export type DailyOrderItem = Prisma.DailyOrderItemModel
  */
 export type Invoice = Prisma.InvoiceModel
 /**
+ * Model ExecutionIdempotency
+ * 
+ */
+export type ExecutionIdempotency = Prisma.ExecutionIdempotencyModel
+/**
  * Model InvoiceItem
  * 
  */

@@ -1,24 +1,7 @@
-import fs from "fs";
-import path from "path";
-import axios from "axios";
-import { getNodeEnv, isDevelopmentLike, resolveMockPortalBaseUrl } from "../config.mjs";
+import { runPortalAutomation } from "../browserRunner.mjs";
+import { getNodeEnv, resolveMockPortalBaseUrl } from "../config.mjs";
 
-const INTERNAL_EXECUTION_TARGET = "internal-simulation";
-const MOCK_PORTAL_TIMEOUT_MS = 10000;
-const SIMULATED_PROCESSING_DELAY_MS = Math.max(
-  Number(process.env.BOT_SIMULATION_DELAY_MS || 150),
-  0
-);
 const NODE_ENV = getNodeEnv();
-const ALLOW_PORTAL_SIMULATION_FALLBACK = isDevelopmentLike(NODE_ENV);
-const PLACEHOLDER_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==";
-
-function wait(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 function logInfo(message, details) {
   if (details === undefined) {
@@ -42,14 +25,116 @@ function normalizePortalBaseUrl(value) {
   return resolveMockPortalBaseUrl(value, NODE_ENV);
 }
 
-function ensureArtifactDirectory(filePath) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+function shouldUseBrowserAutomation() {
+  return String(process.env.USE_BROWSER || "").trim().toLowerCase() === "true";
 }
 
-function writePlaceholderScreenshot(filePath) {
-  ensureArtifactDirectory(filePath);
-  fs.writeFileSync(filePath, Buffer.from(PLACEHOLDER_PNG_BASE64, "base64"));
-  return path.resolve(filePath);
+function buildPublicArtifactPath(filePath) {
+  const normalizedPath = String(filePath || "").trim().replace(/\\/g, "/");
+
+  if (!normalizedPath) {
+    return "";
+  }
+
+  const artifactsMarker = "/artifacts/";
+  const artifactsIndex = normalizedPath.lastIndexOf(artifactsMarker);
+
+  if (artifactsIndex >= 0) {
+    return normalizedPath.slice(artifactsIndex);
+  }
+
+  const outputMarker = "/output/";
+  const outputIndex = normalizedPath.lastIndexOf(outputMarker);
+
+  if (outputIndex >= 0) {
+    return `/artifacts/${normalizedPath.slice(outputIndex + outputMarker.length)}`;
+  }
+
+  const pathSegments = normalizedPath.split("/").filter(Boolean);
+  return pathSegments.length > 0
+    ? `/artifacts/${pathSegments[pathSegments.length - 1]}`
+    : "";
+}
+
+function buildPortalExecutionError(executionType, error) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : `Unknown browser automation error for ${executionType}.`;
+
+  return new Error(message);
+}
+
+function requireBrowserAutomation(executionType, supplier, baseUrl, screenshotPath) {
+  const useBrowser = shouldUseBrowserAutomation();
+
+  console.log("[mockPortalAdapter] USE_BROWSER:", useBrowser ? "true" : "false");
+
+  if (!useBrowser) {
+    throw new Error(
+      `USE_BROWSER must be true for ${executionType}. Real screenshot capture requires browser automation.`,
+    );
+  }
+
+  console.log("[mockPortalAdapter] Using browser automation");
+  logInfo(`Browser automation requested for ${executionType}.`, {
+    supplier,
+    screenshotPath,
+    baseUrl: normalizePortalBaseUrl(baseUrl),
+  });
+}
+
+function resolveBrowserScreenshot(browserResult, executionType) {
+  const screenshot = String(
+    browserResult?.screenshot || buildPublicArtifactPath(browserResult?.screenshotPath),
+  ).trim();
+
+  console.log("[mockPortalAdapter] Using screenshot:", browserResult?.screenshot || "");
+
+  if (
+    screenshot.startsWith("http://") ||
+    screenshot.startsWith("https://") ||
+    screenshot.startsWith("data:image/") ||
+    screenshot.startsWith("/artifacts/")
+  ) {
+    return screenshot;
+  }
+
+  throw new Error(
+    `Browser automation for ${executionType} finished without a valid screenshot.`,
+  );
+}
+
+async function runBrowserPortalAutomation({
+  executionType,
+  supplier,
+  items,
+  baseUrl,
+  screenshotPath,
+  invoiceNumber = "",
+  invoiceDate = "",
+  headless = true,
+}) {
+  requireBrowserAutomation(executionType, supplier, baseUrl, screenshotPath);
+
+  try {
+    return await runPortalAutomation({
+      executionType,
+      supplier,
+      items,
+      portalBaseUrl: normalizePortalBaseUrl(baseUrl),
+      screenshotPath,
+      invoiceNumber,
+      invoiceDate,
+      headless,
+    });
+  } catch (error) {
+    logWarn(`Browser automation failed for ${executionType}.`, {
+      supplier,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw buildPortalExecutionError(executionType, error);
+  }
 }
 
 function generateMockOrderNumber() {
@@ -68,301 +153,115 @@ function buildProcessedItems(items = []) {
   }));
 }
 
-async function simulateProcessing(itemCount) {
-  const delayMs = SIMULATED_PROCESSING_DELAY_MS + Math.max(itemCount - 1, 0) * 25;
-  await wait(delayMs);
-}
-
-async function executeThroughMockPortal({
-  supplier,
-  items,
-  baseUrl,
-  executionType,
-}) {
-  const normalizedBaseUrl = normalizePortalBaseUrl(baseUrl);
-  const endpointUrl = `${normalizedBaseUrl}/execute`;
-  const payload = {
-    supplier,
-    items: buildProcessedItems(items),
-  };
-
-  logInfo(`Using mock portal for ${executionType}: ${endpointUrl}`, payload);
-
-  const response = await axios.post(endpointUrl, payload, {
-    timeout: MOCK_PORTAL_TIMEOUT_MS,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  logInfo(`Mock portal response for ${executionType}: ${endpointUrl}`, response.data);
-
-  return response.data;
-}
-
-function logFallbackActivation(executionType, baseUrl, error) {
-  const message =
-    error instanceof Error ? error.message : "Unknown error while calling mock portal.";
-  const stack = error instanceof Error ? error.stack : undefined;
-
-  logWarn(
-    `Fallback activated for ${executionType}. Mock portal unavailable at ${normalizePortalBaseUrl(baseUrl)}.`,
-    {
-      message,
-      stack,
-    }
-  );
-}
-
-function buildPortalExecutionFailure(message) {
-  return {
-    ok: false,
-    status: "failed",
-    success: false,
-    executionId: "",
-    duration: 0,
-    screenshot: "",
-    filledItems: [],
-    reviewScreenshot: "",
-    executionStartedAt: "",
-    filledAt: "",
-    readyForReviewAt: "",
-    executionFinishedAt: "",
-    executionDuration: 0,
-    orderNumber: "",
-    submittedAt: null,
-    submitStartedAt: "",
-    submitFinishedAt: "",
-    submitDuration: 0,
-    finalScreenshot: "",
-    executionNotes: message,
-    finalExecutionNotes: message,
-    notes: message,
-    itemsProcessed: 0,
-  };
-}
-
-async function simulateDailyOrderFill({ order, screenshotPath, baseUrl }) {
-  const executionStartedAt = new Date().toISOString();
-  const startedAtMs = Date.now();
-  const processedItems = buildProcessedItems(order.items);
-  await simulateProcessing(processedItems.length);
-  const reviewScreenshot = writePlaceholderScreenshot(screenshotPath);
-  const now = new Date().toISOString();
-
-  return {
-    ok: true,
-    status: "ready-for-chef-review",
-    supplier: order.supplier,
-    reviewScreenshot,
-    executionStartedAt,
-    filledAt: now,
-    readyForReviewAt: now,
-    executionFinishedAt: now,
-    executionDuration: Date.now() - startedAtMs,
-    executionNotes: `Local simulated fill completed without external portal (${baseUrl || INTERNAL_EXECUTION_TARGET}).`,
-    itemsProcessed: processedItems.length,
-  };
-}
-
-async function simulateDailyOrderSubmit({ order, finalScreenshotPath, baseUrl }) {
-  const submitStartedAt = new Date().toISOString();
-  const startedAtMs = Date.now();
-  const processedItems = buildProcessedItems(order.items);
-  await simulateProcessing(processedItems.length);
-  const finalScreenshot = writePlaceholderScreenshot(finalScreenshotPath);
-  const submittedAt = new Date().toISOString();
-
-  return {
-    ok: true,
-    status: "executed",
-    supplier: order.supplier,
-    orderNumber: generateMockOrderNumber(),
-    submittedAt,
-    submitStartedAt,
-    submitFinishedAt: submittedAt,
-    submitDuration: Date.now() - startedAtMs,
-    finalScreenshot,
-    finalExecutionNotes: `Local simulated final submit completed without external portal (${baseUrl || INTERNAL_EXECUTION_TARGET}).`,
-    itemsProcessed: processedItems.length,
-  };
-}
-
-async function simulateGoodsReceived({ invoice, screenshotPath, baseUrl }) {
-  const startedAt = Date.now();
-  const executionId = `invoice-run-${startedAt}-${Math.floor(Math.random() * 10000)}`;
-  const filledItems = buildProcessedItems(invoice.items).map((item) => ({
-    itemName: item.itemName,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    lineTotal:
-      item.lineTotal ||
-      Math.max(Number(item.quantity || 0), 0) * Math.max(Number(item.unitPrice || 0), 0),
-  }));
-
-  await simulateProcessing(filledItems.length);
-  const screenshot = writePlaceholderScreenshot(screenshotPath);
-
-  return {
-    success: true,
-    executionId,
-    duration: Date.now() - startedAt,
-    screenshot,
-    filledItems,
-    notes: `Local simulated goods received completed without external portal (${baseUrl || INTERNAL_EXECUTION_TARGET}).`,
-    itemsProcessed: filledItems.length,
-  };
-}
-
 export const mockPortalAdapter = {
   async fillDailyOrderToReview({
     order,
     baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     screenshotPath,
+    headless = true,
   }) {
-    try {
-      const mockPortalResult = await executeThroughMockPortal({
-        supplier: order.supplier,
-        items: order.items,
-        baseUrl,
-        executionType: "fill-daily-order",
-      });
-      const executionStartedAt = new Date().toISOString();
-      const finishedAt = new Date().toISOString();
-      const reviewScreenshot = writePlaceholderScreenshot(screenshotPath);
-      const processedItems = Array.isArray(mockPortalResult?.processedItems)
-        ? mockPortalResult.processedItems
-        : buildProcessedItems(order.items);
+    const browserResult = await runBrowserPortalAutomation({
+      executionType: "fill-daily-order",
+      supplier: order.supplier,
+      items: order.items,
+      baseUrl,
+      screenshotPath,
+      headless,
+    });
+    const executionStartedAt = new Date().toISOString();
+    const finishedAt = new Date().toISOString();
 
-      return {
-        ok: true,
-        status: "ready-for-chef-review",
-        supplier: order.supplier,
-        reviewScreenshot,
-        executionStartedAt,
-        filledAt: finishedAt,
-        readyForReviewAt: finishedAt,
-        executionFinishedAt: finishedAt,
-        executionDuration: 0,
-        executionNotes: `Completed using mock portal (${normalizePortalBaseUrl(baseUrl)}).`,
-        itemsProcessed: processedItems.length,
-      };
-    } catch (error) {
-      logFallbackActivation("fill-daily-order", baseUrl, error);
-      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
-        return buildPortalExecutionFailure(
-          error instanceof Error
-            ? error.message
-            : "Mock portal is unavailable for fill-daily-order."
-        );
-      }
-      return simulateDailyOrderFill({
-        order,
-        screenshotPath,
-        baseUrl: INTERNAL_EXECUTION_TARGET,
-      });
-    }
+    return {
+      ok: true,
+      status: "ready-for-chef-review",
+      supplier: order.supplier,
+      reviewScreenshot: resolveBrowserScreenshot(
+        browserResult,
+        "fill-daily-order",
+      ),
+      executionStartedAt,
+      filledAt: finishedAt,
+      readyForReviewAt: finishedAt,
+      executionFinishedAt: finishedAt,
+      executionDuration: Number(browserResult.duration || 0),
+      executionNotes: `Completed using browser automation (${normalizePortalBaseUrl(baseUrl)}).`,
+      itemsProcessed: browserResult.itemsProcessed || order.items.length,
+    };
   },
 
   async submitDailyOrder({
     order,
     baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     finalScreenshotPath,
+    headless = true,
   }) {
-    try {
-      const mockPortalResult = await executeThroughMockPortal({
-        supplier: order.supplier,
-        items: order.items,
-        baseUrl,
-        executionType: "submit-daily-order",
-      });
-      const submitStartedAt = new Date().toISOString();
-      const submittedAt = new Date().toISOString();
-      const finalScreenshot = writePlaceholderScreenshot(finalScreenshotPath);
-      const processedItems = Array.isArray(mockPortalResult?.processedItems)
-        ? mockPortalResult.processedItems
-        : buildProcessedItems(order.items);
+    const browserResult = await runBrowserPortalAutomation({
+      executionType: "submit-daily-order",
+      supplier: order.supplier,
+      items: order.items,
+      baseUrl,
+      screenshotPath: finalScreenshotPath,
+      headless,
+    });
+    const submitStartedAt = new Date().toISOString();
+    const submittedAt = new Date().toISOString();
 
-      return {
-        ok: true,
-        status: "executed",
-        supplier: order.supplier,
-        orderNumber: generateMockOrderNumber(),
-        submittedAt,
-        submitStartedAt,
-        submitFinishedAt: submittedAt,
-        submitDuration: 0,
-        finalScreenshot,
-        finalExecutionNotes: `Completed using mock portal (${normalizePortalBaseUrl(baseUrl)}).`,
-        itemsProcessed: processedItems.length,
-      };
-    } catch (error) {
-      logFallbackActivation("submit-daily-order", baseUrl, error);
-      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
-        return buildPortalExecutionFailure(
-          error instanceof Error
-            ? error.message
-            : "Mock portal is unavailable for submit-daily-order."
-        );
-      }
-      return simulateDailyOrderSubmit({
-        order,
-        finalScreenshotPath,
-        baseUrl: INTERNAL_EXECUTION_TARGET,
-      });
-    }
+    return {
+      ok: true,
+      status: "executed",
+      supplier: order.supplier,
+      orderNumber: generateMockOrderNumber(),
+      submittedAt,
+      submitStartedAt,
+      submitFinishedAt: submittedAt,
+      submitDuration: Number(browserResult.duration || 0),
+      finalScreenshot: resolveBrowserScreenshot(
+        browserResult,
+        "submit-daily-order",
+      ),
+      finalExecutionNotes: `Completed using browser automation (${normalizePortalBaseUrl(baseUrl)}).`,
+      itemsProcessed: browserResult.itemsProcessed || order.items.length,
+    };
   },
 
   async postGoodsReceived({
     invoice,
     baseUrl = normalizePortalBaseUrl(process.env.MOCK_PORTAL_URL),
     screenshotPath,
+    headless = true,
   }) {
-    try {
-      const mockPortalResult = await executeThroughMockPortal({
-        supplier: invoice.supplier,
-        items: invoice.items,
-        baseUrl,
-        executionType: "invoice-goods-received",
-      });
-      const startedAt = Date.now();
-      const executionId = `invoice-run-${startedAt}-${Math.floor(Math.random() * 10000)}`;
-      const filledItems = Array.isArray(mockPortalResult?.processedItems)
-        ? mockPortalResult.processedItems.map((item) => ({
-            itemName: String(item?.itemName || item?.name || "").trim(),
-            quantity: Number(item?.quantity || 0),
-            unitPrice: Number(item?.unitPrice || 0),
-            lineTotal:
-              Number(item?.lineTotal || 0) ||
-              Math.max(Number(item?.quantity || 0), 0) *
-                Math.max(Number(item?.unitPrice || 0), 0),
-          }))
-        : [];
-      const screenshot = writePlaceholderScreenshot(screenshotPath);
+    const browserResult = await runBrowserPortalAutomation({
+      executionType: "invoice-goods-received",
+      supplier: invoice.supplier,
+      items: invoice.items,
+      baseUrl,
+      screenshotPath,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate,
+      headless,
+    });
+    const startedAt = Date.now();
+    const executionId = `invoice-run-${startedAt}-${Math.floor(Math.random() * 10000)}`;
 
-      return {
-        success: true,
-        executionId,
-        duration: 0,
-        screenshot,
-        filledItems,
-        notes: `Completed using mock portal (${normalizePortalBaseUrl(baseUrl)}).`,
-        itemsProcessed: filledItems.length,
-      };
-    } catch (error) {
-      logFallbackActivation("invoice-goods-received", baseUrl, error);
-      if (!ALLOW_PORTAL_SIMULATION_FALLBACK) {
-        return buildPortalExecutionFailure(
-          error instanceof Error
-            ? error.message
-            : "Mock portal is unavailable for invoice-goods-received."
-        );
-      }
-      return simulateGoodsReceived({
-        invoice,
-        screenshotPath,
-        baseUrl: INTERNAL_EXECUTION_TARGET,
-      });
-    }
+    return {
+      success: true,
+      executionId,
+      duration: Number(browserResult.duration || 0),
+      screenshot: resolveBrowserScreenshot(
+        browserResult,
+        "invoice-goods-received",
+      ),
+      filledItems: buildProcessedItems(invoice.items).map((item) => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal:
+          item.lineTotal ||
+          Math.max(Number(item.quantity || 0), 0) *
+            Math.max(Number(item.unitPrice || 0), 0),
+      })),
+      notes: `Completed using browser automation (${normalizePortalBaseUrl(baseUrl)}).`,
+      itemsProcessed: browserResult.itemsProcessed || invoice.items.length,
+    };
   },
 };
