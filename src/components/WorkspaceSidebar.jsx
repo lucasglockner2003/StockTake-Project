@@ -134,16 +134,6 @@ function WorkspaceSidebar({
               >
                 {page.label}
               </span>
-
-              <span
-                style={{
-                  fontSize: "12px",
-                  lineHeight: 1.45,
-                  color: isActive ? "#cbd5e1" : "#8fa6bf",
-                }}
-              >
-                {page.description}
-              </span>
             </button>
           );
         })}
