@@ -14,15 +14,15 @@ import {
   unlockDailyOrder,
   updateDailyOrderItemQuantity,
 } from "../utils/dailyOrders";
+import { useBotServiceStatus } from "../hooks/use-bot-service-status";
 import NoticePanel from "../components/NoticePanel";
 import PageActionBar from "../components/PageActionBar";
 import SectionTableHeader from "../components/SectionTableHeader";
 import StatusBadge from "../components/StatusBadge";
-import { getDailyOrdersBotServiceStatus } from "../services/daily-orders-service";
 import { runtimeConfig } from "../services/runtime-config";
 import { buildBotAssetUrl } from "../utils/botServiceClient";
 
-const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
+const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl || "http://localhost:4177";
 
 function getStatusLabel(status) {
   if (status === DAILY_ORDER_STATUSES.READY) return "READY";
@@ -165,16 +165,7 @@ function DailyOrderExecutionPage() {
     tone: "",
     message: "",
   });
-  const [botServiceState, setBotServiceState] = useState({
-    online: false,
-    running: false,
-    type: "",
-    phase: "",
-    supplier: "",
-    status: "unknown",
-    message: "",
-    lastCheckedAt: "",
-  });
+  const botServiceState = useBotServiceStatus();
 
   function syncDailyOrdersFromCache() {
     setDailyOrders(getDailyOrderQueue());
@@ -245,51 +236,6 @@ function DailyOrderExecutionPage() {
       setIsLoadingOrders(false);
     }
   }
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function pollBotServiceStatus() {
-      try {
-        const status = await getDailyOrdersBotServiceStatus();
-        if (!isActive) return;
-
-        setBotServiceState({
-          online: Boolean(status?.online),
-          running: Boolean(status?.running),
-          type: status?.type || "",
-          phase: status?.phase || (status?.online ? "idle" : "offline"),
-          supplier: status?.supplier || "",
-          status: status?.status || (status?.online ? "ok" : "offline"),
-          message:
-            status?.message ||
-            (status?.online ? "Bot service online." : "Bot service is offline."),
-          lastCheckedAt: status?.lastCheckedAt || new Date().toISOString(),
-        });
-      } catch (error) {
-        if (!isActive) return;
-
-        setBotServiceState({
-          online: false,
-          running: false,
-          type: "",
-          phase: "offline",
-          supplier: "",
-          status: "offline",
-          message: error?.message || "Bot service is offline.",
-          lastCheckedAt: new Date().toISOString(),
-        });
-      }
-    }
-
-    pollBotServiceStatus();
-    const intervalId = setInterval(pollBotServiceStatus, 7000);
-
-    return () => {
-      isActive = false;
-      clearInterval(intervalId);
-    };
-  }, []);
 
   const sortedDailyOrders = useMemo(
     () =>
@@ -863,55 +809,6 @@ function DailyOrderExecutionPage() {
         <StatusBadge label="Executed" value={counts.executed} backgroundColor="#e8f5e9" textColor="#4CAF50" />
         <StatusBadge label="Failed" value={counts.failed} backgroundColor="#ffebee" textColor="#d9534f" />
       </PageActionBar>
-
-      <NoticePanel
-        backgroundColor={botServiceState.online ? "#1f1f1f" : "#3a1f1f"}
-        border={botServiceState.online ? "1px solid #555" : "1px solid #7a2d2d"}
-        color={botServiceState.online ? "#8de0ea" : "#ffb3b3"}
-        marginBottom="10px"
-        padding="10px"
-      >
-        Bot Service: {botServiceState.online ? "ONLINE" : "OFFLINE"}
-        <br />
-        Execution: {botServiceState.running ? "RUNNING" : "IDLE"}
-        <br />
-        Type: {botServiceState.type || "-"} | Phase: {botServiceState.phase || "-"}
-        <br />
-        Supplier: {botServiceState.supplier || "-"}
-        <br />
-        Last Check: {formatDateTime(botServiceState.lastCheckedAt)}
-      </NoticePanel>
-
-      {!botServiceState.online && (
-        <NoticePanel
-          backgroundColor="#3a1f1f"
-          border="1px solid #7a2d2d"
-          color="#ffb3b3"
-          marginBottom="12px"
-          padding="10px"
-        >
-          Bot service appears offline. Fill/submit attempts may fail until service is reachable.
-        </NoticePanel>
-      )}
-
-      {botServiceState.online && botServiceState.running && (
-        <NoticePanel
-          backgroundColor="rgba(37, 99, 235, 0.12)"
-          border="1px solid rgba(59, 130, 246, 0.22)"
-          color="#bfdbfe"
-          marginBottom="12px"
-          padding="10px"
-        >
-          <span className="saas-running-indicator">
-            <span className="saas-spinner" />
-            <span>Running bot...</span>
-          </span>
-          <span style={{ marginLeft: "10px" }}>
-            {botServiceState.type || "-"} for {botServiceState.supplier || "unknown supplier"} (
-            {botServiceState.phase || "-"}).
-          </span>
-        </NoticePanel>
-      )}
 
       {pageNotice.message && (
         <NoticePanel

@@ -123,9 +123,95 @@ textarea:focus {
   font-weight: 600;
 }
 
+.bot-global-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 28px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.bot-global-status-chip__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+}
+
+.bot-global-status-chip__dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #64748b;
+}
+
+.bot-global-status-chip__dot.is-idle {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.34);
+}
+
+.bot-global-status-chip__dot.is-running {
+  background: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.34);
+}
+
+.bot-global-status-chip__dot.is-offline {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.34);
+}
+
+.bot-global-status-chip__dot.is-loading {
+  background: #94a3b8;
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.22);
+}
+
+.bot-global-status-chip__label {
+  color: #dbeafe;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
 @keyframes saas-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: pulse 1.5s infinite;
+}
+
+@media (max-width: 720px) {
+  .bot-global-status-chip {
+    padding-right: 8px;
   }
 }
 

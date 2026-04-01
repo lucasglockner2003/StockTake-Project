@@ -20,7 +20,7 @@ Frontend file: `.env`
 VITE_DEV_API_PROXY_TARGET=http://localhost:3000
 VITE_DEV_BOT_SERVICE_PROXY_TARGET=http://localhost:4190
 VITE_DEV_PHOTO_OCR_PROXY_TARGET=http://localhost:3001
-VITE_DEV_MOCK_PORTAL_PROXY_TARGET=http://localhost:4177
+VITE_MOCK_PORTAL_URL=http://localhost:4177
 
 # Optional direct integration URLs for hosted external services
 # VITE_DAILY_ORDER_BOT_SERVICE_URL=https://your-bot-service.onrender.com
@@ -85,7 +85,7 @@ Frontend dev URL:
 http://localhost:5173
 ```
 
-During local development, the frontend uses relative paths such as `/api` and Vite proxies them to the targets configured in `.env`.
+During local development, the frontend uses relative paths such as `/api` and `/bot-service` through Vite proxies. The supplier mock portal is no longer proxied through the frontend and should be opened directly with `VITE_MOCK_PORTAL_URL`.
 
 ## Frontend Deploy
 

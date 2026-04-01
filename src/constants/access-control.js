@@ -53,7 +53,7 @@ export const SIDEBAR_PAGE_ITEMS = [
   {
     id: PAGE_IDS.AUTOMATION,
     label: "Automation Jobs",
-    description: "Monitor queue execution, retries and failures.",
+    description: "Send queued jobs to the bot and track automatic execution status.",
   },
   {
     id: PAGE_IDS.DAILY_ORDER_EXECUTION,

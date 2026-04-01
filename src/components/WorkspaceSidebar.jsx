@@ -1,4 +1,5 @@
 import AuthSessionPanel from "./AuthSessionPanel";
+import BotGlobalStatusBar from "./layout/BotGlobalStatusBar";
 import { PAGE_IDS } from "../constants/pages";
 import { formatRoleLabel, getRoleWorkspaceSummary } from "../utils/user-display";
 
@@ -174,32 +175,33 @@ function WorkspaceSidebar({
 
         <div
           style={{
-            display: "inline-flex",
-            width: "fit-content",
-            borderRadius: "999px",
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            backgroundColor: "rgba(30, 41, 59, 0.75)",
-            color: "#dbeafe",
-            fontSize: "11px",
-            fontWeight: 600,
-            padding: "5px 9px",
-            letterSpacing: "0.05em",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexWrap: "wrap",
           }}
         >
-          {formatRoleLabel(user?.role)}
+          <div
+            style={{
+              display: "inline-flex",
+              width: "fit-content",
+              borderRadius: "999px",
+              border: "1px solid rgba(148, 163, 184, 0.24)",
+              backgroundColor: "rgba(30, 41, 59, 0.75)",
+              color: "#dbeafe",
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "5px 9px",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {formatRoleLabel(user?.role)}
+          </div>
+
+          <BotGlobalStatusBar variant="sidebar" />
         </div>
 
-        <div
-          style={{
-            fontSize: "12px",
-            lineHeight: 1.55,
-            color: "#94a3b8",
-          }}
-        >
-          {loading
-            ? "Refreshing profile and workspace access."
-            : getRoleWorkspaceSummary(user?.role)}
-        </div>
+        
       </div>
 
       <div

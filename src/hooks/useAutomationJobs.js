@@ -3,29 +3,30 @@ import { JOB_STATUSES } from "../constants/app";
 import { USER_ROLES } from "../constants/access-control";
 import { useAuth } from "./use-auth";
 import {
-  clearAutomationQueue,
   ensureAutomationQueueLoaded,
   executeAutomationJob,
-  filterAutomationJobs,
   getAutomationJobCounts,
   getAutomationQueue,
   refreshAutomationQueue,
   removeAutomationJob,
-  resetAutomationJob,
-  setAutomationJobError,
   subscribeAutomationQueue,
-  updateAutomationJobNotes,
-  updateAutomationJobStatus,
 } from "../utils/automation";
+
+const AUTOMATION_POLL_INTERVAL_MS = 2500;
+
+function buildPendingAction() {
+  return {
+    jobId: "",
+    type: "",
+  };
+}
 
 export function useAutomationJobs() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState(() => getAutomationQueue());
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [runningJobId, setRunningJobId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState(JOB_STATUSES.ALL);
-  const [search, setSearch] = useState("");
+  const [pendingAction, setPendingAction] = useState(buildPendingAction);
 
   const canManageJobs = user?.role === USER_ROLES.ADMIN;
 
@@ -43,13 +44,13 @@ export function useAutomationJobs() {
       try {
         setLoading(true);
         setErrorMessage("");
-        await ensureAutomationQueueLoaded();
+        const queue = await ensureAutomationQueueLoaded();
 
         if (!isMounted) {
           return;
         }
 
-        setJobs(getAutomationQueue());
+        setJobs(queue);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -71,6 +72,42 @@ export function useAutomationJobs() {
     };
   }, []);
 
+  useEffect(() => {
+    const hasRunningJobs = jobs.some((job) => job.status === JOB_STATUSES.RUNNING);
+    const shouldPoll = hasRunningJobs || pendingAction.type === "run";
+
+    if (!shouldPoll) {
+      return undefined;
+    }
+
+    let isActive = true;
+
+    async function pollJobs() {
+      try {
+        await refreshAutomationQueue();
+
+        if (!isActive) {
+          return;
+        }
+
+        setJobs(getAutomationQueue());
+      } catch {
+        if (!isActive) {
+          return;
+        }
+
+        setErrorMessage("Failed to refresh automation jobs.");
+      }
+    }
+
+    const intervalId = window.setInterval(pollJobs, AUTOMATION_POLL_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [jobs, pendingAction.type]);
+
   async function refreshJobs() {
     try {
       setLoading(true);
@@ -84,145 +121,108 @@ export function useAutomationJobs() {
     }
   }
 
-  async function handleSetStatus(jobId, status, options = {}) {
-    try {
-      setErrorMessage("");
-      await updateAutomationJobStatus(jobId, status, options);
-      setJobs(getAutomationQueue());
-    } catch (error) {
-      setErrorMessage(error?.message || "Failed to update job status.");
-    }
-  }
-
-  function handleIncrementAttempt(jobId, currentStatus) {
-    return handleSetStatus(jobId, currentStatus, {
-      incrementAttempts: true,
-    });
-  }
-
-  async function handleSetError(jobId) {
-    const errorMessage = window.prompt("Enter the last error message:");
-    if (errorMessage === null) {
-      return;
+  async function handleRunJob(jobId) {
+    if (!canManageJobs || pendingAction.jobId) {
+      return null;
     }
 
     try {
+      setPendingAction({
+        jobId,
+        type: "run",
+      });
       setErrorMessage("");
-      await setAutomationJobError(jobId, errorMessage || "Automation job failed.");
-      setJobs(getAutomationQueue());
-    } catch (error) {
-      setErrorMessage(error?.message || "Failed to save automation error.");
-    }
-  }
+      setJobs((currentJobs) =>
+        currentJobs.map((job) =>
+          job.jobId === jobId
+            ? {
+                ...job,
+                status: JOB_STATUSES.RUNNING,
+                updatedAt: new Date().toISOString(),
+              }
+            : job
+        )
+      );
 
-  async function handleUpdateNotes(jobId, currentNotes) {
-    const nextNotes = window.prompt("Edit notes for this job:", currentNotes || "");
-    if (nextNotes === null) {
-      return;
-    }
-
-    try {
-      setErrorMessage("");
-      await updateAutomationJobNotes(jobId, nextNotes);
+      const result = await executeAutomationJob(jobId);
       setJobs(getAutomationQueue());
-    } catch (error) {
-      setErrorMessage(error?.message || "Failed to update automation notes.");
-    }
-  }
 
-  async function handleResetJob(jobId) {
-    try {
-      setErrorMessage("");
-      await resetAutomationJob(jobId);
-      setJobs(getAutomationQueue());
+      if (!result?.ok) {
+        setErrorMessage(result?.job?.lastError || "Failed to run automation job.");
+      }
+
+      return result;
     } catch (error) {
-      setErrorMessage(error?.message || "Failed to reset automation job.");
+      setJobs(getAutomationQueue());
+      setErrorMessage(error?.message || "Failed to run automation job.");
+      return null;
+    } finally {
+      setPendingAction(buildPendingAction());
     }
   }
 
   async function handleDeleteJob(jobId) {
+    if (!canManageJobs || pendingAction.jobId) {
+      return null;
+    }
+
     try {
+      setPendingAction({
+        jobId,
+        type: "delete",
+      });
       setErrorMessage("");
       await removeAutomationJob(jobId);
       setJobs(getAutomationQueue());
+      return true;
     } catch (error) {
       setErrorMessage(error?.message || "Failed to delete automation job.");
-    }
-  }
-
-  async function handleClearQueue() {
-    const confirmed = window.confirm(
-      "Are you sure you want to clear all automation jobs?"
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setErrorMessage("");
-      await clearAutomationQueue();
-      setJobs([]);
-    } catch (error) {
-      setErrorMessage(error?.message || "Failed to clear automation jobs.");
-    }
-  }
-
-  async function runJob(jobId, options) {
-    if (runningJobId !== null) {
-      return;
-    }
-
-    try {
-      setRunningJobId(jobId);
-      setErrorMessage("");
-      await executeAutomationJob(jobId, options);
-      setJobs(getAutomationQueue());
-    } catch (error) {
-      setErrorMessage(error?.message || "Failed to run automation job.");
-      setJobs(getAutomationQueue());
+      return false;
     } finally {
-      setRunningJobId(null);
+      setPendingAction(buildPendingAction());
     }
-  }
-
-  function handleRunJob(jobId) {
-    return runJob(jobId);
-  }
-
-  function handleRunJobWithFailure(jobId) {
-    return runJob(jobId, {
-      shouldFail: true,
-      failureMessage: "Simulated website or selector failure.",
-    });
   }
 
   const counts = useMemo(() => getAutomationJobCounts(jobs), [jobs]);
-  const filteredJobs = useMemo(
-    () => filterAutomationJobs(jobs, statusFilter, search),
-    [jobs, search, statusFilter]
-  );
+  const lastSuccessfulQuantities = useMemo(() => {
+    const nextQuantities = {};
+    const successfulJobs = [...jobs]
+      .filter((job) => job.status === JOB_STATUSES.DONE)
+      .sort((left, right) => {
+        return (
+          new Date(right.updatedAt || right.createdAt || 0).getTime() -
+          new Date(left.updatedAt || left.createdAt || 0).getTime()
+        );
+      });
+
+    successfulJobs.forEach((job) => {
+      (job.items || []).forEach((item) => {
+        const itemKey =
+          item?.itemId !== null && item?.itemId !== undefined
+            ? `id:${item.itemId}`
+            : `name:${String(item?.itemName || "").trim().toLowerCase()}`;
+
+        if (!itemKey || nextQuantities[itemKey] !== undefined) {
+          return;
+        }
+
+        nextQuantities[itemKey] = Number(item?.quantity || 0);
+      });
+    });
+
+    return nextQuantities;
+  }, [jobs]);
 
   return {
-    jobs,
     loading,
     errorMessage,
     canManageJobs,
-    runningJobId,
-    statusFilter,
-    setStatusFilter,
-    search,
-    setSearch,
     counts,
-    filteredJobs,
+    lastSuccessfulQuantities,
+    jobs,
     refreshJobs,
-    handleSetStatus,
-    handleIncrementAttempt,
-    handleSetError,
-    handleUpdateNotes,
-    handleResetJob,
-    handleDeleteJob,
-    handleClearQueue,
     handleRunJob,
-    handleRunJobWithFailure,
+    handleDeleteJob,
+    pendingAction,
   };
 }

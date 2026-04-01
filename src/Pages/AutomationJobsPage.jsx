@@ -1,4 +1,4 @@
-import { JOB_STATUSES } from "../constants/app";
+import { useState } from "react";
 import { styles } from "../utils/uiStyles";
 import AutomationJobCard from "../components/AutomationJobCard";
 import NoticePanel from "../components/NoticePanel";
@@ -6,41 +6,106 @@ import PageActionBar from "../components/PageActionBar";
 import StatusBadge from "../components/StatusBadge";
 import { useAutomationJobs } from "../hooks/useAutomationJobs";
 
+function buildConfirmationState() {
+  return {
+    type: "",
+    jobId: "",
+  };
+}
+
+function getConfirmationCopy(type) {
+  if (type === "run") {
+    return {
+      title: "Confirmar envio",
+      message:
+        "Tem certeza que deseja enviar este job para o bot preencher no portal?",
+      confirmLabel: "Enviar para o bot",
+    };
+  }
+
+  return {
+    title: "Confirmar exclusão",
+    message:
+      "Tem certeza que deseja deletar este job? Essa ação não pode ser desfeita.",
+    confirmLabel: "Deletar job",
+  };
+}
+
 function AutomationJobsPage() {
   const {
     loading,
     errorMessage,
     canManageJobs,
-    runningJobId,
-    statusFilter,
-    setStatusFilter,
-    search,
-    setSearch,
     counts,
-    filteredJobs,
-    refreshJobs,
-    handleSetStatus,
-    handleIncrementAttempt,
-    handleSetError,
-    handleUpdateNotes,
-    handleResetJob,
-    handleDeleteJob,
-    handleClearQueue,
+    lastSuccessfulQuantities,
+    jobs,
     handleRunJob,
-    handleRunJobWithFailure,
+    handleDeleteJob,
+    pendingAction,
   } = useAutomationJobs();
+  const [confirmation, setConfirmation] = useState(buildConfirmationState);
+
+  const confirmationCopy = getConfirmationCopy(confirmation.type);
+
+  function closeConfirmation() {
+    if (pendingAction.jobId) {
+      return;
+    }
+
+    setConfirmation(buildConfirmationState());
+  }
+
+  function requestRun(jobId) {
+    setConfirmation({
+      type: "run",
+      jobId,
+    });
+  }
+
+  function requestDelete(jobId) {
+    setConfirmation({
+      type: "delete",
+      jobId,
+    });
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmation.jobId) {
+      return;
+    }
+
+    const nextConfirmation = confirmation;
+    setConfirmation(buildConfirmationState());
+
+    if (nextConfirmation.type === "run") {
+      await handleRunJob(nextConfirmation.jobId);
+      return;
+    }
+
+    await handleDeleteJob(nextConfirmation.jobId);
+  }
 
   return (
     <div>
       <h1 style={{ marginTop: 0, fontSize: "30px", fontWeight: 600 }}>Automation Jobs</h1>
 
+      <NoticePanel
+        backgroundColor="#1f1f1f"
+        border="1px solid #24344d"
+        color="#cbd5e1"
+        fontWeight="normal"
+      >
+        Cada job pode ser enviado para o bot preencher o portal ou removido da fila.
+        O status agora é automático: idle → running → done/failed.
+      </NoticePanel>
+
       {!canManageJobs ? (
         <NoticePanel
-          backgroundColor="#1f1f1f"
-          border="1px solid #555"
-          color="#8de0ea"
+          backgroundColor="#2b2410"
+          border="1px solid #6d5b2f"
+          color="#ffe39a"
         >
-          Read-only access. Managers can monitor jobs but only admins can change the queue.
+          Apenas administradores podem enviar ou deletar jobs.
         </NoticePanel>
       ) : null}
 
@@ -55,102 +120,105 @@ function AutomationJobsPage() {
       ) : null}
 
       <PageActionBar>
-        <button
-          onClick={refreshJobs}
-          disabled={loading}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor: loading ? "#64748b" : "#2563eb",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Refreshing..." : "Refresh Jobs"}
-        </button>
-
-        <button
-          onClick={handleClearQueue}
-          disabled={!canManageJobs || counts.total === 0 || runningJobId !== null}
-          style={{
-            ...styles.primaryButton,
-            backgroundColor:
-              !canManageJobs || counts.total === 0 || runningJobId !== null
-                ? "#64748b"
-                : "#ef4444",
-            cursor:
-              !canManageJobs || counts.total === 0 || runningJobId !== null
-                ? "not-allowed"
-                : "pointer",
-          }}
-        >
-          Clear Queue
-        </button>
-      </PageActionBar>
-
-      <PageActionBar>
         <StatusBadge label="Total" value={counts.total} backgroundColor="#1f1f1f" textColor="white" />
-        <StatusBadge label="Pending" value={counts.pending} backgroundColor="#fff3e0" textColor="#ff9800" />
+        <StatusBadge label="Idle" value={counts.pending} backgroundColor="#fff3e0" textColor="#ff9800" />
         <StatusBadge label="Running" value={counts.running} backgroundColor="#e3f2fd" textColor="#2196F3" />
         <StatusBadge label="Done" value={counts.done} backgroundColor="#e8f5e9" textColor="#4CAF50" />
         <StatusBadge label="Failed" value={counts.failed} backgroundColor="#ffebee" textColor="#d9534f" />
       </PageActionBar>
 
-      <PageActionBar alignItems="center">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+      {loading ? (
+        <div style={styles.emptyState}>Loading automation jobs...</div>
+      ) : jobs.length === 0 ? (
+        <div style={styles.emptyState}>No automation jobs found.</div>
+      ) : (
+        jobs.map((job) => (
+          <AutomationJobCard
+            key={job.jobId}
+            job={job}
+            canManage={canManageJobs}
+            lastSuccessfulQuantities={lastSuccessfulQuantities}
+            pendingAction={pendingAction}
+            onRun={requestRun}
+            onDelete={requestDelete}
+          />
+        ))
+      )}
+
+      {confirmation.jobId ? (
+        <div
           style={{
-            ...styles.input,
-            width: "auto",
-            minWidth: "180px",
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(2, 6, 23, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+            zIndex: 1200,
           }}
         >
-          <option value={JOB_STATUSES.ALL}>All statuses</option>
-          <option value={JOB_STATUSES.PENDING}>Pending</option>
-          <option value={JOB_STATUSES.RUNNING}>Running</option>
-          <option value={JOB_STATUSES.DONE}>Done</option>
-          <option value={JOB_STATUSES.FAILED}>Failed</option>
-        </select>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "460px",
+              borderRadius: "16px",
+              border: "1px solid #24344d",
+              backgroundColor: "#0f172a",
+              boxShadow: "0 20px 36px rgba(0, 0, 0, 0.28)",
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#f8fafc",
+                marginBottom: "10px",
+              }}
+            >
+              {confirmationCopy.title}
+            </div>
 
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search job, session or item..."
-          style={{
-            ...styles.input,
-            width: "auto",
-            minWidth: "260px",
-          }}
-        />
-      </PageActionBar>
+            <div
+              style={{
+                color: "#cbd5e1",
+                lineHeight: 1.6,
+                marginBottom: "18px",
+              }}
+            >
+              {confirmationCopy.message}
+            </div>
 
-      <div style={{ marginBottom: "20px" }}>
-        <h2 style={{ marginBottom: "10px" }}>
-          Visible Jobs ({filteredJobs.length})
-        </h2>
+            <PageActionBar marginBottom="0">
+              <button
+                onClick={closeConfirmation}
+                disabled={Boolean(pendingAction.jobId)}
+                style={{
+                  ...styles.primaryButton,
+                  backgroundColor: "#334155",
+                  cursor: pendingAction.jobId ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
 
-        {filteredJobs.length === 0 ? (
-          <div style={styles.emptyState}>No automation jobs found.</div>
-        ) : (
-          filteredJobs.map((job) => (
-            <AutomationJobCard
-              key={job.jobId}
-              job={job}
-              isRunning={runningJobId === job.jobId}
-              hasRunningJob={runningJobId !== null}
-              canManage={canManageJobs}
-              onRun={handleRunJob}
-              onRunFailure={handleRunJobWithFailure}
-              onSetStatus={handleSetStatus}
-              onSetError={handleSetError}
-              onIncrementAttempt={handleIncrementAttempt}
-              onUpdateNotes={handleUpdateNotes}
-              onReset={handleResetJob}
-              onDelete={handleDeleteJob}
-            />
-          ))
-        )}
-      </div>
+              <button
+                onClick={handleConfirmAction}
+                disabled={Boolean(pendingAction.jobId)}
+                style={{
+                  ...styles.primaryButton,
+                  backgroundColor:
+                    confirmation.type === "delete" ? "#ef4444" : "#2563eb",
+                  cursor: pendingAction.jobId ? "not-allowed" : "pointer",
+                }}
+              >
+                {pendingAction.jobId ? "Processando..." : confirmationCopy.confirmLabel}
+              </button>
+            </PageActionBar>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

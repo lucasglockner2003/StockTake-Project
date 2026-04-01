@@ -19,7 +19,7 @@ import { buildInvoiceAutomationPayload } from "../utils/invoiceParsing";
 import { runtimeConfig } from "../services/runtime-config";
 import { buildBotAssetUrl } from "../utils/botServiceClient";
 
-const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl;
+const MOCK_PORTAL_URL = runtimeConfig.mockPortalUrl || "http://localhost:4177";
 
 const STATUS_FILTERS = [
   { value: "all", label: "All" },

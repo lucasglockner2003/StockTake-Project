@@ -36,10 +36,6 @@ export default defineConfig(({ mode }) => {
     env.VITE_DEV_BOT_SERVICE_PROXY_TARGET,
     'http://localhost:4190'
   )
-  const mockPortalProxyTarget = createProxyTarget(
-    env.VITE_DEV_MOCK_PORTAL_PROXY_TARGET,
-    'http://localhost:4177'
-  )
 
   return {
     plugins: [react()],
@@ -58,7 +54,6 @@ export default defineConfig(({ mode }) => {
         },
         '/photo-ocr': createRewriteProxy(photoOcrProxyTarget, '/photo-ocr'),
         '/bot-service': createRewriteProxy(botServiceProxyTarget, '/bot-service'),
-        '/mock-portal': createRewriteProxy(mockPortalProxyTarget, '/mock-portal'),
       },
     },
   }

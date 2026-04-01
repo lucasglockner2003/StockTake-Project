@@ -29,7 +29,7 @@ export function resetAutomationJob(jobId) {
 }
 
 export function deleteAutomationJob(jobId) {
-  return httpClient.delete(`/automation-jobs/${jobId}`);
+  return httpClient.delete(`/automation/job/${jobId}`);
 }
 
 export function deleteAllAutomationJobs() {
@@ -37,7 +37,7 @@ export function deleteAllAutomationJobs() {
 }
 
 export function runAutomationJob(jobId, payload = {}) {
-  return httpClient.post(`/automation-jobs/${jobId}/run`, payload);
+  return httpClient.post(`/automation/run-job/${jobId}`, payload);
 }
 
 export function retryAutomationJob(jobId, payload = {}) {

@@ -5,7 +5,6 @@ import {
   deleteAutomationJob as deleteAutomationJobRequest,
   getAutomationJobs as getAutomationJobsRequest,
   getAutomationJobsSummary as getAutomationJobsSummaryRequest,
-  retryAutomationJob as retryAutomationJobRequest,
   getSupplierOrderHistory as getSupplierOrderHistoryRequest,
   resetAutomationJob as resetAutomationJobRequest,
   runAutomationJob as runAutomationJobRequest,
@@ -502,12 +501,7 @@ export async function clearAutomationQueue() {
 }
 
 export async function executeAutomationQueueJob(jobId, payload = {}) {
-  const currentJob = cachedAutomationQueue.find((job) => job.jobId === jobId);
-  const request =
-    currentJob?.status === "failed"
-      ? retryAutomationJobRequest
-      : runAutomationJobRequest;
-  const mutation = await request(jobId, payload);
+  const mutation = await runAutomationJobRequest(jobId, payload);
 
   if (mutation?.job) {
     upsertCachedAutomationJob(mutation.job, mutation.summary);

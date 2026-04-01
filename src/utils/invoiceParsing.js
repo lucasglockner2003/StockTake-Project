@@ -129,7 +129,7 @@ function parseInvoiceItemBlocks(lines = []) {
 
       if (/^item\s*:/i.test(nextLine)) break;
 
-      const qtyMatch = nextLine.match(/^qty(?:uantity)?\s*:\s*(.+)$/i);
+      const qtyMatch = nextLine.match(/^(?:qty|quantity)\s*:\s*(.+)$/i);
       if (qtyMatch?.[1]) {
         blockItem.quantity = toNumeric(qtyMatch[1]);
       }

@@ -1,8 +1,8 @@
 const DEVELOPMENT_API_PROXY_PATH = "/api";
 const DEVELOPMENT_BOT_SERVICE_PROXY_PATH = "/bot-service";
-const DEVELOPMENT_MOCK_PORTAL_PROXY_PATH = "/mock-portal";
 const DEVELOPMENT_PHOTO_OCR_PROXY_PATH = "/photo-ocr";
 const DEFAULT_BOT_SERVICE_TIMEOUT_MS = 30000;
+const DEFAULT_MOCK_PORTAL_URL = "http://localhost:4177";
 
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -40,7 +40,7 @@ export const runtimeConfig = {
     devDefault: DEVELOPMENT_BOT_SERVICE_PROXY_PATH,
   }),
   mockPortalUrl: resolveBaseUrl(import.meta.env.VITE_MOCK_PORTAL_URL, {
-    devDefault: DEVELOPMENT_MOCK_PORTAL_PROXY_PATH,
+    devDefault: DEFAULT_MOCK_PORTAL_URL,
   }),
   botServiceTimeoutMs: resolveNumber(
     import.meta.env.VITE_BOT_SERVICE_TIMEOUT_MS,

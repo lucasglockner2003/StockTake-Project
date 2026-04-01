@@ -11,13 +11,11 @@ import InvoiceIntakePage from "./Pages/InvoiceIntakePage";
 import InvoiceQueuePage from "./Pages/InvoiceQueuePage";
 import LoginPage from "./Pages/LoginPage";
 import AccessDeniedPage from "./Pages/AccessDeniedPage";
-import WorkspaceHeader from "./components/WorkspaceHeader";
 import WorkspaceSidebar from "./components/WorkspaceSidebar";
 import {
   canAccessPage,
   getAllowedPagesForRole,
   getDefaultPageForRole,
-  getPageDefinition,
   getPageLabel,
 } from "./constants/access-control";
 import { PAGE_IDS } from "./constants/pages";
@@ -144,10 +142,6 @@ function App() {
   }, [items]);
 
   const allowedPages = useMemo(() => getAllowedPagesForRole(user?.role), [user?.role]);
-  const currentPageDefinition = useMemo(
-    () => getPageDefinition(currentPage),
-    [currentPage]
-  );
   const defaultPageForRole = useMemo(
     () => getDefaultPageForRole(user?.role),
     [user?.role]
@@ -441,13 +435,17 @@ function App() {
 
   return (
     <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 22%), radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 20%), #0b1220",
+        color: "#e2e8f0",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
+    >
+      <div
         style={{
-          minHeight: "100vh",
-          background:
-            "radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 22%), radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 20%), #0b1220",
-          color: "#e2e8f0",
           padding: "20px",
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         }}
       >
         <div
@@ -485,12 +483,6 @@ function App() {
             gap: "20px",
           }}
         >
-          <WorkspaceHeader
-            currentPage={currentPageDefinition}
-            snapshot={workspaceOverview.snapshot}
-            user={user}
-          />
-
           <div
             style={{
               borderRadius: "16px",
@@ -512,6 +504,7 @@ function App() {
             </div>
           </div>
         </main>
+      </div>
       </div>
     </div>
   );
