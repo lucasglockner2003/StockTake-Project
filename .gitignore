@@ -26,3 +26,26 @@ dist-ssr
 .env.*
 !.env.example
 !backend/.env.example
+
+# OS / temp
+Thumbs.db
+
+# Runtime artifacts
+artifacts/
+*.png
+
+# Puppeteer / temp files
+.tmp/
+temp/
+downloads/
+
+# Coverage / tests
+coverage/
+
+# Logs adicionais
+*.out.log
+*.err.log
+
+# Secrets (extra segurança)
+*.key
+*.pem
