@@ -1,6 +1,6 @@
 import { SOURCES } from "../constants/app";
 
-export const VOICE_RECOGNITION_LANGUAGE = "en-US";
+export const VOICE_RECOGNITION_LANGUAGE = "pt-BR";
 
 const numberWords = {
   zero: 0,
@@ -147,10 +147,11 @@ export function createSpeechRecognition({
 
   recognition.lang = lang;
   recognition.continuous = false;
-  recognition.interimResults = true;
+  recognition.interimResults = false;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = (event) => {
+    console.log("Voice started");
     console.info("[voice] started", event);
     onStart?.(event);
   };
@@ -158,42 +159,29 @@ export function createSpeechRecognition({
   recognition.onresult = (event) => {
     console.info("[voice] result:", event);
 
-    let interimTranscript = "";
-    let finalTranscript = "";
+    const transcript = String(
+      event?.results?.[0]?.[0]?.transcript ||
+        event?.results?.[event?.resultIndex || 0]?.[0]?.transcript ||
+        ""
+    ).trim();
 
-    for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const result = event.results[index];
-      const transcript = String(result?.[0]?.transcript || "").trim();
-
-      if (!transcript) {
-        continue;
-      }
-
-      if (result.isFinal) {
-        finalTranscript += `${transcript} `;
-      } else {
-        interimTranscript += `${transcript} `;
-      }
+    if (!transcript) {
+      return;
     }
 
-    const normalizedInterimTranscript = interimTranscript.trim();
-    const normalizedFinalTranscript = finalTranscript.trim().toLowerCase();
-
-    if (normalizedInterimTranscript) {
-      onInterimResult?.(normalizedInterimTranscript, event);
-    }
-
-    if (normalizedFinalTranscript) {
-      onResult?.(normalizedFinalTranscript, event);
-    }
+    console.log("Voice result", transcript);
+    onInterimResult?.("", event);
+    onResult?.(transcript, event);
   };
 
   recognition.onerror = (event) => {
+    console.log("Voice error", event?.error);
     console.error("[voice] error:", event?.error, event);
     onError?.(event);
   };
 
   recognition.onend = (event) => {
+    console.log("Voice ended");
     console.info("[voice] ended", event);
     onEnd?.(event);
   };

@@ -40,6 +40,8 @@ function getVoiceErrorMessage(errorCode) {
   return "Voice recognition failed. Check microphone permission and try again.";
 }
 
+const MIN_LISTENING_DURATION_MS = 3000;
+
 export function useVoiceSession({
   selectedArea,
   isListening,
@@ -59,6 +61,9 @@ export function useVoiceSession({
   const recognitionRef = useRef(null);
   const microphoneStreamRef = useRef(null);
   const isStartingRecognitionRef = useRef(false);
+  const listeningStartedAtRef = useRef(0);
+  const userStopRequestedRef = useRef(false);
+  const hasCapturedTranscriptRef = useRef(false);
   const toastTimeoutRef = useRef(null);
   const [openSearchKey, setOpenSearchKey] = useState(null);
   const [voiceError, setVoiceError] = useState("");
@@ -140,9 +145,11 @@ export function useVoiceSession({
     }
 
     try {
+      console.log("Voice requesting microphone access");
       console.info("[voice] requesting microphone permission");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       microphoneStreamRef.current = stream;
+      console.log("Voice microphone permission granted");
       console.info("[voice] microphone permission granted");
       setVoiceError("");
       return true;
@@ -202,6 +209,7 @@ export function useVoiceSession({
   }
 
   function stopRecognition(nextStatusMessage = "") {
+    userStopRequestedRef.current = true;
     isStartingRecognitionRef.current = false;
     setIsInitializingRecognition(false);
     setLiveTranscript("");
@@ -309,6 +317,8 @@ export function useVoiceSession({
       }
 
       isStartingRecognitionRef.current = true;
+      userStopRequestedRef.current = false;
+      hasCapturedTranscriptRef.current = false;
       setIsInitializingRecognition(true);
       setVoiceError("");
       setVoiceStatusMessage("Requesting microphone permission...");
@@ -326,17 +336,22 @@ export function useVoiceSession({
         recognition: recognitionRef.current,
         onStart: () => {
           isStartingRecognitionRef.current = false;
+          listeningStartedAtRef.current = Date.now();
+          userStopRequestedRef.current = false;
           setIsInitializingRecognition(false);
           setIsListening(true);
-          setVoiceStatusMessage("Listening...");
+          setVoiceStatusMessage("Listening... Speak now.");
           setVoiceError("");
         },
         onInterimResult: (text) => {
-          console.info("[voice] interim transcript:", text);
+          if (text) {
+            console.info("[voice] interim transcript:", text);
+          }
           setLiveTranscript(text);
-          setVoiceStatusMessage("Listening...");
+          setVoiceStatusMessage("Listening... Speak now.");
         },
         onResult: (text) => {
+          hasCapturedTranscriptRef.current = true;
           console.info("[voice] final transcript:", text);
           setLiveTranscript("");
           setVoiceStatusMessage("Speech captured.");
@@ -384,10 +399,29 @@ export function useVoiceSession({
           setVoiceStatusMessage("");
         },
         onEnd: () => {
+          const listeningDurationMs = listeningStartedAtRef.current
+            ? Date.now() - listeningStartedAtRef.current
+            : 0;
+
           isStartingRecognitionRef.current = false;
           setIsInitializingRecognition(false);
           setIsListening(false);
           setLiveTranscript("");
+
+          if (hasCapturedTranscriptRef.current) {
+            setVoiceStatusMessage("Speech captured.");
+            return;
+          }
+
+          if (
+            !userStopRequestedRef.current &&
+            listeningDurationMs > 0 &&
+            listeningDurationMs < MIN_LISTENING_DURATION_MS
+          ) {
+            setVoiceStatusMessage("Listening stopped too quickly. Try speaking again.");
+            return;
+          }
+
           setVoiceStatusMessage("Microphone stopped.");
         },
       });
@@ -417,6 +451,22 @@ export function useVoiceSession({
         setVoiceStatusMessage("");
       }
 
+      return;
+    }
+
+    const listeningDurationMs = listeningStartedAtRef.current
+      ? Date.now() - listeningStartedAtRef.current
+      : MIN_LISTENING_DURATION_MS;
+
+    if (listeningDurationMs < MIN_LISTENING_DURATION_MS) {
+      const remainingSeconds = Math.ceil(
+        (MIN_LISTENING_DURATION_MS - listeningDurationMs) / 1000
+      );
+      setVoiceStatusMessage(
+        `Listening... keep speaking for at least ${remainingSeconds} more second${
+          remainingSeconds === 1 ? "" : "s"
+        }.`
+      );
       return;
     }
 
